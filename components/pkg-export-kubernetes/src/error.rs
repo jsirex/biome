@@ -35,9 +35,9 @@ pub enum Error {
            _0)]
     InvalidPersistentStorageSpec(String),
     #[fail(display = "{}", _0)]
-    HabitatCore(hcore::Error),
+    BiomeCore(hcore::Error),
 }
 
 impl From<hcore::Error> for Error {
-    fn from(err: hcore::Error) -> Error { Error::HabitatCore(err) }
+    fn from(err: hcore::Error) -> Error { Error::BiomeCore(err) }
 }

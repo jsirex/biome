@@ -40,7 +40,7 @@
 //! *not* by a build server intentionally. This is to ensure we have the source available for
 //! all protocol files.
 
-use habitat_core as core;
+use biome_core as core;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]

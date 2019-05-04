@@ -11,7 +11,7 @@ use std::{env,
                     ExitStatus}};
 
 fn main() {
-    habitat::common();
+    biome::common();
     generate_apidocs();
 }
 

@@ -1,15 +1,15 @@
 ARG PACKAGE_TARGET
-FROM habitat-${PACKAGE_TARGET}:hab-base as hab
-ENV PATH=${PATH}:/hab/bin
+FROM biome-${PACKAGE_TARGET}:bio-base as bio
+ENV PATH=${PATH}:/bio/bin
 ARG BLDR_CHANNEL=stable
-RUN hab pkg install -c ${BLDR_CHANNEL} core/hab-backline \
-  && hab pkg binlink core/bash -d /hab/bin \
-  && hab pkg binlink core/hab -d /hab/bin
+RUN bio pkg install -c ${BLDR_CHANNEL} biome/bio-backline \
+  && bio pkg binlink core/bash -d /bio/bin \
+  && bio pkg binlink biome/bio -d /bio/bin
 
 FROM scratch
-COPY --from=hab /hab /hab
-COPY --from=hab /hab/bin /bin
-COPY --from=hab /bin/hab /bin/
+COPY --from=bio /bio /bio
+COPY --from=bio /bio/bin /bin
+COPY --from=bio /bin/bio /bin/
 COPY ./etc/ /etc/
 ADD ./entrypoint.sh /
 ADD ./profile /etc/

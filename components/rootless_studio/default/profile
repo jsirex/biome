@@ -36,9 +36,9 @@ alias grep='grep --color=auto'
 alias egrep='egrep --color=auto'
 alias fgrep='fgrep --color=auto'
 
-# Set TERMINFO so hab can give us a delightful experience.
+# Set TERMINFO so bio can give us a delightful experience.
 export TERMINFO
-TERMINFO=$(hab pkg path core/ncurses)/share/terminfo
+TERMINFO=$(bio pkg path core/ncurses)/share/terminfo
 
 emacs() {
   if type -P emacs > /dev/null; then
@@ -57,24 +57,24 @@ fi
 
 sup-run() {
   mkdir -p /hab/sup/default
-  echo "--> Launching the Habitat Supervisor in the background..."
-  echo "    Running: hab sup run $*"
-  setsid hab sup run "$@" > /hab/sup/default/sup.log 2>&1 &
+  echo "--> Launching the Biome Supervisor in the background..."
+  echo "    Running: bio sup run $*"
+  setsid bio sup run "$@" > /hab/sup/default/sup.log 2>&1 &
   disown $!
-  echo "    * Use 'hab svc start' & 'hab svc stop' to start and stop services"
+  echo "    * Use 'bio svc start' & 'bio svc stop' to start and stop services"
   echo "    * Use 'sup-log' to tail the Supervisor's output (Ctrl+c to stop)"
   echo "    * Use 'sup-term' to terminate the Supervisor"
   if [[ -z "${HAB_STUDIO_SUP:-}" ]]; then
     echo "    * To pass custom arguments to run the Supervisor, export"
     echo "      'HAB_STUDIO_SUP' with the arguments before running"
-    echo "      'hab studio enter'."
+    echo "      'bio studio enter'."
   fi
   echo ""
 }
 
 sup-term() {
-  if hab sup term ; then
-    echo "--> Killed Habitat Supervisor running in the background."
+  if bio sup term ; then
+    echo "--> Killed Biome Supervisor running in the background."
   else
     echo "--> Error killing Supervisor; it may not be running"
   fi
@@ -83,7 +83,7 @@ sup-term() {
 sup-log() {
   mkdir -p /hab/sup/default
   touch /hab/sup/default/sup.log
-  echo "--> Tailing the Habitat Supervisor's output (use 'Ctrl+c' to stop)"
+  echo "--> Tailing the Biome Supervisor's output (use 'Ctrl+c' to stop)"
   tail -f /hab/sup/default/sup.log
 }
 
@@ -97,4 +97,4 @@ if [[ -n "${STUDIO_ENTER:-}" ]]; then
 fi
 
 # Add command line completion
-source <(hab cli completers --shell bash)
+source <(bio cli completers --shell bash)

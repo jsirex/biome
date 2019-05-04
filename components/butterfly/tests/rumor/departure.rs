@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::btest;
-use habitat_butterfly::{client::Client,
+use biome_butterfly::{client::Client,
                         member::Health};
 
 #[test]

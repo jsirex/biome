@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use env_logger;
-use habitat_common as common;
+use biome_common as common;
 
-use habitat_pkg_export_docker as export_docker;
+use biome_pkg_export_docker as export_docker;
 #[macro_use]
 extern crate log;
 

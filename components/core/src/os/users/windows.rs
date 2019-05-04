@@ -15,7 +15,7 @@
 use std::{env,
           path::PathBuf};
 
-use habitat_win_users::account::Account;
+use biome_win_users::account::Account;
 
 use crate::error::{Error,
                    Result};

@@ -1,6 +1,6 @@
 # These functions constitute the public API of plan.sh
 #
-# These functions are supported by the Habitat project, and can be used in your
+# These functions are supported by the Biome project, and can be used in your
 # own plan.sh files.
 
 # Check that the command exists, 0 if it does, 1 if it does not.

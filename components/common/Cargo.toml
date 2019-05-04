@@ -1,9 +1,9 @@
 [package]
-name = "habitat_common"
+name = "biome_common"
 version = "0.0.0"
 edition = "2018"
-authors = ["The Habitat Maintainers <humans@habitat.sh>"]
-build = "../build-habitat.rs"
+authors = ["The Biome Maintainers <humans@biome.sh>"]
+build = "../build-biome.rs"
 workspace = "../../"
 
 [dependencies]
@@ -11,8 +11,8 @@ bimap = "*"
 bitflags = "*"
 clap = { version = "*", features = [ "suggestions", "color", "unstable" ] }
 glob = "*"
-habitat_api_client = { path = "../builder-api-client" }
-habitat_core = { path = "../core" }
+biome_api_client = { path = "../builder-api-client" }
+biome_core = { path = "../core" }
 # The handlebars crate has a few issues that require us to lock at 0.28.3
 # until further notice.
 #
@@ -23,7 +23,7 @@ habitat_core = { path = "../core" }
 #   "foo.[0]"
 #   See https://github.com/sunng87/handlebars-rust/commit/707f05442ef6f441a1cfc6b13ac180b78cb296db
 handlebars = { version = "= 0.28.3", default-features = false }
-# Pending upgrade activities in https://github.com/habitat-sh/core/issues/72
+# Pending upgrade activities in https://github.com/biome-sh/core/issues/72
 hyper = "0.10"
 json = "*"
 lazy_static = "*"

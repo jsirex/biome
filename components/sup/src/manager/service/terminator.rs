@@ -17,8 +17,8 @@ use crate::{manager::action::ShutdownSpec,
             sys::{service,
                   ShutdownMethod}};
 use futures::sync::oneshot;
-use habitat_common::outputln;
-use habitat_core::os::process::Pid;
+use biome_common::outputln;
+use biome_core::os::process::Pid;
 use std::thread;
 
 static LOGKEY: &str = "ST"; // "Service Terminator"

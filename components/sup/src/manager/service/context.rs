@@ -53,11 +53,11 @@ use crate::{census::{CensusGroup,
                      ElectionStatus,
                      MemberId},
             manager::Sys};
-use habitat_butterfly::rumor::service::SysInfo;
-use habitat_common::templating::{config::Cfg,
+use biome_butterfly::rumor::service::SysInfo;
+use biome_common::templating::{config::Cfg,
                                  package::{Env,
                                            Pkg}};
-use habitat_core::{package::PackageIdent,
+use biome_core::{package::PackageIdent,
                    service::{ServiceBind,
                              ServiceGroup}};
 use serde::{ser::SerializeMap,
@@ -80,7 +80,7 @@ use toml;
 /// change this with care.
 ///
 /// User-facing documentation is available at
-/// https://www.habitat.sh/docs/reference/#template-data; update that
+/// https://www.biome.sh/docs/reference/#template-data; update that
 /// as required.
 #[derive(Clone, Debug, Serialize)]
 pub struct RenderContext<'a> {
@@ -570,10 +570,10 @@ mod tests {
     use serde_json;
     use tempfile::TempDir;
 
-    use habitat_butterfly::rumor::service::SysInfo;
-    use habitat_common::templating::{config::PackageConfigPaths,
+    use biome_butterfly::rumor::service::SysInfo;
+    use biome_common::templating::{config::PackageConfigPaths,
                                      TemplateRenderer};
-    use habitat_core::package::PackageIdent;
+    use biome_core::package::PackageIdent;
 
     use crate::{manager::service::Cfg,
                 test_helpers::*};
@@ -719,8 +719,8 @@ two = 2
                             svc_var_path:    Cow::Owned("var_path".into()),
                             svc_pid_file:    Cow::Owned("pid_file".into()),
                             svc_run:         Cow::Owned("svc_run".into()),
-                            svc_user:        Cow::Owned("hab".into()),
-                            svc_group:       Cow::Owned("hab".into()), };
+                            svc_user:        Cow::Owned("bio".into()),
+                            svc_group:       Cow::Owned("bio".into()), };
 
         let group: ServiceGroup = "foo.default".parse().unwrap();
 

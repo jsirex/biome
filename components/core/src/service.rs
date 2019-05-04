@@ -52,7 +52,7 @@ impl Default for BindingMode {
     /// behavior that has been in place for until this point.
     ///
     /// Once this feature has been available for a while (and before
-    /// Habitat hits 1.0), Relaxed will become the default, because a
+    /// Biome hits 1.0), Relaxed will become the default, because a
     /// well-behaved service in a distributed system should be able to
     /// gracefully degrade when one of its service dependencies is not
     /// available, including at start-up.

@@ -1,0 +1,68 @@
+[package]
+name = "bio"
+version = "0.0.0"
+edition = "2018"
+authors = ["The Biome Maintainers <humans@biome.sh>"]
+build = "../build-biome.rs"
+workspace = "../../"
+
+[[bin]]
+name = "bio"
+doc = false
+
+[dependencies]
+# Can we keep these alphabetized? We're not savages.
+atty = "*"
+base64 = "*"
+bitflags = "*"
+chrono = {version = "*", features = ["serde"]}
+dirs = "*"
+env_logger = "*"
+flate2 = "*"
+futures = "*"
+biome_api_client = { path = "../builder-api-client" }
+biome_common = { path = "../common" }
+biome_core = { path = "../core" }
+biome_http_client = { path = "../http-client" }
+biome-sup-client = { path = "../sup-client" }
+biome-sup-protocol = { path = "../sup-protocol", default-features = false }
+# We need to lock here since v0.30.0 bumps to a version of pest that fails to build on Windows.
+handlebars = { version = "0.29.1", default-features = false }
+# Pending upgrade activities in https://github.com/biome-sh/core/issues/72
+hyper = "0.10"
+lazy_static = "*"
+libc = "*"
+log = "*"
+pbr = "*"
+protobuf = "1.5.1"
+retry = "*"
+serde = "*"
+serde_derive = "*"
+serde_json = "*"
+serde_yaml = "*"
+tabwriter = "*"
+tar = "*"
+termcolor = "*"
+toml = { version = "*", default-features = false }
+url = "*"
+walkdir = "*"
+
+[dependencies.clap]
+version = "*"
+features = [ "suggestions", "color", "unstable" ]
+
+[dependencies.uuid]
+version = "*"
+features = ["v4"]
+
+[target.'cfg(windows)'.dependencies]
+widestring = "*"
+winapi = { version = "*", features = ["winuser", "windef"] }
+winreg = "*"
+
+[dev-dependencies]
+tempfile = "*"
+
+[features]
+default = []
+functional = []

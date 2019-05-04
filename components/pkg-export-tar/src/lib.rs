@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate clap;
-use habitat_common as common;
-use habitat_core as hcore;
+use biome_common as common;
+use biome_core as hcore;
 
 #[macro_use]
 extern crate failure_derive;
@@ -33,7 +33,7 @@ pub use crate::build::BuildSpec;
 
 /// The version of this library and program when built.
 pub const VERSION: &str = include_str!(concat!(env!("OUT_DIR"), "/VERSION"));
-/// The Habitat Package Identifier string for a Busybox package.
+/// The Biome Package Identifier string for a Busybox package.
 const BUSYBOX_IDENT: &str = "core/busybox-static";
 
 pub fn export_for_cli_matches(ui: &mut UI, matches: &clap::ArgMatches<'_>) -> Result<()> {
@@ -45,17 +45,17 @@ pub fn export_for_cli_matches(ui: &mut UI, matches: &clap::ArgMatches<'_>) -> Re
 }
 
 pub fn export(ui: &mut UI, build_spec: BuildSpec<'_>) -> Result<()> {
-    let hab_pkg = build_spec.hab;
+    let bio_pkg = build_spec.bio;
     let build_result = build_spec.create(ui).unwrap();
     let builder_dir_path = build_result.0.path();
     let pkg_ident = build_result.1;
 
-    tar_command(builder_dir_path, pkg_ident, hab_pkg);
+    tar_command(builder_dir_path, pkg_ident, bio_pkg);
     Ok(())
 }
 
 #[allow(unused_must_use)]
-fn tar_command(temp_dir_path: &Path, pkg_ident: PackageIdent, hab_pkg: &str) {
+fn tar_command(temp_dir_path: &Path, pkg_ident: PackageIdent, bio_pkg: &str) {
     let tarball_name = format_tar_name(pkg_ident);
 
     let tarball = File::create(tarball_name).unwrap();
@@ -64,7 +64,7 @@ fn tar_command(temp_dir_path: &Path, pkg_ident: PackageIdent, hab_pkg: &str) {
     tar_builder.follow_symlinks(false);
 
     let root_fs = temp_dir_path.join("rootfs");
-    let hab_pkgs_path = temp_dir_path.join("rootfs/hab");
+    let bio_pkgs_path = temp_dir_path.join("rootfs/hab");
 
     // Although this line of code DOES work (it adds the required directories
     // and subdirectories to the tarball), it also returns an error
@@ -74,14 +74,14 @@ fn tar_command(temp_dir_path: &Path, pkg_ident: PackageIdent, hab_pkg: &str) {
     // https://github.com/alexcrichton/tar-rs/issues/147
     // Until this is sorted out, I am not doing anything with the result
     // that is returned by this command -NSH
-    tar_builder.append_dir_all("hab", hab_pkgs_path);
+    tar_builder.append_dir_all("bio", bio_pkgs_path);
 
-    // Find the path to the hab binary
-    let mut hab_pkg_binary_path = hab_install_path(&hab_package_ident(hab_pkg), &root_fs);
-    hab_pkg_binary_path.push("bin");
+    // Find the path to the bio binary
+    let mut bio_pkg_binary_path = bio_install_path(&bio_package_ident(bio_pkg), &root_fs);
+    bio_pkg_binary_path.push("bin");
 
-    // Append the hab binary to the tar ball
-    tar_builder.append_dir_all("hab/bin", hab_pkg_binary_path);
+    // Append the bio binary to the tar ball
+    tar_builder.append_dir_all("bio/bin", bio_pkg_binary_path);
 }
 
 fn format_tar_name(ident: PackageIdent) -> String {
@@ -92,10 +92,10 @@ fn format_tar_name(ident: PackageIdent) -> String {
             ident.release.unwrap())
 }
 
-fn hab_package_ident(hab_pkg: &str) -> PackageIdent { PackageIdent::from_str(hab_pkg).unwrap() }
+fn bio_package_ident(bio_pkg: &str) -> PackageIdent { PackageIdent::from_str(bio_pkg).unwrap() }
 
-fn hab_install_path(hab_ident: &PackageIdent, root_fs_path: &Path) -> PathBuf {
+fn bio_install_path(bio_ident: &PackageIdent, root_fs_path: &Path) -> PathBuf {
     let root_fs_path = Path::new(&root_fs_path);
-    PackageInstall::load(&hab_ident, Some(root_fs_path)).unwrap()
+    PackageInstall::load(&bio_ident, Some(root_fs_path)).unwrap()
                                                         .installed_path
 }

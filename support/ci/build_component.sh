@@ -15,6 +15,6 @@ export HAB_CACHE_KEY_PATH
 HAB_CACHE_KEY_PATH="$JOB_TEMP_ROOT/keys"
 
 echo "--- :key: Generating fake origin key"
-hab origin key generate
-echo "--- :hab: Running hab pkg build for $component"
-hab pkg build -D components/"$component"
+bio origin key generate
+echo "--- :bio: Running bio pkg build for $component"
+bio pkg build -D components/"$component"

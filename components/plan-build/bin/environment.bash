@@ -336,7 +336,7 @@ __push_env() {
     # push_to_path also dedupes the result, this allows us to take
     # $value inputs that are themselves paths, which may have
     # duplicate or blank entries (as is the case with some existing
-    # Habitat metadata files) and this will effectively "clean" them
+    # Biome metadata files) and this will effectively "clean" them
     # for us!
     local current_value="${env[${var_name}]}"
     local new_value

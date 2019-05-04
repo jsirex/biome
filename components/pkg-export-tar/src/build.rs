@@ -46,32 +46,32 @@ use crate::rootfs;
 // from the Docker exporter. This needs to be abstacted out in
 // the future for use with further exporters.
 // https://github.com/habitat-sh/habitat/issues/4522
-const DEFAULT_HAB_IDENT: &str = "core/hab";
-const DEFAULT_LAUNCHER_IDENT: &str = "core/hab-launcher";
-const DEFAULT_SUP_IDENT: &str = "core/hab-sup";
+const DEFAULT_HAB_IDENT: &str = "biome/bio";
+const DEFAULT_LAUNCHER_IDENT: &str = "biome/bio-launcher";
+const DEFAULT_SUP_IDENT: &str = "biome/bio-sup";
 
-/// The specification for creating a temporary file system build root, based on Habitat packages.
+/// The specification for creating a temporary file system build root, based on Biome packages.
 ///
 /// When a `BuildSpec` is created, a `BuildRoot` is returned which can be used to produce exported
 /// images, archives, etc.
 #[derive(Debug)]
 pub struct BuildSpec<'a> {
-    /// A string representation of a Habitat Package Identifer for the Habitat CLI package.
-    pub hab: &'a str,
-    /// A string representation of a Habitat Package Identifer for the Habitat Launcher package.
-    pub hab_launcher: &'a str,
-    /// A string representation of a Habitat Package Identifer for the Habitat Supervisor package.
-    pub hab_sup: &'a str,
-    /// The Builder URL which is used to install all service and extra Habitat packages.
+    /// A string representation of a Biome Package Identifer for the Biome CLI package.
+    pub bio: &'a str,
+    /// A string representation of a Biome Package Identifer for the Biome Launcher package.
+    pub bio_launcher: &'a str,
+    /// A string representation of a Biome Package Identifer for the Biome Supervisor package.
+    pub bio_sup: &'a str,
+    /// The Builder URL which is used to install all service and extra Biome packages.
     pub url: &'a str,
-    /// The Habitat release channel which is used to install all service and extra Habitat
+    /// The Biome release channel which is used to install all service and extra Biome
     /// packages.
     pub channel: ChannelIdent,
-    /// The Builder URL which is used to install all base Habitat packages.
+    /// The Builder URL which is used to install all base Biome packages.
     pub base_pkgs_url: &'a str,
-    /// The Habitat release channel which is used to install all base Habitat packages.
+    /// The Biome release channel which is used to install all base Biome packages.
     pub base_pkgs_channel: ChannelIdent,
-    /// A Habitat Package Identifer or local path to a Habitat Artifact file which
+    /// A Biome Package Identifer or local path to a Biome Artifact file which
     /// will be installed.
     pub ident_or_archive: &'a str,
 }
@@ -79,10 +79,10 @@ pub struct BuildSpec<'a> {
 impl<'a> BuildSpec<'a> {
     /// Creates a `BuildSpec` from cli arguments.
     pub fn new_from_cli_matches(m: &'a clap::ArgMatches<'_>, default_url: &'a str) -> Self {
-        BuildSpec { hab:               m.value_of("HAB_PKG").unwrap_or(DEFAULT_HAB_IDENT),
-                    hab_launcher:      m.value_of("HAB_LAUNCHER_PKG")
+        BuildSpec { bio:               m.value_of("HAB_PKG").unwrap_or(DEFAULT_HAB_IDENT),
+                    bio_launcher:      m.value_of("HAB_LAUNCHER_PKG")
                                         .unwrap_or(DEFAULT_LAUNCHER_IDENT),
-                    hab_sup:           m.value_of("HAB_SUP_PKG").unwrap_or(DEFAULT_SUP_IDENT),
+                    bio_sup:           m.value_of("HAB_SUP_PKG").unwrap_or(DEFAULT_SUP_IDENT),
                     url:               m.value_of("BLDR_URL").unwrap_or(&default_url),
                     channel:           m.value_of("CHANNEL")
                                         .map(ChannelIdent::from)
@@ -156,16 +156,16 @@ impl<'a> BuildSpec<'a> {
     }
 
     fn install_base_pkgs(&self, ui: &mut UI, rootfs: &Path) -> Result<BasePkgIdents> {
-        let hab = self.install_base_pkg(ui, self.hab, rootfs)?;
-        let sup = self.install_base_pkg(ui, self.hab_sup, rootfs)?;
-        let launcher = self.install_base_pkg(ui, self.hab_launcher, rootfs)?;
+        let bio = self.install_base_pkg(ui, self.bio, rootfs)?;
+        let sup = self.install_base_pkg(ui, self.bio_sup, rootfs)?;
+        let launcher = self.install_base_pkg(ui, self.bio_launcher, rootfs)?;
         let busybox = if cfg!(target_os = "linux") {
             Some(self.install_base_pkg(ui, BUSYBOX_IDENT, rootfs)?)
         } else {
             None
         };
 
-        Ok(BasePkgIdents { hab,
+        Ok(BasePkgIdents { bio,
                            sup,
                            launcher,
                            busybox })
@@ -239,8 +239,8 @@ impl<'a> BuildSpec<'a> {
 /// The package identifiers for installed base packages.
 #[derive(Debug)]
 struct BasePkgIdents {
-    /// Installed package identifer for the Habitat CLI package.
-    pub hab: PackageIdent,
+    /// Installed package identifer for the Biome CLI package.
+    pub bio: PackageIdent,
     /// Installed package identifer for the Supervisor package.
     pub sup: PackageIdent,
     /// Installed package identifer for the Launcher package.

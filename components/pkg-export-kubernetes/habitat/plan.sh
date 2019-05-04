@@ -1,9 +1,9 @@
 # shellcheck disable=2154
-pkg_name=hab-pkg-export-kubernetes
+pkg_name=bio-pkg-export-kubernetes
 _pkg_distname=$pkg_name
-pkg_origin=core
+pkg_origin=biome
 pkg_version=$(cat "$PLAN_CONTEXT/../../../VERSION")
-pkg_maintainer="The Habitat Maintainers <humans@habitat.sh>"
+pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 pkg_license=('Apache-2.0')
 pkg_deps=(core/docker)
 pkg_build_deps=(core/musl

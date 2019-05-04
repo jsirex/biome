@@ -24,7 +24,7 @@ use crate::{error::{Error,
             rumor::{RumorKey,
                     RumorPayload,
                     RumorType}};
-use habitat_core::util::ToI64;
+use biome_core::util::ToI64;
 use parking_lot::{RwLock,
                   RwLockReadGuard,
                   RwLockWriteGuard};
@@ -58,7 +58,7 @@ const PINGREQ_TARGETS: usize = 5;
 
 lazy_static! {
     static ref PEER_HEALTH_COUNT: IntGaugeVec =
-        register_int_gauge_vec!("hab_butterfly_peer_health_total",
+        register_int_gauge_vec!("bio_butterfly_peer_health_total",
                                 "Number of butterfly peers",
                                 &["health"]).unwrap();
 }

@@ -1,8 +1,8 @@
 [package]
-name = "habitat_core"
+name = "biome_core"
 version = "0.0.0"
 edition = "2018"
-authors = ["The Habitat Maintainers <humans@habitat.sh>"]
+authors = ["The Biome Maintainers <humans@biome.sh>"]
 workspace = "../../"
 build = "build.rs"
 
@@ -41,13 +41,13 @@ caps = "*"
 
 [target.'cfg(windows)'.dependencies]
 ctrlc = "*"
-habitat_win_users = { path = "../win-users" }
+biome_win_users = { path = "../win-users" }
 widestring = "*"
 winapi = { version = "*", features = ["dpapi", "ioapiset", "namedpipeapi", "userenv", "winbase", "wincrypt", "winerror"] }
 windows-acl = "*"
 
 [dev-dependencies]
-# Pending upgrade activities in https://github.com/habitat-sh/core/issues/72
+# Pending upgrade activities in https://github.com/biome-sh/core/issues/72
 hyper = "0.10"
 
 [features]

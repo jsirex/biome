@@ -1,8 +1,8 @@
 [package]
-name = "habitat-sup-protocol"
+name = "biome-sup-protocol"
 version = "0.0.0"
 edition = "2018"
-authors = ["The Habitat Maintainers <humans@habitat.sh>"]
+authors = ["The Biome Maintainers <humans@biome.sh>"]
 build = "./build.rs"
 workspace = "../../"
 
@@ -10,7 +10,7 @@ workspace = "../../"
 base64 = "*"
 bytes = "*"
 futures = "*"
-habitat_core = { path = "../core" }
+biome_core = { path = "../core" }
 lazy_static = "*"
 log = "*"
 prost = "*"

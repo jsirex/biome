@@ -78,9 +78,9 @@ mod test {
         pkg_origin=neurosis
         pkg_name=testapp
         pkg_version=0.1.3
-        pkg_maintainer="The Habitat Maintainers <humans@habitat.sh>"
+        pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
         pkg_license=()
-        pkg_upstream_url=https://github.com/habitat-sh/habitat-example-plans
+        pkg_upstream_url=https://github.com/biome-sh/biome-example-plans
         pkg_source=nosuchfile.tar.gz
         pkg_deps=()
         pkg_expose=()
@@ -117,9 +117,9 @@ mod test {
         pkg_origin="neurosis"
         pkg_name="testapp"
         pkg_version="0.1.3"
-        pkg_maintainer="The Habitat Maintainers <humans@habitat.sh>"
+        pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
         pkg_license=()
-        pkg_upstream_url=https://github.com/habitat-sh/habitat-example-plans
+        pkg_upstream_url=https://github.com/biome-sh/biome-example-plans
         pkg_source=nosuchfile.tar.gz
         pkg_deps=()
         pkg_expose=()
@@ -156,9 +156,9 @@ mod test {
         pkg_origin='neurosis'
         pkg_name='testapp'
         pkg_version='0.1.3'
-        pkg_maintainer="The Habitat Maintainers <humans@habitat.sh>"
+        pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
         pkg_license=()
-        pkg_upstream_url=https://github.com/habitat-sh/habitat-example-plans
+        pkg_upstream_url=https://github.com/biome-sh/biome-example-plans
         pkg_source=nosuchfile.tar.gz
         pkg_deps=()
         pkg_expose=()
@@ -195,7 +195,7 @@ mod test {
         $pkg_name="testapp"
         $pkg_origin="neurosis"
         $pkg_version="1.04"
-        $pkg_maintainer="The Habitat Maintainers <humans@habitat.sh>"
+        $pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 
         function Invoke-Unpack {
         }

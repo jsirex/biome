@@ -22,7 +22,7 @@ use winapi::{shared::minwindef::DWORD,
              um::{dpapi,
                   wincrypt::CRYPTOAPI_BLOB}};
 
-const COMPLEXITY: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/hab-crypt"));
+const COMPLEXITY: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/bio-crypt"));
 
 pub fn decrypt(secret: &str) -> Result<String> {
     unsafe {

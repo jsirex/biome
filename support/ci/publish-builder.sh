@@ -16,8 +16,8 @@ if [ -z "${HAB_AUTH_TOKEN+x}" ]; then
 fi
 
 for crate in $(find components/builder-* | grep plan.sh | xargs dirname); do
-  hab pkg build -k core -s "$src_root" -R "$crate"
+  bio pkg build -k core -s "$src_root" -R "$crate"
   source "$src_root"/results/last_build.env
   # shellcheck disable=2154
-  hab pkg upload "$src_root"/results/"$pkg_artifact" -z "$HAB_AUTH_TOKEN"
+  bio pkg upload "$src_root"/results/"$pkg_artifact" -z "$HAB_AUTH_TOKEN"
 done

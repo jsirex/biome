@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-# Common helper functions and setup code for Habitat BATS-based
+# Common helper functions and setup code for Biome BATS-based
 # testing.
 #
 # Every BATS test file should include the following line at the top;
@@ -15,14 +15,14 @@ load 'test_helper/bats-support/load'
 load 'test_helper/bats-assert/load'
 load 'test_helper/bats-file/load'
 
-# Point to our local hab binaries!
+# Point to our local bio binaries!
 if [ -z "${HAB_BIN_DIR}" ]; then
-    echo "Must set HAB_BIN_DIR variable to a location that contains hab, hab-sup, and hab-launch binaries!"
+    echo "Must set HAB_BIN_DIR variable to a location that contains bio, bio-sup, and bio-launch binaries!"
     exit 1
 fi
-hab="${HAB_BIN_DIR}/hab"
-export HAB_SUP_BINARY="${HAB_BIN_DIR}/hab-sup"
-export HAB_LAUNCH_BINARY="${HAB_BIN_DIR}/hab-launch"
+bio="${HAB_BIN_DIR}/bio"
+export HAB_SUP_BINARY="${HAB_BIN_DIR}/bio-sup"
+export HAB_LAUNCH_BINARY="${HAB_BIN_DIR}/bio-launch"
 
 # Ensure required utilities are present
 find_if_exists() {
@@ -124,11 +124,11 @@ assert_spec_value() {
 ########################################################################
 
 start_supervisor() {
-    background "${hab}" run
+    background "${bio}" run
     retry 30 1 launcher_is_alive
 }
 
-# Some tests start up a Habitat Supervisor in the background. Call
+# Some tests start up a Biome Supervisor in the background. Call
 # this in a `teardown` function to ensure it is stopped before the
 # next test.
 stop_supervisor() {
@@ -139,8 +139,8 @@ stop_supervisor() {
     launcher_is_not_alive
 }
 
-# Ensure a clean slate in `/hab` for each test
-reset_hab_root() {
+# Ensure a clean slate in `/bio` for each test
+reset_bio_root() {
     empty_artifact_cache
     empty_key_cache
     remove_all_services
@@ -291,14 +291,14 @@ launcher_is_not_alive() {
     ! launcher_is_alive
 }
 
-# Checks once a second to see if the Habitat-supervised service
+# Checks once a second to see if the Biome-supervised service
 # has is running yet.
 wait_for_service_to_run() {
     local service_name=${1}
     retry 30 1 service_is_alive "${service_name}"
 }
 
-# Checks once a second to see if the Habitat-supervised service
+# Checks once a second to see if the Biome-supervised service
 # has is died yet.
 wait_for_service_to_die() {
     local service_name=${1}
@@ -330,7 +330,7 @@ current_running_version_for() {
 # latest release of that package.
 #
 # Arguments:
-#    ${1}: a Habitat package identifier, i.e.
+#    ${1}: a Biome package identifier, i.e.
 #            - origin/package
 #            - origin/package/version
 #          Fully-qualified identifiers aren't supported in
@@ -436,13 +436,13 @@ installation_directory_for() {
     echo "/hab/pkgs/${ident}"
 }
 
-# Given a fully-qualified identifier, use `hab` to retrieve the hart
+# Given a fully-qualified identifier, use `bio` to retrieve the hart
 # file for it and place it into `$BATS_TMPDIR`, returning the full
 # path to the hart file.
 download_hart_for() {
     ident=${1}
 
-    run "${hab}" pkg install "${ident}"
+    run "${bio}" pkg install "${ident}"
     assert_success
 
     cached_artifact=$(cached_artifact_for "${ident}")

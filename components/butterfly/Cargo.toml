@@ -1,8 +1,8 @@
 [package]
-name = "habitat_butterfly"
+name = "biome_butterfly"
 version = "0.1.0"
 edition = "2018"
-authors = ["The Habitat Maintainers <humans@habitat.sh>"]
+authors = ["The Biome Maintainers <humans@biome.sh>"]
 build = "build.rs"
 workspace = "../../"
 
@@ -15,8 +15,8 @@ doc = false
 byteorder = "*"
 bytes = "*"
 env_logger = "*"
-habitat_core = { path = "../core" }
-habitat_common = { path = "../common" }
+biome_core = { path = "../core" }
+biome_common = { path = "../common" }
 log = "*"
 lazy_static = "*"
 parking_lot = "*"

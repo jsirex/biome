@@ -25,7 +25,7 @@
 // convenient and flexible (if perhaps a bit verbose) way to start.
 
 use super::Event;
-use habitat_core::{package::PackageIdent,
+use biome_core::{package::PackageIdent,
                    service::ServiceGroup};
 
 #[derive(Debug)]

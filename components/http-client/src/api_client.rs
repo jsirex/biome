@@ -15,7 +15,7 @@
 use std::{path::Path,
           time::Duration};
 
-use habitat_core::{env,
+use biome_core::{env,
                    package::PackageTarget,
                    util::sys};
 use hyper::{client::{pool::{Config,
@@ -219,14 +219,14 @@ impl ApiClient {
 /// 2. If the `SSL_CERT_DIR` environment variable is set, then use its value for the directory
 ///    containing certificates. Like the `SSL_CERT_FILE` case above, this triggers default OpenSSL
 ///    behavior for this environment variable.
-/// 3. If the `core/cacerts` Habitat package is installed locally, then use the latest release's
+/// 3. If the `core/cacerts` Biome package is installed locally, then use the latest release's
 ///    `cacert.pem` file.
 /// 4. If none of the conditions above are met, then a `cacert.pem` will be written in an SSL cache
 ///    directory (by default `/hab/cache/ssl` for a root user and `$HOME/.hab/cache/ssl` for a
 ///    non-root user) and this will be used. The contents of this file will be inlined in this
 ///    crate at build time as a fallback insurance policy, meaning that if the a program using this
 ///    code is operating in a minimal environment which may not contain system certificates, it can
-///    still operate. Once a `core/cacerts` Habitat package is present, the logic would fall back
+///    still operate. Once a `core/cacerts` Biome package is present, the logic would fall back
 ///    to preferring the package version to the cached/inline file version.
 ///
 /// ## Mac Platforms
@@ -274,7 +274,7 @@ fn new_hyper_client(url: &Url, fs_root_path: Option<&Path>) -> Result<HyperClien
 
 /// Returns an HTTP User-Agent string type for use by Hyper when making HTTP requests.
 ///
-/// The general form for Habitat-related clients are of the following form:
+/// The general form for Biome-related clients are of the following form:
 ///
 /// ```text
 /// <PRODUCT>/<VERSION> (<TARGET>; <KERNEL_RELEASE>)
@@ -290,7 +290,7 @@ fn new_hyper_client(url: &Url, fs_root_path: Option<&Path>) -> Result<HyperClien
 /// For example:
 ///
 /// ```text
-/// hab/0.6.0/20160606153031 (x86_64-darwin; 14.5.0)
+/// bio/0.6.0/20160606153031 (x86_64-darwin; 14.5.0)
 /// ```
 ///
 /// # Errors

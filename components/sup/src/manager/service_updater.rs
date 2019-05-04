@@ -18,10 +18,10 @@ use crate::{census::CensusRing,
                                 Topology,
                                 UpdateStrategy}},
             util};
-use habitat_butterfly;
-use habitat_common::{outputln,
+use biome_butterfly;
+use biome_common::{outputln,
                      ui::UI};
-use habitat_core::{env as henv,
+use biome_core::{env as henv,
                    env::Config as EnvConfig,
                    package::{PackageIdent,
                              PackageInstall,
@@ -85,11 +85,11 @@ enum FollowerState {
 pub struct ServiceUpdater {
     states: UpdaterStateList,
 
-    butterfly: habitat_butterfly::Server,
+    butterfly: biome_butterfly::Server,
 }
 
 impl ServiceUpdater {
-    pub fn new(butterfly: habitat_butterfly::Server) -> Self {
+    pub fn new(butterfly: biome_butterfly::Server) -> Self {
         ServiceUpdater { states: UpdaterStateList::default(),
                          butterfly }
     }
@@ -569,7 +569,7 @@ impl Worker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use habitat_common::locked_env_var;
+    use biome_common::locked_env_var;
 
     #[test]
     fn default_update_period_is_equal_to_minimum_allowed_value() {

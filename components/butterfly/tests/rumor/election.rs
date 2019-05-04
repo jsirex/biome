@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use habitat_butterfly::{member::Health,
+use biome_butterfly::{member::Health,
                         rumor::election::ElectionStatus};
-use habitat_common::FeatureFlag;
+use biome_common::FeatureFlag;
 
 use crate::btest;
 

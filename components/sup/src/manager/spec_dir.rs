@@ -2,7 +2,7 @@ use super::service::spec::ServiceSpec;
 use crate::error::{Error,
                    Result};
 use glob;
-use habitat_common::outputln;
+use biome_common::outputln;
 use std::{error::Error as StdErr,
           ffi::OsStr,
           iter::IntoIterator,

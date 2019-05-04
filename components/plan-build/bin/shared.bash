@@ -222,7 +222,7 @@ _render_metadata_RUNTIME_PATH(){
 
     # **Internal**  Backwards Compatibility: Set the `PATH` key for the runtime
     # environment if a computed runtime path is necessary which will be used by
-    # Habitat releases between 0.50.0 (released 2017-11-30) and up to including
+    # Biome releases between 0.50.0 (released 2017-11-30) and up to including
     # 0.55.0 (released 2018-03-20). All future releases will ignore the `PATH`
     # entry in favor of using the `RUNTIME_PATH` metadata file.
     # shellcheck disable=2034

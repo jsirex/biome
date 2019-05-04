@@ -1,5 +1,5 @@
-//! Code for actually executing user commands (e.g., `hab svc load`,
-//! `hab svc stop`, etc.)
+//! Code for actually executing user commands (e.g., `bio svc load`,
+//! `bio svc stop`, etc.)
 
 use crate::{ctl_gateway::server::CtlCommand,
             manager::{action::ActionSender,

@@ -30,9 +30,9 @@ use crate::{core::{self,
             service::Service,
             SUP_CMD,
             SUP_PACKAGE_IDENT};
-use habitat_common::outputln;
+use biome_common::outputln;
 #[cfg(unix)]
-use habitat_core::os::{process::{Pid,
+use biome_core::os::{process::{Pid,
                                  Signal},
                        signals::SignalEvent};
 use ipc_channel::ipc::{IpcOneShotServer,
@@ -254,7 +254,7 @@ impl Server {
         // collapse in the future.
         //
         // `reap_services` is a cross-platform method to reap (and keep
-        // track of) processes that are Habitat
+        // track of) processes that are Biome
         // services. `reap_zombie_orphans` is basically a Unix-only
         // method to take care of any orphan processes that get
         // re-parented to the Launcher, when it is running as PID 1,
@@ -529,13 +529,13 @@ fn setup_connection(server: IpcOneShotServer<Vec<u8>>) -> Result<(Receiver, Send
 /// Return whether the given version string matches SUP_VERSION_REQ parsed as
 /// a semver::VersionReq.
 ///
-/// Example inputs (that is `hab-sup --version` outputs):
-/// hab-sup 0.59.0/20180712161546
-/// hab-sup 0.62.0-dev
+/// Example inputs (that is `bio-sup --version` outputs):
+/// bio-sup 0.59.0/20180712161546
+/// bio-sup 0.62.0-dev
 fn is_supported_supervisor_version(version_output: &str) -> bool {
     if let Some(version_str) = version_output
-        .split(' ') //                      ["hab-sup", <version-number>]
-        .last() //                          drop "hab-sup", keep <version-number>
+        .split(' ') //                      ["bio-sup", <version-number>]
+        .last() //                          drop "bio-sup", keep <version-number>
         .unwrap() //                        split() always returns an 1+ element iterator
         .split(|c| c == '/' || c == '-') // strip "-dev" or "/build"
         .next()
@@ -553,7 +553,7 @@ fn is_supported_supervisor_version(version_output: &str) -> bool {
             }
         }
     } else {
-        error!("Expected 'hab-sup <semantic-version>', found '{}'",
+        error!("Expected 'bio-sup <semantic-version>', found '{}'",
                version_output);
         false
     }
@@ -574,12 +574,12 @@ fn spawn_supervisor(pipe: &str, args: &[String], clean: bool) -> Result<Child> {
         let version_check = Command::new(&binary).arg("--version").output()?;
         let sup_version = String::from_utf8_lossy(&version_check.stdout);
         if !is_supported_supervisor_version(&sup_version.trim()) {
-            error!("This Launcher requires Habitat version {}", SUP_VERSION_REQ);
+            error!("This Launcher requires Biome version {}", SUP_VERSION_REQ);
             error!("This check can be disabled by setting the {} environment variable to a \
                     non-empty string when starting the supervisor",
                    SUP_VERSION_CHECK_DISABLE);
             error!("Disabling this check may result in undefined behavior; please update to a \
-                    newer Habitat version");
+                    newer Biome version");
             error!("For more information see https://github.com/habitat-sh/habitat/pull/5484");
             return Err(Error::SupBinaryVersion);
         }

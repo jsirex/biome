@@ -1,14 +1,14 @@
 [package]
-name = "habitat-sup-client"
+name = "biome-sup-client"
 version = "0.0.0"
 edition = "2018"
-authors = ["The Habitat Maintainers <humans@habitat.sh>"]
+authors = ["The Biome Maintainers <humans@biome.sh>"]
 workspace = "../../"
 
 [dependencies]
 futures = "*"
-habitat-sup-protocol = { path = "../sup-protocol", default-features = false }
-habitat_common = { path = "../common" }
+biome-sup-protocol = { path = "../sup-protocol", default-features = false }
+biome_common = { path = "../common" }
 log = "*"
 prost = "*"
 termcolor = "*"

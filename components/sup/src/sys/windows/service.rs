@@ -14,7 +14,7 @@
 
 use crate::{manager::action::ShutdownSpec,
             sys::ShutdownMethod};
-use habitat_core::os::process::{handle_from_pid,
+use biome_core::os::process::{handle_from_pid,
                                 windows_child::{ExitStatus,
                                                 Handle},
                                 Pid};

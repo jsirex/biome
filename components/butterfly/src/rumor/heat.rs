@@ -25,7 +25,7 @@
 use crate::{error::Error,
             rumor::{RumorKey,
                     RumorType}};
-use habitat_core::env::Config as EnvConfig;
+use biome_core::env::Config as EnvConfig;
 use std::{collections::HashMap,
           result,
           str::FromStr,
@@ -207,13 +207,13 @@ mod tests {
                 rumor::{Rumor,
                         RumorKey,
                         RumorType}};
-    use habitat_common::locked_env_var;
+    use biome_common::locked_env_var;
     use uuid::Uuid;
 
     use crate::{member::Member,
                 rumor::service::{Service,
                                  SysInfo}};
-    use habitat_core::{package::PackageIdent,
+    use biome_core::{package::PackageIdent,
                        service::ServiceGroup};
 
     // TODO (CM): This FakeRumor implementation is copied from

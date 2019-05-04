@@ -35,15 +35,15 @@ rustc --version
 cargo --version
 
 if command -v useradd > /dev/null; then
-  sudo -E useradd --system --no-create-home hab || true
+  sudo -E useradd --system --no-create-home bio || true
 else
-  sudo -E adduser --system hab || true
+  sudo -E adduser --system bio || true
 fi
 if command -v groupadd > /dev/null; then
-  sudo -E groupadd --system hab || true
+  sudo -E groupadd --system bio || true
 else
-  sudo -E addgroup --system hab || true
+  sudo -E addgroup --system bio || true
 fi
 
-sudo "$(dirname -- "$0")/../../components/hab/install.sh"
-sudo hab install core/busybox-static core/hab-studio
+sudo "$(dirname -- "$0")/../../components/bio/install.sh"
+sudo bio install core/busybox-static biome/bio-studio

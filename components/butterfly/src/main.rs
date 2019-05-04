@@ -19,7 +19,7 @@ use std::{env,
           thread,
           time::Duration};
 
-use habitat_butterfly::{member,
+use biome_butterfly::{member,
                         server::{self,
                                  Suitability},
                         trace};

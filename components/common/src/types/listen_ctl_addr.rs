@@ -14,7 +14,7 @@
 
 use crate::error::{Error,
                    Result};
-use habitat_core::env;
+use biome_core::env;
 use std::{fmt,
           net::{IpAddr,
                 Ipv4Addr,

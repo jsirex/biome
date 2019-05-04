@@ -32,8 +32,8 @@ use futures::{future::{self,
               prelude::*,
               sync::mpsc,
               try_ready};
-use habitat_core::crypto;
-use habitat_sup_protocol::{self as protocol,
+use biome_core::crypto;
+use biome_sup_protocol::{self as protocol,
                            codec::{SrvCodec,
                                    SrvMessage,
                                    SrvStream,
@@ -60,11 +60,11 @@ use tokio_core::{reactor,
                  try_nb};
 
 lazy_static! {
-    static ref RPC_CALLS: IntCounterVec = register_int_counter_vec!("hab_sup_rpc_call_total",
+    static ref RPC_CALLS: IntCounterVec = register_int_counter_vec!("bio_sup_rpc_call_total",
                                                                     "Total number of RPC calls",
                                                                     &["name"]).unwrap();
     static ref RPC_CALL_DURATION: HistogramVec =
-        register_histogram_vec!("hab_sup_rpc_call_request_duration_seconds",
+        register_histogram_vec!("bio_sup_rpc_call_request_duration_seconds",
                                 "The latency for RPC calls",
                                 &["name"]).unwrap();
 }

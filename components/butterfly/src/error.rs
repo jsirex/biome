@@ -20,7 +20,7 @@ use std::{error,
           result,
           str};
 
-use habitat_core;
+use biome_core;
 use prost;
 use toml;
 use zmq;
@@ -35,7 +35,7 @@ pub enum Error {
     DatFileIO(PathBuf, io::Error),
     DecodeError(prost::DecodeError),
     EncodeError(prost::EncodeError),
-    HabitatCore(habitat_core::error::Error),
+    BiomeCore(biome_core::error::Error),
     IncarnationIO(PathBuf, io::Error),
     IncarnationParse(PathBuf, num::ParseIntError),
     InvalidIncarnationSynchronization,
@@ -76,7 +76,7 @@ impl fmt::Display for Error {
             Error::UnknownIOError(ref err) => format!("Error reading or writing: {}", err),
             Error::DecodeError(ref err) => format!("Failed to decode protocol message: {}", err),
             Error::EncodeError(ref err) => format!("Failed to encode protocol message: {}", err),
-            Error::HabitatCore(ref err) => format!("{}", err),
+            Error::BiomeCore(ref err) => format!("{}", err),
             Error::IncarnationIO(ref path, ref err) => {
                 format!("Error reading or writing incarnation store file {}: {}",
                         path.display(),
@@ -136,7 +136,7 @@ impl error::Error for Error {
             Error::UnknownIOError(_) => "Unknown I/O error",
             Error::DecodeError(ref err) => err.description(),
             Error::EncodeError(ref err) => err.description(),
-            Error::HabitatCore(_) => "Habitat core error",
+            Error::BiomeCore(_) => "Biome core error",
             Error::IncarnationIO(..) => "Error reading or writing incarnation store file",
             Error::IncarnationParse(..) => "Error parsing value from incarnation store file",
             Error::InvalidIncarnationSynchronization => {
@@ -167,8 +167,8 @@ impl From<prost::DecodeError> for Error {
 impl From<prost::EncodeError> for Error {
     fn from(err: prost::EncodeError) -> Error { Error::EncodeError(err) }
 }
-impl From<habitat_core::error::Error> for Error {
-    fn from(err: habitat_core::error::Error) -> Error { Error::HabitatCore(err) }
+impl From<biome_core::error::Error> for Error {
+    fn from(err: biome_core::error::Error) -> Error { Error::BiomeCore(err) }
 }
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Error { Error::UnknownIOError(err) }

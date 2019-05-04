@@ -56,12 +56,12 @@ function Install-Rustfmt($Toolchain) {
 function Install-HabPkg([string[]]$idents) {
   $idents | % {
       $id = $_
-      $installedPkgs=hab pkg list $id | ? { $_.StartsWith($id)}
+      $installedPkgs=bio pkg list $id | ? { $_.StartsWith($id)}
 
       if($installedPkgs){
           Write-host "$id already installed"
       } else {
-          hab pkg install $id
+          bio pkg install $id
       }
   }
 }
@@ -96,14 +96,14 @@ function Setup-Environment {
     )
 
     # Set up some path variables for ease of use later
-    $cacertsDir     = & hab pkg path core/cacerts
-    $libarchiveDir  = & hab pkg path core/libarchive
-    $libsodiumDir   = & hab pkg path core/libsodium
-    $opensslDir     = & hab pkg path core/openssl
-    $protobufDir    = & hab pkg path core/protobuf
-    $xzDir          = & hab pkg path core/xz
-    $zeromqDir      = & hab pkg path core/zeromq
-    $zlibDir        = & hab pkg path core/zlib
+    $cacertsDir     = & bio pkg path core/cacerts
+    $libarchiveDir  = & bio pkg path core/libarchive
+    $libsodiumDir   = & bio pkg path core/libsodium
+    $opensslDir     = & bio pkg path core/openssl
+    $protobufDir    = & bio pkg path core/protobuf
+    $xzDir          = & bio pkg path core/xz
+    $zeromqDir      = & bio pkg path core/zeromq
+    $zlibDir        = & bio pkg path core/zlib
 
     # Set some required variables
     $env:SODIUM_LIB_DIR             = "$libsodiumDir\lib"
@@ -121,7 +121,7 @@ function Setup-Environment {
 
     if(!$env:BUILDKITE) {
         Install-HabPkg "core/visual-cpp-build-tools-2015"
-        $vsDir = & hab pkg path core/visual-cpp-build-tools-2015
+        $vsDir = & bio pkg path core/visual-cpp-build-tools-2015
         $env:LIB = (Get-Content "$vsDir\LIB_DIRS")
         $env:INCLUDE = (Get-Content "$vsDir\INCLUDE_DIRS")
         $env:PATH = New-PathString -StartingPath $env:PATH -Path (Get-Content "$vsDir\PATH")

@@ -1,9 +1,9 @@
 # shellcheck disable=2034,2154
-pkg_name=hab-sup
+pkg_name=bio-sup
 _pkg_distname=$pkg_name
-pkg_origin=core
+pkg_origin=biome
 pkg_version=$(cat "$SRC_PATH/../../VERSION")
-pkg_maintainer="The Habitat Maintainers <humans@habitat.sh>"
+pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 pkg_license=('Apache-2.0')
 pkg_deps=(core/busybox-static
           core/glibc
@@ -64,8 +64,8 @@ do_prepare() {
   # TODO (CM, FN): This is not needed to build the supervisor,
   # strictly speaking, but is instead a work-around for how we are
   # currently building packages in Travis; we hypothesize that the
-  # build.rs program for habitat_http_client, built during a static
-  # hab package build, is being inadvertently used here. Without gcc
+  # build.rs program for biome_http_client, built during a static
+  # bio package build, is being inadvertently used here. Without gcc
   # libs on the LD_LIBRARY_PATH, the program can't find
   # libgcc_s.so.1. This is merely a bandaid until we can overhaul our
   # CI pipeline properly.
@@ -78,7 +78,7 @@ do_prepare() {
   # Prost (our Rust protobuf library) embeds a `protoc` binary, but
   # it's dynamically linked, which means it won't work in a
   # Studio. Prost does allow us to override that, though, so we can
-  # just use our Habitat package by setting these two environment
+  # just use our Biome package by setting these two environment
   # variables.
   export PROTOC="$(pkg_path_for protobuf)/bin/protoc"
   export PROTOC_INCLUDE="$(pkg_path_for protobuf)/include"

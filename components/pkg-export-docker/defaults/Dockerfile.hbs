@@ -9,6 +9,6 @@ RUN HAB_FEAT_OFFLINE_INSTALL=ON \
         {{@key}}={{{this}}} \
     {{~ /each}}
     {{~ /if}}
-    {{hab_path}} pkg install {{installed_primary_svc_ident}}
+    {{bio_path}} pkg install {{installed_primary_svc_ident}}
 ENTRYPOINT ["/init.sh"]
 CMD ["run", "{{primary_svc_ident}}"]

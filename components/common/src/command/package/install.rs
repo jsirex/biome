@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Installs a Habitat package from a [depot](../depot).
+//! Installs a Biome package from a [depot](../depot).
 //!
 //! # Examples
 //!
 //! ```bash
-//! $ hab pkg install core/redis
+//! $ bio pkg install core/redis
 //! ```
 //!
 //! Will install `core/redis` package from a custom depot:
 //!
 //! ```bash
-//! $ hab pkg install core/redis/3.0.1 redis -u http://depot.co:9633
+//! $ bio pkg install core/redis/3.0.1 redis -u http://depot.co:9633
 //! ```
 //!
 //! This would install the `3.0.1` version of redis.
@@ -128,10 +128,10 @@ impl FromStr for InstallSource {
     type Err = hcore::Error;
 
     /// Create an `InstallSource` from either a package identifier
-    /// string (e.g. "core/hab"), or from the path to a local package.
+    /// string (e.g. "biome/bio"), or from the path to a local package.
     ///
     /// Returns an error if the string is neither a valid package
-    /// identifier, or is not the path to an actual Habitat package.
+    /// identifier, or is not the path to an actual Biome package.
     fn from_str(s: &str) -> StdResult<InstallSource, Self::Err> {
         let path = Path::new(s);
         if path.is_file() {
@@ -229,7 +229,7 @@ impl Default for InstallHookMode {
 /// already installed locally. In most cases, it should be fine for us
 /// to use the locally-installed package. However, it can cause issues
 /// when building packages using HAB_BLDR_CHANNEL, due to how the
-/// fallback logic in `hab-plan-build` is currently implemented.
+/// fallback logic in `bio-plan-build` is currently implemented.
 ///
 /// This enum governs whether or not we should use a locally-installed
 /// package to satisfy a dependency, or if we should ignore it, thus
@@ -280,7 +280,7 @@ impl<'a> FullyQualifiedPackageIdent<'a> {
         if ident.as_ref().fully_qualified() {
             Ok(FullyQualifiedPackageIdent { ident })
         } else {
-            Err(Error::HabitatCore(
+            Err(Error::BiomeCore(
                 hcore::Error::FullyQualifiedPackageIdentRequired(ident.to_owned().to_string()),
             ))
         }
@@ -302,7 +302,7 @@ impl<'a> fmt::Display for FullyQualifiedPackageIdent<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { self.ident.as_ref().fmt(f) }
 }
 
-/// Install a Habitat package.
+/// Install a Biome package.
 ///
 /// If an `InstallSource::Ident` is given, we retrieve the package
 /// from the specified Builder `url`. Providing a fully-qualified
@@ -955,7 +955,7 @@ impl<'a> InstallTask<'a> {
         let artifact_target = artifact.target()?;
         let active_target = PackageTarget::active_target();
         if active_target != artifact_target {
-            return Err(Error::HabitatCore(hcore::Error::WrongActivePackageTarget(
+            return Err(Error::BiomeCore(hcore::Error::WrongActivePackageTarget(
                 active_target,
                 artifact_target,
             )));
@@ -977,7 +977,7 @@ impl<'a> InstallTask<'a> {
     /// can't be found in Builder in the given channel.
     ///
     /// Specifically, as long as our channel fallback-logic in
-    /// `hab-plan-build` relies on attempting to install a package
+    /// `bio-plan-build` relies on attempting to install a package
     /// instead of asking Builder what it has, we should provide an
     /// escape hatch.
     ///
@@ -990,7 +990,7 @@ impl<'a> InstallTask<'a> {
 
     // TODO fn: I'm skeptical as to whether we want these warnings all the time. Perhaps it's
     // better to warn that nothing is found and redirect a user to run another standalone
-    // `hab pkg ...` subcommand to get more information.
+    // `bio pkg ...` subcommand to get more information.
     fn recommend_channels<T>(&self,
                              ui: &mut T,
                              (ident, target): (&PackageIdent, PackageTarget),

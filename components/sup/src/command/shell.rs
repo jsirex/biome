@@ -14,9 +14,9 @@
 
 use crate::error::{Error,
                    Result};
-use habitat_common::{outputln,
+use biome_common::{outputln,
                      util::path};
-use habitat_core::fs::find_command;
+use biome_core::fs::find_command;
 use libc;
 use std::{env,
           ffi::CString,

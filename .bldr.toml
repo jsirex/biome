@@ -1,5 +1,5 @@
-[hab]
-plan_path = "components/hab"
+[bio]
+plan_path = "components/bio"
 paths = [
   "components/builder-api-client/*",
   "components/builder-depot-client/*",
@@ -8,38 +8,38 @@ paths = [
   "components/sup-protocol/*",
 ]
 
-[hab-backline]
+[bio-backline]
 plan_path = "components/backline"
 
-[hab-bintray-publish]
+[bio-bintray-publish]
 plan_path = "components/bintray-publish"
 paths = [
   "studio/build-docker-image.sh",
 ]
 
-[hab-eventsrv]
-plan_path = "components/eventsrv/habitat"
+[bio-eventsrv]
+plan_path = "components/eventsrv/biome"
 paths = [
   "components/eventsrv-protocol/*",
   "components/eventsrv/*",
   "support/ci/builder-base-plan.sh",
 ]
 
-[hab-launcher]
-plan_path = "components/launcher/habitat"
+[bio-launcher]
+plan_path = "components/launcher/biome"
 paths = [
   "components/launcher/*",
   "components/launcher-protocol/*",
   "support/ci/builder-base-plan.sh",
 ]
 
-[hab-plan-build]
+[bio-plan-build]
 plan_path = "components/plan-build"
 
-[hab-studio]
+[bio-studio]
 plan_path = "components/studio"
 
-[hab-sup]
+[bio-sup]
 plan_path = "components/sup"
 paths = [
   "components/builder-depot-client/*",
@@ -50,45 +50,45 @@ paths = [
   "components/sup-protocol/*",
 ]
 
-[hab-pkg-aci]
+[bio-pkg-aci]
 plan_path = "components/pkg-aci"
 
-[hab-pkg-export-docker]
+[bio-pkg-export-docker]
 plan_path = "components/pkg-export-docker"
 paths = [
   "components/common/*",
-  "components/hab/*",
+  "components/bio/*",
 ]
 
-[hab-pkg-export-kubernetes]
+[bio-pkg-export-kubernetes]
 plan_path = "components/pkg-export-kubernetes"
 paths = [
   "components/common/*",
-  "components/hab/*", # because pkg-export-docker depends on it
+  "components/bio/*", # because pkg-export-docker depends on it
   "components/pkg-export-docker/*",
 ]
 
-[hab-pkg-export-helm]
+[bio-pkg-export-helm]
 plan_path = "components/pkg-export-helm"
 paths = [
   "components/common/*",
-  "components/hab/*", # because pkg-export-docker depends on it
+  "components/bio/*", # because pkg-export-docker depends on it
   "components/pkg-export-docker/*",
   "components/pkg-export-kubernetes/*",
 ]
 
-[hab-pkg-export-tar]
+[bio-pkg-export-tar]
 plan_path = "components/pkg-export-tar"
 paths = [
   "components/common/*",
-  "components/hab/*",
+  "components/bio/*",
 ]
 
-# NOTE: cfize has a dependency on hab-pkg-dockerize, but we are
-# *explicitly not building* `hab-pkg-dockerize` any more. Read more at
+# NOTE: cfize has a dependency on bio-pkg-dockerize, but we are
+# *explicitly not building* `bio-pkg-dockerize` any more. Read more at
 # components/pkg-dockerize/README.md
-[hab-pkg-cfize]
+[bio-pkg-cfize]
 plan_path = "components/pkg-cfize"
 
-[hab-pkg-mesosize]
+[bio-pkg-mesosize]
 plan_path = "components/pkg-mesosize"

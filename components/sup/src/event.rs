@@ -21,7 +21,7 @@
 //! background. Thereafter, you can pass "event" structs to the
 //! `event` function, which will publish the event to the stream.
 //!
-//! All events are published under the "habitat" subject.
+//! All events are published under the "biome" subject.
 //!
 //! [1]:https://github.com/nats-io/nats-streaming-server
 
@@ -139,12 +139,12 @@ pub trait Event: Debug {
 ////////////////////////////////////////////////////////////////////////
 
 /// All messages are published under this subject.
-const HABITAT_SUBJECT: &str = "habitat";
+const HABITAT_SUBJECT: &str = "biome";
 
 /// All the information needed to establish a connection to a NATS
 /// Streaming server.
 // TODO: This will change as we firm up what the interaction between
-// Habitat and A2 looks like.
+// Biome and A2 looks like.
 pub struct EventConnectionInfo {
     pub name:        String,
     pub verbose:     bool,
@@ -154,12 +154,12 @@ pub struct EventConnectionInfo {
 
 /// Defines default connection information for a NATS Streaming server
 /// running on localhost.
-// TODO: As we become clear on the interaction between Habitat and A2,
+// TODO: As we become clear on the interaction between Biome and A2,
 // this implementation *may* disappear. It's useful for testing and
 // prototyping, though.
 impl Default for EventConnectionInfo {
     fn default() -> Self {
-        EventConnectionInfo { name:        String::from("habitat"),
+        EventConnectionInfo { name:        String::from("biome"),
                               verbose:     true,
                               cluster_uri: String::from("127.0.0.1:4223"),
                               cluster_id:  String::from("test-cluster"), }

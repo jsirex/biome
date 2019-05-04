@@ -27,7 +27,7 @@ use std::{ffi::OsStr,
 use tempfile::{Builder,
                TempDir};
 
-pub const INSTALL_TMP_PREFIX: &str = ".hab-pkg-install";
+pub const INSTALL_TMP_PREFIX: &str = ".bio-pkg-install";
 
 /// Return a directory which can be used as a temp dir during package install/
 /// uninstall

@@ -8,5 +8,5 @@ RUN SET HAB_FEAT_OFFLINE_INSTALL=ON && \
         SET {{@key}}={{{this}}} && \
     {{~ /each}}
     {{~ /if}}
-    {{hab_path}} pkg install {{installed_primary_svc_ident}}
-ENTRYPOINT ["{{hab_path}}", "sup", "run", "{{primary_svc_ident}}"]
+    {{bio_path}} pkg install {{installed_primary_svc_ident}}
+ENTRYPOINT ["{{bio_path}}", "sup", "run", "{{primary_svc_ident}}"]

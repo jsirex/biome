@@ -598,7 +598,7 @@ impl UIReader for UI {
         let editor = env::var("EDITOR").map_err(Error::EditorEnv)?;
 
         let mut tmp_file_path = env::temp_dir();
-        tmp_file_path.push(format!("_hab_{}.tmp", Uuid::new_v4()));
+        tmp_file_path.push(format!("_bio_{}.tmp", Uuid::new_v4()));
 
         let mut tmp_file = File::create(&tmp_file_path)?;
 

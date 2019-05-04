@@ -63,18 +63,18 @@ use futures::{future,
               prelude::*,
               sync::{mpsc as fut_mpsc,
                      oneshot}};
-use habitat_butterfly::{member::Member,
+use biome_butterfly::{member::Member,
                         server::{timing::Timing,
                                  ServerProxy,
                                  Suitability},
                         trace::Trace};
-use habitat_common::{outputln,
+use biome_common::{outputln,
                      types::ListenCtlAddr,
                      FeatureFlag};
 #[cfg(unix)]
-use habitat_core::os::{process::Signal,
+use biome_core::os::{process::Signal,
                        signals::SignalEvent};
-use habitat_core::{crypto::SymKey,
+use biome_core::{crypto::SymKey,
                    env::{self,
                          Config},
                    fs::FS_ROOT_PATH,
@@ -87,10 +87,10 @@ use habitat_core::{crypto::SymKey,
                    service::ServiceGroup,
                    util::ToI64,
                    ChannelIdent};
-use habitat_launcher_client::{LauncherCli,
+use biome_launcher_client::{LauncherCli,
                               LAUNCHER_LOCK_CLEAN_ENV,
                               LAUNCHER_PID_ENV};
-use habitat_sup_protocol;
+use biome_sup_protocol;
 use num_cpus;
 #[cfg(unix)]
 use palaver;
@@ -146,18 +146,18 @@ static LOGKEY: &'static str = "MR";
 
 lazy_static! {
     static ref RUN_LOOP_DURATION: HistogramVec =
-        register_histogram_vec!("hab_sup_run_loop_duration_seconds",
+        register_histogram_vec!("bio_sup_run_loop_duration_seconds",
                                 "The time it takes for one tick of a run loop",
                                 &["loop"]).unwrap();
     static ref FILE_DESCRIPTORS: IntGauge = register_int_gauge!(
-        "hab_sup_open_file_descriptors_total",
+        "bio_sup_open_file_descriptors_total",
         "A count of the total number of open file descriptors. Unix only"
     ).unwrap();
     static ref MEMORY_STATS: IntGaugeVec =
-        register_int_gauge_vec!("hab_sup_memory_allocations_bytes",
+        register_int_gauge_vec!("bio_sup_memory_allocations_bytes",
                                 "Memory allocation statistics",
                                 &["category"]).unwrap();
-    static ref CPU_TIME: IntGauge = register_int_gauge!("hab_sup_cpu_time_nanoseconds",
+    static ref CPU_TIME: IntGauge = register_int_gauge!("bio_sup_cpu_time_nanoseconds",
                                                         "CPU time of the supervisor process in \
                                                          nanoseconds").unwrap();
 }
@@ -181,7 +181,7 @@ enum ShutdownMode {
     /// shutting down).
     Normal,
     /// When the Supervisor has been manually departed from the
-    /// Habitat network. All services should come down, as well.
+    /// Biome network. All services should come down, as well.
     Departed,
     /// A Supervisor is updating itself, or is otherwise simply
     /// restarting. Services _do not_ get shut down.
@@ -244,7 +244,7 @@ pub struct TLSConfig {
 
 impl ManagerConfig {
     pub fn sup_root(&self) -> PathBuf {
-        habitat_sup_protocol::sup_root(self.custom_state_path.as_ref())
+        biome_sup_protocol::sup_root(self.custom_state_path.as_ref())
     }
 
     // TODO (CM): this may be able to be private after some
@@ -356,7 +356,7 @@ pub struct GatewayState {
 
 pub struct Manager {
     pub state:    Arc<ManagerState>,
-    butterfly:    habitat_butterfly::Server,
+    butterfly:    biome_butterfly::Server,
     census_ring:  CensusRing,
     fs_cfg:       Arc<FsCfg>,
     launcher:     LauncherCli,
@@ -455,7 +455,7 @@ impl Manager {
         let member = Self::load_member(&mut sys, &fs_cfg)?;
         let services = Arc::new(RwLock::new(HashMap::new()));
 
-        let server = habitat_butterfly::Server::new(sys.gossip_listen(),
+        let server = biome_butterfly::Server::new(sys.gossip_listen(),
                                                     sys.gossip_listen(),
                                                     member,
                                                     Trace::default(),
@@ -621,8 +621,8 @@ impl Manager {
         if let Ok(package) =
             PackageInstall::load(&service.pkg.ident, Some(Path::new(&*FS_ROOT_PATH)))
         {
-            if let Err(err) = habitat_common::command::package::install::check_install_hooks(
-                &mut habitat_common::ui::UI::with_sinks(),
+            if let Err(err) = biome_common::command::package::install::check_install_hooks(
+                &mut biome_common::ui::UI::with_sinks(),
                 &package,
                 Path::new(&*FS_ROOT_PATH),
             ) {
@@ -679,7 +679,7 @@ impl Manager {
     // but changing it in the absence of other necessity seems like too much risk for the
     // expected reward.
     #[allow(clippy::cyclomatic_complexity)]
-    pub fn run(mut self, svc: Option<habitat_sup_protocol::ctl::SvcLoad>) -> Result<()> {
+    pub fn run(mut self, svc: Option<biome_sup_protocol::ctl::SvcLoad>) -> Result<()> {
         let main_hist = RUN_LOOP_DURATION.with_label_values(&["sup"]);
         let service_hist = RUN_LOOP_DURATION.with_label_values(&["service"]);
         let mut next_cpu_measurement = SteadyTime::now();
@@ -1308,7 +1308,7 @@ impl Manager {
     /// services until they're done with what they're doing.  (For
     /// example, consider stopping a service that takes 10 seconds to
     /// shut down (including post-stop hook execution), but then
-    /// executing `hab svc start SERVICE` 2 seconds into that 10
+    /// executing `bio svc start SERVICE` 2 seconds into that 10
     /// seconds.)
     ///
     /// As more service operations (e.g., hooks) become asynchronous,
@@ -1782,9 +1782,9 @@ fn track_memory_stats() {}
 #[cfg(test)]
 mod test {
     use super::*;
-    use habitat_common::cli::FS_ROOT;
-    use habitat_core::fs::cache_key_path;
-    use habitat_sup_protocol::STATE_PATH_PREFIX;
+    use biome_common::cli::FS_ROOT;
+    use biome_core::fs::cache_key_path;
+    use biome_sup_protocol::STATE_PATH_PREFIX;
     use std::path::PathBuf;
 
     mod reconciliation_flag {
@@ -1855,7 +1855,7 @@ mod test {
 
     mod tokio_thread_count {
         use super::*;
-        use habitat_common::locked_env_var;
+        use biome_common::locked_env_var;
 
         locked_env_var!(HAB_TOKIO_THREAD_COUNT, lock_thread_count);
 
@@ -1890,7 +1890,7 @@ mod test {
         //! what is currently running.
 
         use super::super::*;
-        use habitat_sup_protocol::types::UpdateStrategy;
+        use biome_sup_protocol::types::UpdateStrategy;
 
         /// Helper function for generating a basic spec from an
         /// identifier string

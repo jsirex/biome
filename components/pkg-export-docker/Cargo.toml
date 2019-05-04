@@ -1,16 +1,16 @@
 [package]
-name = "habitat_pkg_export_docker"
+name = "biome_pkg_export_docker"
 version = "0.0.0"
 edition = "2018"
-authors = ["The Habitat Maintainers <humans@habitat.sh>"]
+authors = ["The Biome Maintainers <humans@biome.sh>"]
 build = "build.rs"
 workspace = "../../"
 
 [lib]
-name = "habitat_pkg_export_docker"
+name = "biome_pkg_export_docker"
 
 [[bin]]
-name = "hab-pkg-export-docker"
+name = "bio-pkg-export-docker"
 path = "src/main.rs"
 doc = false
 
@@ -19,9 +19,9 @@ base64 = "*"
 clap = { version = "*", features = ["suggestions", "color", "unstable"] }
 chrono = "*"
 env_logger = "*"
-hab = { path = "../hab" }
-habitat_common = { path = "../common" }
-habitat_core = { path = "../core" }
+bio = { path = "../bio" }
+biome_common = { path = "../common" }
+biome_core = { path = "../core" }
 # We need to lock here since v0.30.0 bumps to a version of pest that fails to build on Windows.
 handlebars = { version = "0.29.1", default-features = false }
 lazy_static = "*"

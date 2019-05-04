@@ -24,17 +24,17 @@ use crate::{ctl_gateway::CtlRequest,
                                 ProcessState},
                       ManagerState},
             util};
-use habitat_butterfly as butterfly;
-use habitat_common::{command::package::install::InstallSource,
+use biome_butterfly as butterfly;
+use biome_common::{command::package::install::InstallSource,
                      outputln,
                      templating::package::Pkg,
                      ui::UIWriter};
-use habitat_core::{package::{Identifiable,
+use biome_core::{package::{Identifiable,
                              PackageIdent,
                              PackageTarget},
                    service::ServiceGroup,
                    ChannelIdent};
-use habitat_sup_protocol::{self as protocol,
+use biome_sup_protocol::{self as protocol,
                            net::{self,
                                  ErrCode,
                                  NetResult}};

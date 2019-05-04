@@ -25,16 +25,16 @@ use crate::{error::{Error,
             manager::action::ShutdownSpec};
 use futures::{future,
               Future};
-use habitat_common::{outputln,
+use biome_common::{outputln,
                      templating::package::Pkg,
                      types::UserInfo};
 #[cfg(unix)]
-use habitat_core::os::users;
-use habitat_core::{fs,
+use biome_core::os::users;
+use biome_core::{fs,
                    os::process::{self,
                                  Pid},
                    service::ServiceGroup};
-use habitat_launcher_client::LauncherCli;
+use biome_launcher_client::LauncherCli;
 use serde::{ser::SerializeStruct,
             Serialize,
             Serializer};

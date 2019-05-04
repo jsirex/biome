@@ -6,7 +6,7 @@ ip = "172.17.0.5"
 
 [cfg]
 
-[hab]
+[bio]
 version = "0.0.0"
 
 [pkg]
@@ -19,10 +19,10 @@ release = "20170215230753"
 svc_config_path = "/hab/svc/lsyncd/config"
 svc_data_path = "/hab/svc/lsyncd/data"
 svc_files_path = "/hab/svc/lsyncd/files"
-svc_group = "hab"
+svc_group = "bio"
 svc_path = "/hab/svc/lsyncd"
 svc_static_path = "/hab/svc/lsyncd/static"
-svc_user = "hab"
+svc_user = "bio"
 svc_var_path = "/hab/svc/lsyncd/var"
 svc_pid_file = "/hab/svc/lsyncd/PID"
 version = "0.1.0"

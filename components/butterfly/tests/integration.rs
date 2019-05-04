@@ -18,7 +18,7 @@ mod encryption;
 mod rumor;
 
 use common as btest;
-use habitat_butterfly::{self,
+use biome_butterfly::{self,
                         member::Health,
                         trace_it};
 

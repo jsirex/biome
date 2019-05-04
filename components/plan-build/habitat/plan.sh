@@ -1,8 +1,8 @@
 # shellcheck disable=2034
-pkg_name=hab-plan-build
-pkg_origin=core
+pkg_name=bio-plan-build
+pkg_origin=biome
 pkg_version=$(cat "$SRC_PATH/../../VERSION")
-pkg_maintainer="The Habitat Maintainers <humans@habitat.sh>"
+pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 pkg_license=('Apache-2.0')
 pkg_bin_dirs=(bin)
 
@@ -15,7 +15,7 @@ pkg_deps=(core/bash
           core/gawk
           core/grep
           core/gzip
-          core/hab
+          biome/bio
           core/rq
           core/sed
           core/tar

@@ -41,7 +41,7 @@
       },
       "s3": {
         "backend": "minio",
-        "bucket_name": "habitat-builder-artifact-store.default",
+        "bucket_name": "biome-builder-artifact-store.default",
         "endpoint": "http://localhost:9000",
         "key_id": "depot",
         "secret_key": "haha"
@@ -199,7 +199,7 @@
         }
       ],
       "env": {
-        "PATH": "/hab/pkgs/habitat/builder-api/7602/20180906202535/bin:/hab/pkgs/core/glibc/2.27/20180608041157/bin:/hab/pkgs/core/openssl/1.0.2n/20180608102213/bin:/hab/pkgs/core/coreutils/8.29/20180608092141/bin:/hab/pkgs/core/curl/7.54.1/20180906202233/bin:/hab/pkgs/core/acl/2.2.52/20180608091922/bin:/hab/pkgs/core/attr/2.4.47/20180608091914/bin:/hab/pkgs/core/libcap/2.25/20180608091936/bin:/hab/pkgs/core/bzip2/1.0.6/20180608091727/bin:/hab/pkgs/core/xz/5.2.3/20180608100110/bin:/hab/pkgs/core/busybox-static/1.28.1/20180608102729/bin:/bin"
+        "PATH": "/hab/pkgs/biome/builder-api/7602/20180906202535/bin:/hab/pkgs/core/glibc/2.27/20180608041157/bin:/hab/pkgs/core/openssl/1.0.2n/20180608102213/bin:/hab/pkgs/core/coreutils/8.29/20180608092141/bin:/hab/pkgs/core/curl/7.54.1/20180906202233/bin:/hab/pkgs/core/acl/2.2.52/20180608091922/bin:/hab/pkgs/core/attr/2.4.47/20180608091914/bin:/hab/pkgs/core/libcap/2.25/20180608091936/bin:/hab/pkgs/core/bzip2/1.0.6/20180608091727/bin:/hab/pkgs/core/xz/5.2.3/20180608100110/bin:/hab/pkgs/core/busybox-static/1.28.1/20180608102729/bin:/bin"
       },
       "exports": {
         "port": "http.port"
@@ -207,20 +207,20 @@
       "exposes": [
         "9636"
       ],
-      "ident": "habitat/builder-api/7602/20180906202535",
+      "ident": "biome/builder-api/7602/20180906202535",
       "name": "builder-api",
-      "origin": "habitat",
-      "path": "/hab/pkgs/habitat/builder-api/7602/20180906202535",
+      "origin": "biome",
+      "path": "/hab/pkgs/biome/builder-api/7602/20180906202535",
       "release": "20180906202535",
       "svc_config_path": "/hab/svc/builder-api/config",
       "svc_data_path": "/hab/svc/builder-api/data",
       "svc_files_path": "/hab/svc/builder-api/files",
-      "svc_group": "hab",
+      "svc_group": "bio",
       "svc_path": "/hab/svc/builder-api",
       "svc_pid_file": "/hab/svc/builder-api/PID",
       "svc_run": "/hab/svc/builder-api/run",
       "svc_static_path": "/hab/svc/builder-api/static",
-      "svc_user": "hab",
+      "svc_user": "bio",
       "svc_var_path": "/hab/svc/builder-api/var",
       "version": "7602"
     },
@@ -233,7 +233,7 @@
     "spec_file": "/hab/sup/default/specs/builder-api.spec",
     "spec_ident": {
       "name": "builder-api",
-      "origin": "habitat",
+      "origin": "biome",
       "release": null,
       "version": null
     },
@@ -243,7 +243,7 @@
       "ctl_gateway_port": 9632,
       "gossip_ip": "0.0.0.0",
       "gossip_port": 9638,
-      "hostname": "api.habitat.dev",
+      "hostname": "api.biome.dev",
       "http_gateway_ip": "0.0.0.0",
       "http_gateway_port": 9631,
       "ip": "172.25.0.3",

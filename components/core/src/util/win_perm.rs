@@ -14,7 +14,7 @@
 
 use crate::error::{Error,
                    Result};
-use habitat_win_users::account::Account;
+use biome_win_users::account::Account;
 use std::path::Path;
 use widestring::WideCString;
 use winapi::{shared::{minwindef::DWORD,
@@ -115,7 +115,7 @@ mod tests {
     use winapi::um::winnt::FILE_ALL_ACCESS;
     use windows_acl::helper;
 
-    use habitat_win_users::account;
+    use biome_win_users::account;
 
     use super::*;
     use crate::error::Error;

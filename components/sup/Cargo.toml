@@ -1,16 +1,16 @@
 [package]
-name = "habitat_sup"
+name = "biome_sup"
 version = "0.0.0"
 edition = "2018"
-authors = ["The Habitat Maintainers <humans@habitat.sh>"]
+authors = ["The Biome Maintainers <humans@biome.sh>"]
 build = "./build.rs"
 workspace = "../../"
 
 [lib]
-name = "habitat_sup"
+name = "biome_sup"
 
 [[bin]]
-name = "hab-sup"
+name = "bio-sup"
 path = "src/main.rs"
 doc = false
 
@@ -31,13 +31,13 @@ cpu-time = "*"
 env_logger = "*"
 futures = "*"
 glob = "*"
-hab = { path = "../hab" }
-habitat_butterfly = { path = "../butterfly", default-features = false }
-habitat_common = { path = "../common" }
-habitat_core = { path = "../core" }
-habitat_api_client = { path = "../builder-api-client" }
-habitat-launcher-client = { path = "../launcher-client" }
-habitat-sup-protocol = { path = "../sup-protocol", default-features = false }
+bio = { path = "../bio" }
+biome_butterfly = { path = "../butterfly", default-features = false }
+biome_common = { path = "../common" }
+biome_core = { path = "../core" }
+biome_api_client = { path = "../builder-api-client" }
+biome-launcher-client = { path = "../launcher-client" }
+biome-sup-protocol = { path = "../sup-protocol", default-features = false }
 lazy_static = "*"
 libc = "*"
 log = "*"
@@ -79,8 +79,8 @@ ctrlc = "*"
 winapi =  { version = "*", features = ["tlhelp32"] }
 
 [dev-dependencies]
-habitat_core = { path = "../core" }
-# Pending upgrade activities in https://github.com/habitat-sh/core/issues/72
+biome_core = { path = "../core" }
+# Pending upgrade activities in https://github.com/biome-sh/core/issues/72
 hyper = "0.10"
 json = "*"
 

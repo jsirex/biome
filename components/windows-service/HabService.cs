@@ -94,8 +94,8 @@ namespace HabService
                     launcherArgs += String.Format(" {0}", ConfigurationManager.AppSettings["launcherArgs"]);
                 }
                 proc.StartInfo.Arguments = launcherArgs;
-                log.Info(String.Format("Habitat windows service is starting launcher at: {0}", LauncherPath));
-                log.Info(String.Format("Habitat windows service is starting launcher with args: {0}", launcherArgs));
+                log.Info(String.Format("Biome windows service is starting launcher at: {0}", LauncherPath));
+                log.Info(String.Format("Biome windows service is starting launcher with args: {0}", launcherArgs));
                 proc.OutputDataReceived += new DataReceivedEventHandler(SupOutputHandler);
                 proc.ErrorDataReceived += new DataReceivedEventHandler(SupErrorHandler);
                 proc.Start();
@@ -156,11 +156,11 @@ namespace HabService
                 }
                 else
                 {
-                    // because we declare hab-launcher as a runtime dep
+                    // because we declare bio-launcher as a runtime dep
                     // this path should exist
-                    string launcherBase = Path.Combine(Path.GetPathRoot(Environment.SystemDirectory), "hab\\pkgs\\core\\hab-launcher");
+                    string launcherBase = Path.Combine(Path.GetPathRoot(Environment.SystemDirectory), "bio\\pkgs\\core\\bio-launcher");
                     string latestLauncher = LastDirectory(LastDirectory(launcherBase));
-                    return Path.Combine(latestLauncher, "bin\\hab-launch.exe");
+                    return Path.Combine(latestLauncher, "bin\\bio-launch.exe");
                 }
             }
         }
@@ -217,7 +217,7 @@ namespace HabService
                 // Remove ourselves from the dead console
                 FreeConsole();
 
-                log.Info("Habitat service stopped");
+                log.Info("Biome service stopped");
             }
             catch(Exception e)
             {

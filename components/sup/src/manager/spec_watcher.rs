@@ -14,12 +14,12 @@
 
 //! Provides facilities for notifying when any spec files have changed
 //! on disk. This is how we know when to start, stop, or restart
-//! services in response to the various `hab svc` commands.
+//! services in response to the various `bio svc` commands.
 
 use super::spec_dir::SpecDir;
 use crate::error::{Error,
                    Result};
-use habitat_core::env::Config as EnvConfig;
+use biome_core::env::Config as EnvConfig;
 use notify::{DebouncedEvent,
              RecommendedWatcher,
              RecursiveMode,
@@ -172,7 +172,7 @@ impl SpecWatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use habitat_common::locked_env_var;
+    use biome_common::locked_env_var;
     use std::{fs::File,
               io::{Error as IoError,
                    Write},
@@ -239,7 +239,7 @@ mod tests {
     /// file in the directory, whether it's a `*.spec` file or not.
     ///
     /// This would, for instance, pick up the temp files that
-    /// operations like `hab svc stop` lay down before renaming them
+    /// operations like `bio svc stop` lay down before renaming them
     /// to their final `*.spec` form.
     #[test]
     fn can_get_events_for_non_spec_files() {

@@ -14,8 +14,8 @@
 
 use crate::ui::{UIWriter,
                 UI};
-use habitat_api_client as api_client;
-use habitat_core as hcore;
+use biome_api_client as api_client;
+use biome_core as hcore;
 use lazy_static::lazy_static;
 use std::{collections::HashMap,
           env,
@@ -55,7 +55,7 @@ lazy_static::lazy_static! {
             Ok(path) => path.file_stem().and_then(OsStr::to_str).unwrap().to_string(),
             Err(e) => {
                 error!("Error getting path of current_exe: {}", e);
-                String::from("hab-?")
+                String::from("bio-?")
             }
         }
     };
@@ -77,7 +77,7 @@ lazy_static::lazy_static! {
 // concern. We can have any number of bitflags-generated structs.
 
 bitflags::bitflags! {
-    /// All the feature flags that are recogized by Habitat.
+    /// All the feature flags that are recogized by Biome.
     ///
     /// In general, feature flags are enabled by setting the corresponding
     /// environment variable.

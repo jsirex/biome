@@ -1,4 +1,4 @@
-# Habitat package: test_build_with_secrets
+# Biome package: test_build_with_secrets
 
 ## Description
 
@@ -10,5 +10,5 @@ not been set.
 ## Usage
 
 ```bash
-HAB_STUDIO_SECRET_FOO=something hab pkg build test_build_with_secrets
+HAB_STUDIO_SECRET_FOO=something bio pkg build test_build_with_secrets
 ```

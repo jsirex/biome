@@ -1,16 +1,16 @@
 [package]
-name = "habitat_api_client"
+name = "biome_api_client"
 version = "0.0.0"
 edition = "2018"
-authors = ["The Habitat Maintainers <humans@habitat.sh>"]
+authors = ["The Biome Maintainers <humans@biome.sh>"]
 workspace = "../../"
 
 [dependencies]
 broadcast = "*"
 chrono = "*"
-habitat_core = { path = "../core" }
-habitat_http_client = { path = "../http-client" }
-# Pending upgrade activities in https://github.com/habitat-sh/core/issues/72
+biome_core = { path = "../core" }
+biome_http_client = { path = "../http-client" }
+# Pending upgrade activities in https://github.com/biome-sh/core/issues/72
 hyper = "0.10"
 hyper-openssl = "*"
 log = "*"

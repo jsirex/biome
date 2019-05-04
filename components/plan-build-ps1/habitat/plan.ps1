@@ -1,7 +1,7 @@
-$pkg_name = "hab-plan-build-ps1"
+$pkg_name = "bio-plan-build-ps1"
 $pkg_origin = "core"
 $pkg_version = "$(Get-Content $PLAN_CONTEXT/../../../VERSION)"
-$pkg_maintainer = "The Habitat Maintainers <humans@habitat.sh>"
+$pkg_maintainer = "The Biome Maintainers <humans@biome.sh>"
 $pkg_license = @("Apache-2.0")
 $pkg_source = "nosuchfile.tar.gz"
 $pkg_bin_dirs = @("bin")
@@ -10,7 +10,7 @@ $pkg_bin_dirs = @("bin")
 $pkg_deps = @()
 $pkg_build_deps = @()
 
-$bin = "hab-plan-build.ps1"
+$bin = "bio-plan-build.ps1"
 
 function Invoke-Build {
     # Embed the release version of the program.

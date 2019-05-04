@@ -14,13 +14,13 @@
 
 // This contains code largely copy/pasted from the rust-lang/rust repo
 // We will need to create processes using different windows API calls in
-// order to be able to start habitat Supervisor services as different users.
+// order to be able to start biome Supervisor services as different users.
 
 use super::super::{super::crypto::dpapi::decrypt,
                    users::get_current_username};
 use crate::error::{Error,
                    Result};
-use habitat_win_users::sid::{self,
+use biome_win_users::sid::{self,
                              Sid};
 use rand::{self,
            Rng};

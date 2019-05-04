@@ -1,7 +1,7 @@
 info() {
   case "${TERM:-}" in
     *term | xterm-* | rxvt | screen | screen-*)
-      printf -- "   \033[1;36mHabitat devshell: \033[1;37m%s\033[0m\n" "$1"
+      printf -- "   \033[1;36mBiome devshell: \033[1;37m%s\033[0m\n" "$1"
       ;;
     *)
       printf -- "   devshell: %s\n" "$1"

@@ -1,8 +1,8 @@
 # shellcheck disable=2154
-pkg_origin=core
-pkg_name=hab-pkg-aci
+pkg_origin=biome
+pkg_name=bio-pkg-aci
 pkg_version=$(cat "$PLAN_CONTEXT/../../../VERSION")
-pkg_maintainer="The Habitat Maintainers <humans@habitat.sh>"
+pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 pkg_license=("Apache-2.0")
 pkg_deps=(core/coreutils
           core/findutils
@@ -10,7 +10,7 @@ pkg_deps=(core/coreutils
           core/grep
           core/bash
           core/acbuild
-          core/hab-studio)
+          biome/bio-studio)
 pkg_build_deps=()
 pkg_bin_dirs=(bin)
 

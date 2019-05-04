@@ -712,7 +712,7 @@ mod test {
         let other = toml_from_str(
                                   r#"
             heat = "hothothot"
-            awesome_things = "habitat"
+            awesome_things = "biome"
             "#,
         );
         let expected = toml_from_str(
@@ -720,7 +720,7 @@ mod test {
             heat = "hothothot"
             fruit = "apple"
             veggie = "carrot"
-            awesome_things = "habitat"
+            awesome_things = "biome"
             "#,
         );
         toml_merge(&mut me, &other).unwrap();
@@ -952,7 +952,7 @@ mod test {
         let pkg = TestPkg::new(&concrete_path);
         let mut cfg = Cfg::new(&pkg, None).expect("Could not create config");
         let default_toml = "shards = []\n\n[datastore]\ndatabase = \
-                            \"builder_originsrv\"\npassword = \"\"\nuser = \"hab\"\n";
+                            \"builder_originsrv\"\npassword = \"\"\nuser = \"bio\"\n";
 
         cfg.default = Some(toml::from_str(default_toml).unwrap());
         assert_eq!(default_toml, toml::to_string(&cfg).unwrap());

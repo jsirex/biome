@@ -18,7 +18,7 @@ use super::{BindingMode,
 use crate::error::{Error,
                    Result,
                    SupError};
-use habitat_core::{fs::atomic_write,
+use biome_core::{fs::atomic_write,
                    package::{PackageIdent,
                              PackageInstall},
                    service::{ApplicationEnvironment,
@@ -28,7 +28,7 @@ use habitat_core::{fs::atomic_write,
                    util::{deserialize_using_from_str,
                           serialize_using_to_string},
                    ChannelIdent};
-use habitat_sup_protocol;
+use biome_sup_protocol;
 use serde::{self,
             Deserialize};
 use std::{collections::HashSet,
@@ -106,7 +106,7 @@ pub trait IntoServiceSpec {
     fn into_spec(&self, spec: &mut ServiceSpec);
 }
 
-impl IntoServiceSpec for habitat_sup_protocol::ctl::SvcLoad {
+impl IntoServiceSpec for biome_sup_protocol::ctl::SvcLoad {
     fn into_spec(&self, spec: &mut ServiceSpec) {
         spec.ident = self.ident.clone().unwrap().into();
         spec.group = self.group
@@ -131,8 +131,8 @@ impl IntoServiceSpec for habitat_sup_protocol::ctl::SvcLoad {
             spec.binds =
                 list.binds
                     .iter()
-                    .map(|pb: &habitat_sup_protocol::types::ServiceBind| {
-                        habitat_core::service::ServiceBind::new(&pb.name,
+                    .map(|pb: &biome_sup_protocol::types::ServiceBind| {
+                        biome_core::service::ServiceBind::new(&pb.name,
                                                                 pb.service_group.clone().into())
                     })
                     .collect();
@@ -315,7 +315,7 @@ mod test {
               str::FromStr};
     use tempfile::TempDir;
 
-    use habitat_core::{package::PackageIdent,
+    use biome_core::{package::PackageIdent,
                        service::{ApplicationEnvironment,
                                  HealthCheckInterval}};
 

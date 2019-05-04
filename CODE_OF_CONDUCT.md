@@ -8,7 +8,7 @@ In the interest of fostering an open, welcoming, and encouraging environment, we
 
 ## Our Standards
 
-The Habitat community contains a diverse group of professionals and volunteers who come from all over the world to make Habitat better. Community members may fulfill many roles including mentoring, teaching, and connecting with other members of the community.
+The Biome community contains a diverse group of professionals and volunteers who come from all over the world to make Biome better. Community members may fulfill many roles including mentoring, teaching, and connecting with other members of the community.
 
 Be careful in the words that you choose. Be kind to others. Practice empathy. Don't insult or put down others. Remember that sexist, racist, ableist and other exclusionary jokes can be offensive to those around you. If you think your conversation is making another community member uncomfortable _or_ if they tell you so, stop immediately, make amends, and move forward.
 
@@ -58,11 +58,11 @@ Community Organizers who do not follow or enforce the Code of Conduct in good fa
 ## Roles
 
 The following are the various roles of our <b>Community Organizers</b> and the person(s) assigned to each role:
-  * The <b>Decider</b> has final say on community guidelines and final authority on correct actions and appeals. The top-level decider is [Adam Jacob](mailto:adam@habitat.sh), [@adamhjk](https://twitter.com/adamhjk)
-  * The <b>Community Manager</b> guides and meets regularly with community advocates, helps enforce corrective actions, hears appeals, is responsible for maintaining a list of incidents, and ensures incident responders have support in incident documentation as outlined below. The Community Manager is [Ian Henry](mailto:ian@habitat.sh), [@eeyun\_\_\_](https://twitter.com/eeyun\_\_\_)
+  * The <b>Decider</b> has final say on community guidelines and final authority on correct actions and appeals. The top-level decider is [Adam Jacob](mailto:adam@biome.sh), [@adamhjk](https://twitter.com/adamhjk)
+  * The <b>Community Manager</b> guides and meets regularly with community advocates, helps enforce corrective actions, hears appeals, is responsible for maintaining a list of incidents, and ensures incident responders have support in incident documentation as outlined below. The Community Manager is [Ian Henry](mailto:ian@biome.sh), [@eeyun\_\_\_](https://twitter.com/eeyun\_\_\_)
   * <b>Community Advocates</b> may be assigned for each area where the community convenes online (IRC, email list, GitHub, etc.). Community Advocates are volunteers who have the best interests of our community in mind. They act in good faith to help enforce our community guidelines and respond to incidents when they occur. Our Community Advocates are
-    - [Tasha Drew](mailto:tasha@habitat.sh), [@tashadrew](https://twitter.com/tashadrew)
-    - [Nell Shamrell-Harrington](mailto:nshamrell@habitat.sh), [@nellshamrell](https://twitter.com/nellshamrell)
+    - [Tasha Drew](mailto:tasha@biome.sh), [@tashadrew](https://twitter.com/tashadrew)
+    - [Nell Shamrell-Harrington](mailto:nshamrell@biome.sh), [@nellshamrell](https://twitter.com/nellshamrell)
     - [Ben Dang](mailto:me@bdang.it), [@bdangit](https://twitter.com/bdangit)
   * The <b>Project Maintainers</b> are likewise expected to conduct their behavior in line with the Code of Conduct and are individually responsible for both escalating to a <b>Community Advocate</b> in case of witnessing an incident and helping to foster the community and it's members
   * A <b>Community Member</b> is anyone who participates with the community whether in-person or via online channels. Community members are responsible for following the community guidelines, suggesting updates to the guidelines when warranted, and helping enforce community guidelines
@@ -73,7 +73,7 @@ Unacceptable behavior from any community member, including sponsors and those wi
 
 Anyone asked to stop unacceptable behavior is expected to comply immediately.
 
-If a community member engages in unacceptable behavior, the community organizers may take action they deem appropriate, up to and including a temporary ban or permanent expulsion from the community _without warning_ (and without refund in the case of a paid event). If you have been involved in unacceptable behavior with current Habitat community members outside the boundaries of the Habitat Community, the Community Organizers retain the right to treat those external incidents in the same manner as internal incidents.
+If a community member engages in unacceptable behavior, the community organizers may take action they deem appropriate, up to and including a temporary ban or permanent expulsion from the community _without warning_ (and without refund in the case of a paid event). If you have been involved in unacceptable behavior with current Biome community members outside the boundaries of the Biome Community, the Community Organizers retain the right to treat those external incidents in the same manner as internal incidents.
 
 Any physical violence _or_ intimidation, threatened or acted on, is a serious offense and will result in immediate exclusion from the community and appropriate follow up with law enforcement (no, we're not kidding).
 
@@ -81,7 +81,7 @@ Any physical violence _or_ intimidation, threatened or acted on, is a serious of
 
 Disagreements are inherent to a group of impassioned people. When they occur, we seek to resolve disagreements and differing views constructively and with the help of the community and community processes. When disagreements escalate, we ask our community advocates to step in to moderate, mediate, and help resolve tense situations.
 
-The Habitat Community advocates are well informed on how to deal with incidents. Report the incident (preferably in writing) to one of the community advocates listed above. See the [Roles](#roles) section for details on each role.
+The Biome Community advocates are well informed on how to deal with incidents. Report the incident (preferably in writing) to one of the community advocates listed above. See the [Roles](#roles) section for details on each role.
 
 ### Handling Incidents
 

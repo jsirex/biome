@@ -50,7 +50,7 @@ proc log {message} {
 
 # Cleanup after the test
 exit -onexit {
-    exec hab sup term
+    exec bio sup term
     exec rm -Rf /hab/sup/default/specs/redis.spec
     exec pkill redis-server ;# Just in case the test fails
 }
@@ -58,13 +58,13 @@ exit -onexit {
 # Begin the test!
 
 # Start up a Supervisor
-set launcher_pid [spawn hab sup run]
+set launcher_pid [spawn bio sup run]
 set launcher_spawn_id $spawn_id
 expect {
     "Starting http-gateway on 0.0.0.0:9631" {
         log "Supervisor started normally"
     }
-    "Unable to start Habitat Supervisor because another instance is already running" {
+    "Unable to start Biome Supervisor because another instance is already running" {
         error "Another Supervisor is running; leftover state?"
     }
     timeout {
@@ -73,7 +73,7 @@ expect {
 }
 
 # Load up Redis on that Supervisor
-spawn hab svc load core/redis
+spawn bio svc load core/redis
 expect {
     "The core/redis service was successfully loaded" {}
     "Service already loaded, unload 'core/redis' and try again" {
@@ -126,7 +126,7 @@ expect {
 assert { [is_alive $redis_pid] } "Redis PID isn't alive!"
 assert { [is_alive $launcher_pid] } "Launcher PID isn't alive!"
 
-exec hab sup term
+exec bio sup term
 expect {
     eof {
         wait

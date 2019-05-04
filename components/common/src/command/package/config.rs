@@ -17,7 +17,7 @@
 //! # Examples
 //!
 //! ```bash
-//! $ hab pkg config core/redis
+//! $ bio pkg config core/redis
 //! ```
 //!
 //! Will show the `default.toml`.

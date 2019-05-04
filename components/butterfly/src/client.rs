@@ -16,7 +16,7 @@
 //!
 //! This will connect to a given butterfly members `Pull` thread, and inject a rumor.
 
-use habitat_core::{crypto::SymKey,
+use biome_core::{crypto::SymKey,
                    service::ServiceGroup};
 use zmq;
 

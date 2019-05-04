@@ -5,7 +5,7 @@
 #
 # To override and test locally-built code, set overrides in the environment of
 # the script.
-# See https://github.com/habitat-sh/habitat/blob/master/BUILDING.md#testing-changes
+# See https://github.com/biome-sh/biome/blob/master/BUILDING.md#testing-changes
 
 set -eou pipefail
 
@@ -15,7 +15,7 @@ create_sup_binary_stub() {
 
     cat <<EOF > "$binary"
 #!/bin/bash
-echo "hab-sup $version"
+echo "bio-sup $version"
 EOF
 
     chmod +x "$binary"
@@ -31,7 +31,7 @@ launcher_exits_with_error() {
     sup_log=$(mktemp)
 
     echo -n "Starting launcher with supervisor version \"$version\" (logging to $sup_log)..."
-    HAB_SUP_BINARY="$sup_binary" hab sup run &> "$sup_log" &
+    HAB_SUP_BINARY="$sup_binary" bio sup run &> "$sup_log" &
     launcher_pid=$!
 
     retries=0
@@ -51,7 +51,7 @@ launcher_exits_with_error() {
     ! wait "$launcher_pid"
 }
 
-trap 'pgrep hab-launch &>/dev/null && pkill -9 hab-launch' INT TERM EXIT
+trap 'pgrep bio-launch &>/dev/null && pkill -9 bio-launch' INT TERM EXIT
 
 incompatible_version="0.55.0/20180321222338"
 if HAB_LAUNCH_NO_SUP_VERSION_CHECK='' launcher_exits_with_error "$incompatible_version"; then

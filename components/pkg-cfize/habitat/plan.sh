@@ -1,19 +1,19 @@
 # shellcheck disable=2154
-pkg_name=hab-pkg-cfize
-pkg_origin=core
-pkg_maintainer="The Habitat Maintainers <humans@habitat.sh>"
+pkg_name=bio-pkg-cfize
+pkg_origin=biome
+pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 pkg_license=('Apache-2.0')
-pkg_description="Habitat Cloud Foundry image exporter"
-pkg_upstream_url="https://github.com/habitat-sh/habitat"
+pkg_description="Biome Cloud Foundry image exporter"
+pkg_upstream_url="https://github.com/biome-sh/biome"
 
-# Docker is actually also pulled in by hab-pkg-export-docker, but we
+# Docker is actually also pulled in by bio-pkg-export-docker, but we
 # explicitly call it here, so it's a dependency. Docker doesn't have
 # any dependencies, so we can unpin here without worrying about
 # getting dependency conflicts.
 #
 # We're pinning the other dependencies to their pre base-plans refresh
 # versions for the time being for explicitness, due to a bug in how
-# `hab pkg install` works in the context of our release pipeline.
+# `bio pkg install` works in the context of our release pipeline.
 #
 # It's a bit of a moot point, though, since Docker's not going to run
 # on older kernels anyway.
@@ -21,7 +21,7 @@ pkg_deps=(core/coreutils
           core/findutils
           core/grep
           core/gawk
-          core/hab-pkg-export-docker
+          biome/bio-pkg-export-docker
           core/docker)
 pkg_bin_dirs=(bin)
 
@@ -66,7 +66,7 @@ do_install() {
     install -v -D "$CACHE_PATH/$bin" "$pkg_prefix/bin/$bin"
     # Wrap the program with a script which sets the runtime `PATH` for the
     # program so that it can find all of the programs it calls out to, such as
-    # `docker`, `hab-pkg-export-docker`, etc.
+    # `docker`, `bio-pkg-export-docker`, etc.
     _wrap_binary "$pkg_prefix/bin/$bin"
   done
 }

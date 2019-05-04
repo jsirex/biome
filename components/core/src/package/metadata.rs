@@ -235,7 +235,7 @@ pub fn read_metafile<P: AsRef<Path>>(installed_path: P, file: MetaFile) -> Resul
 
 /// Returns the path to a specified MetaFile in an installed path if it exists.
 ///
-/// Useful for fallback logic for dealing with older Habitat packages.
+/// Useful for fallback logic for dealing with older Biome packages.
 fn existing_metafile<P: AsRef<Path>>(installed_path: P, file: MetaFile) -> Option<PathBuf> {
     let filepath = installed_path.as_ref().join(file.to_string());
     match std::fs::metadata(&filepath) {

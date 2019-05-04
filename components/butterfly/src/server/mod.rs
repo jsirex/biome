@@ -53,8 +53,8 @@ use crate::{error::{Error,
             swim::Ack,
             trace::{Trace,
                     TraceKind}};
-use habitat_common::FeatureFlag;
-use habitat_core::crypto::SymKey;
+use biome_common::FeatureFlag;
+use biome_core::crypto::SymKey;
 use prometheus::{HistogramTimer,
                  HistogramVec,
                  IntGauge};
@@ -91,10 +91,10 @@ const SELF_DEPARTURE_RUMOR_FANOUT: usize = 10;
 
 lazy_static! {
     static ref INCARNATION: IntGauge =
-        register_int_gauge!(opts!("hab_butterfly_incarnation_number",
+        register_int_gauge!(opts!("bio_butterfly_incarnation_number",
                                   "Incarnation number of the supervisor")).unwrap();
     static ref ELECTION_DURATION: HistogramVec =
-        register_histogram_vec!("hab_butterfly_election_duration_seconds",
+        register_histogram_vec!("bio_butterfly_election_duration_seconds",
                                 "How long it takes to complete an election",
                                 &["service_group"]).unwrap();
 }
@@ -424,7 +424,7 @@ impl Server {
     /// * Returns `Error::SocketSetReadTimeout` if the socket read timeout cannot be set
     /// * Returns `Error::SocketSetWriteTimeout` if the socket write timeout cannot be set
     pub fn start(&mut self, timing: timing::Timing) -> Result<()> {
-        debug!("entering habitat_butterfly::server::Server::start");
+        debug!("entering biome_butterfly::server::Server::start");
         let (tx_outbound, rx_inbound) = channel();
         if let Some(ref path) = self.data_path {
             if let Some(err) = fs::create_dir_all(path).err() {
@@ -1245,9 +1245,9 @@ impl<'a> Serialize for ServerProxy<'a> {
 // Note: this is a separate module solely to facilitate targeted
 // logging, e.g.
 //
-//     RUST_LOG=habitat_butterfly::server::election_trigger=trace
+//     RUST_LOG=biome_butterfly::server::election_trigger=trace
 mod election_trigger {
-    use habitat_common::FeatureFlag;
+    use biome_common::FeatureFlag;
     use std::{fs,
               path::PathBuf};
 
@@ -1309,7 +1309,7 @@ mod election_trigger {
 mod tests {
     use super::*;
     use crate::rumor::election::Term;
-    use habitat_core::service::ServiceGroup;
+    use biome_core::service::ServiceGroup;
     use std::str::FromStr;
 
     fn check_quorum_returns(val: bool) -> impl Fn(&str) -> bool { move |_: &str| val }

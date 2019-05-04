@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use habitat_butterfly::{error::Error,
+use biome_butterfly::{error::Error,
                         member::{Health,
                                  Member},
                         rumor::{departure::Departure,
@@ -26,7 +26,7 @@ use habitat_butterfly::{error::Error,
                                  Suitability},
                         trace::Trace,
                         trace_it};
-use habitat_core::{crypto::keys::sym_key::SymKey,
+use biome_core::{crypto::keys::sym_key::SymKey,
                    package::{Identifiable,
                              PackageIdent},
                    service::ServiceGroup};

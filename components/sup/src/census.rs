@@ -14,7 +14,7 @@
 
 use crate::error::{Error,
                    SupError};
-use habitat_butterfly::{member::{Health,
+use biome_butterfly::{member::{Health,
                                  Member,
                                  MemberList},
                         rumor::{election::{Election as ElectionRumor,
@@ -25,8 +25,8 @@ use habitat_butterfly::{member::{Health,
                                 service_config::ServiceConfig as ServiceConfigRumor,
                                 service_file::ServiceFile as ServiceFileRumor,
                                 RumorStore}};
-use habitat_common::outputln;
-use habitat_core::{self,
+use biome_common::outputln;
+use biome_core::{self,
                    package::PackageIdent,
                    service::ServiceGroup};
 use serde::{ser::SerializeStruct,
@@ -557,7 +557,7 @@ impl Serialize for CensusGroup {
 // accessible to users, so change this interface with care.
 //
 // User-facing documentation is available at
-// https://www.habitat.sh/docs/reference/#template-data; update that
+// https://www.biome.sh/docs/reference/#template-data; update that
 // as required.
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct CensusMember {
@@ -723,7 +723,7 @@ impl<'a> Serialize for CensusMemberProxy<'a> {
     }
 }
 
-fn service_group_from_str(sg: &str) -> Result<ServiceGroup, habitat_core::Error> {
+fn service_group_from_str(sg: &str) -> Result<ServiceGroup, biome_core::Error> {
     ServiceGroup::from_str(sg).map_err(|e| {
                                   outputln!("Malformed service group; cannot populate \
                                              configuration data. Aborting.: {}",
@@ -736,7 +736,7 @@ fn service_group_from_str(sg: &str) -> Result<ServiceGroup, habitat_core::Error>
 mod tests {
     use super::*;
     use crate::test_helpers::*;
-    use habitat_butterfly::{member::{Health,
+    use biome_butterfly::{member::{Health,
                                      MemberList},
                             rumor::{election::{self,
                                                Election as ElectionRumor,
@@ -746,8 +746,8 @@ mod tests {
                                     service_config::ServiceConfig as ServiceConfigRumor,
                                     service_file::ServiceFile as ServiceFileRumor,
                                     RumorStore}};
-    use habitat_common::cli::FS_ROOT;
-    use habitat_core::{fs::cache_key_path,
+    use biome_common::cli::FS_ROOT;
+    use biome_core::{fs::cache_key_path,
                        package::ident::PackageIdent,
                        service::ServiceGroup};
     use serde_json;

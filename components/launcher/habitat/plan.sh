@@ -1,8 +1,8 @@
 # shellcheck disable=2154
 source "$SRC_PATH/../../support/ci/builder-base-plan.sh"
-pkg_name=hab-launcher
-pkg_origin=core
-pkg_maintainer="The Habitat Maintainers <humans@habitat.sh>"
+pkg_name=bio-launcher
+pkg_origin=biome
+pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 pkg_license=('Apache-2.0')
 pkg_deps=(core/glibc
           core/gcc-libs
@@ -15,7 +15,7 @@ pkg_build_deps=(core/coreutils
                 core/git
                 core/protobuf)
 pkg_bin_dirs=(bin)
-bin="hab-launch"
+bin="bio-launch"
 
 # shellcheck disable=2155
 do_prepare() {
@@ -30,7 +30,7 @@ do_prepare() {
   # Prost (our Rust protobuf library) embeds a `protoc` binary, but
   # it's dynamically linked, which means it won't work in a
   # Studio. Prost does allow us to override that, though, so we can
-  # just use our Habitat package by setting these two environment
+  # just use our Biome package by setting these two environment
   # variables.
   export PROTOC="$(pkg_path_for protobuf)/bin/protoc"
   export PROTOC_INCLUDE="$(pkg_path_for protobuf)/include"

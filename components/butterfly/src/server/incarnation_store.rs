@@ -23,7 +23,7 @@ use std::{fs::File,
 use crate::{error::{Error,
                     Result},
             member::Incarnation};
-use habitat_core::fs::atomic_write;
+use biome_core::fs::atomic_write;
 use std::{io,
           num};
 

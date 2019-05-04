@@ -19,7 +19,7 @@
 
 use crate::{manager::action::ShutdownSpec,
             sys::ShutdownMethod};
-use habitat_core::os::process::{is_alive,
+use biome_core::os::process::{is_alive,
                                 signal,
                                 Pid,
                                 Signal};

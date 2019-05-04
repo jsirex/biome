@@ -30,8 +30,8 @@ use std::{env,
           str::FromStr};
 use tempfile;
 
-/// The default root path of the Habitat filesystem
-pub const ROOT_PATH: &str = "hab";
+/// The default root path of the Biome filesystem
+pub const ROOT_PATH: &str = "bio";
 /// The default path for any analytics related files
 pub const CACHE_ANALYTICS_PATH: &str = "hab/cache/analytics";
 /// The default download root path for package artifacts, used on package installation
@@ -50,9 +50,9 @@ pub const LAUNCHER_ROOT_PATH: &str = "hab/launcher";
 #[cfg(not(target_os = "windows"))]
 pub const PKG_PATH: &str = "hab/pkgs";
 #[cfg(target_os = "windows")]
-pub const PKG_PATH: &str = "hab\\pkgs";
+pub const PKG_PATH: &str = "bio\\pkgs";
 /// The environment variable pointing to the filesystem root. This exists for internal
-/// Habitat team usage and is not intended to be used by Habitat consumers.
+/// Biome team usage and is not intended to be used by Biome consumers.
 /// Using this variable could lead to broken Supervisor services and it should
 /// be used with extreme caution.
 pub const FS_ROOT_ENVVAR: &str = "FS_ROOT";
@@ -462,7 +462,7 @@ impl<'a> SvcDir<'a> {
 /// Behavior when the command exists on PATH:
 ///
 /// ```
-/// use habitat_core::fs::find_command;
+/// use biome_core::fs::find_command;
 /// use std::{env,
 ///           fs};
 ///
@@ -479,7 +479,7 @@ impl<'a> SvcDir<'a> {
 /// Behavior when the command does not exist on PATH:
 ///
 /// ```
-/// use habitat_core::fs::find_command;
+/// use biome_core::fs::find_command;
 /// use std::{env,
 ///           fs};
 ///
@@ -620,11 +620,11 @@ fn find_command_with_pathext(candidate: &PathBuf) -> Option<PathBuf> {
 /// See, for example, Linux capabilities.
 pub fn am_i_root() -> bool { *EUID == 0u32 }
 
-/// Returns a `PathBuf` which represents the filesystem root for Habitat.
+/// Returns a `PathBuf` which represents the filesystem root for Biome.
 ///
 /// **Note** with the current exception of behavior on Windows (see below), an absolute default
 /// path of `"/"` should always be returned. This function is used to populate a one-time static
-/// value which cannot be altered for the execution length of a program. Packages in Habitat may
+/// value which cannot be altered for the execution length of a program. Packages in Biome may
 /// contain binaries and libraries having dependent libraries which are located in absolute paths
 /// meaning that changing the value from this function will render existing packages un-runnable in
 /// the Supervisor. Furthermore as a rule in this codebase, external environment variables should
@@ -634,7 +634,7 @@ pub fn am_i_root() -> bool { *EUID == 0u32 }
 /// There is one exception to this rule which is supported for testing only--primarily exercising
 /// the Supervisor behavior. It allows setting a testing-only environment variable to influence the
 /// file system root for the duration of a running program.  Note that when using such an
-/// environment varible, any existing/actual Habitat packages may not run correctly due to the
+/// environment varible, any existing/actual Biome packages may not run correctly due to the
 /// presence of absolute paths in package binaries and libraries. The environment variable will not
 /// be referenced, exported, or consumed anywhere else in the system to ensure that it is *only*
 /// used internally in test suites.

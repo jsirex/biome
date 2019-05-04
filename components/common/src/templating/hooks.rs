@@ -18,9 +18,9 @@ use crate::{error::{Error,
                     Result},
             outputln};
 #[cfg(windows)]
-use habitat_core::os::process::windows_child::{Child,
+use biome_core::os::process::windows_child::{Child,
                                                ExitStatus};
-use habitat_core::{crypto,
+use biome_core::{crypto,
                    fs};
 use serde::{Serialize,
             Serializer};
@@ -154,15 +154,15 @@ pub trait Hook: fmt::Debug + Sized + Send {
     }
 
     #[cfg(not(windows))]
-    fn set_permissions<T: AsRef<Path>>(path: T) -> habitat_core::error::Result<()> {
-        use habitat_core::util::posix_perm;
+    fn set_permissions<T: AsRef<Path>>(path: T) -> biome_core::error::Result<()> {
+        use biome_core::util::posix_perm;
 
         posix_perm::set_permissions(path.as_ref(), HOOK_PERMISSIONS)
     }
 
     #[cfg(windows)]
-    fn set_permissions<T: AsRef<Path>>(path: T) -> habitat_core::error::Result<()> {
-        use habitat_core::util::win_perm;
+    fn set_permissions<T: AsRef<Path>>(path: T) -> biome_core::error::Result<()> {
+        use biome_core::util::win_perm;
 
         win_perm::harden_path(path.as_ref())
     }
@@ -189,7 +189,7 @@ pub trait Hook: fmt::Debug + Sized + Send {
     #[cfg(windows)]
     fn output_termination_message(_: &str, _: ExitStatus) {
         panic!("ExitStatus::code should never return None on Windows; please report this to the \
-                Habitat core developers");
+                Biome core developers");
     }
 
     /// Run a compiled hook.
@@ -239,7 +239,7 @@ pub trait Hook: fmt::Debug + Sized + Send {
         where T: ToString,
               S: AsRef<OsStr>
     {
-        use habitat_core::os::users;
+        use biome_core::os::users;
         use std::io::Error as IoError;
 
         let mut cmd = Command::new(path.as_ref());
@@ -501,7 +501,7 @@ mod tests {
                             context::RenderContext,
                             package::Pkg,
                             test_helpers::*};
-    use habitat_core::{package::{PackageIdent,
+    use biome_core::{package::{PackageIdent,
                                  PackageInstall},
                        service::ServiceGroup};
     use tempfile::TempDir;

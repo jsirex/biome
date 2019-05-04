@@ -3,8 +3,8 @@
 
 use super::service::ServiceSpec;
 #[cfg(unix)]
-use habitat_core::os::process::ShutdownSignal;
-use habitat_core::os::process::ShutdownTimeout;
+use biome_core::os::process::ShutdownSignal;
+use biome_core::os::process::ShutdownTimeout;
 use std::sync::mpsc;
 
 /// Defines the parameters by which a service process is to be shut
@@ -48,7 +48,7 @@ pub enum SupervisorAction {
 pub type ActionSender = mpsc::Sender<SupervisorAction>;
 
 #[cfg(unix)]
-impl Into<ShutdownSpec> for habitat_sup_protocol::ctl::SvcUnload {
+impl Into<ShutdownSpec> for biome_sup_protocol::ctl::SvcUnload {
     fn into(self) -> ShutdownSpec {
         let timeout = self.timeout_in_seconds.map(Into::into).unwrap_or_default();
         let signal = self.signal
@@ -59,7 +59,7 @@ impl Into<ShutdownSpec> for habitat_sup_protocol::ctl::SvcUnload {
 }
 
 #[cfg(windows)]
-impl Into<ShutdownSpec> for habitat_sup_protocol::ctl::SvcUnload {
+impl Into<ShutdownSpec> for biome_sup_protocol::ctl::SvcUnload {
     fn into(self) -> ShutdownSpec {
         let timeout = self.timeout_in_seconds.map(Into::into).unwrap_or_default();
         ShutdownSpec { timeout }
@@ -67,7 +67,7 @@ impl Into<ShutdownSpec> for habitat_sup_protocol::ctl::SvcUnload {
 }
 
 #[cfg(unix)]
-impl Into<ShutdownSpec> for habitat_sup_protocol::ctl::SvcStop {
+impl Into<ShutdownSpec> for biome_sup_protocol::ctl::SvcStop {
     fn into(self) -> ShutdownSpec {
         let timeout = self.timeout_in_seconds.map(Into::into).unwrap_or_default();
         let signal = self.signal
@@ -78,7 +78,7 @@ impl Into<ShutdownSpec> for habitat_sup_protocol::ctl::SvcStop {
 }
 
 #[cfg(windows)]
-impl Into<ShutdownSpec> for habitat_sup_protocol::ctl::SvcStop {
+impl Into<ShutdownSpec> for biome_sup_protocol::ctl::SvcStop {
     fn into(self) -> ShutdownSpec {
         let timeout = self.timeout_in_seconds.map(Into::into).unwrap_or_default();
         ShutdownSpec { timeout }

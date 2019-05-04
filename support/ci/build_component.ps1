@@ -15,9 +15,9 @@ $job_temp_root = mkdir (Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName
 $env:HAB_CACHE_KEY_PATH="$job_temp_root/keys"
 
 Write-Host "--- :key: Generating fake origin key"
-hab origin key generate
-Write-Host "--- :hab: Running hab pkg build for $Component"
+bio origin key generate
+Write-Host "--- :bio: Running bio pkg build for $Component"
 
-hab studio build -D --no-tty --non-interactive components/$Component
+bio studio build -D --no-tty --non-interactive components/$Component
 
 exit $LASTEXITCODE

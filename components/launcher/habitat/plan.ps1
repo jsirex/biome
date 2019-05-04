@@ -1,6 +1,6 @@
-$pkg_name = "hab-launcher"
+$pkg_name = "bio-launcher"
 $pkg_origin = "core"
-$pkg_maintainer = "The Habitat Maintainers <humans@habitat.sh>"
+$pkg_maintainer = "The Biome Maintainers <humans@biome.sh>"
 $pkg_license = @("Apache-2.0")
 $pkg_deps=@(
     "core/openssl",
@@ -60,7 +60,7 @@ function Invoke-Build {
 }
 
 function Invoke-Install {
-    Copy-Item "$env:CARGO_TARGET_DIR/release/hab-launch.exe" "$pkg_prefix/bin/hab-launch.exe"
+    Copy-Item "$env:CARGO_TARGET_DIR/release/bio-launch.exe" "$pkg_prefix/bin/bio-launch.exe"
     Copy-Item "$(Get-HabPackagePath "openssl")/bin/*.dll" "$pkg_prefix/bin"
     Copy-Item "$(Get-HabPackagePath "zlib")/bin/*.dll" "$pkg_prefix/bin"
     Copy-Item "$(Get-HabPackagePath "libarchive")/bin/*.dll" "$pkg_prefix/bin"

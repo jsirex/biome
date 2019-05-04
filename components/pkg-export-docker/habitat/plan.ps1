@@ -1,7 +1,7 @@
-$pkg_name = "hab-pkg-export-docker"
+$pkg_name = "bio-pkg-export-docker"
 $pkg_origin = "core"
 $pkg_version = "$(Get-Content $PLAN_CONTEXT/../../../VERSION)"
-$pkg_maintainer = "The Habitat Maintainers <humans@habitat.sh>"
+$pkg_maintainer = "The Biome Maintainers <humans@biome.sh>"
 $pkg_license = @("Apache-2.0")
 $pkg_bin_dirs = @("bin")
 $pkg_deps=@(
@@ -58,7 +58,7 @@ function Invoke-Build {
 }
 
 function Invoke-Install {
-    Copy-Item "$env:CARGO_TARGET_DIR/release/hab-pkg-export-docker.exe" "$pkg_prefix/bin/hab-pkg-export-docker.exe"
+    Copy-Item "$env:CARGO_TARGET_DIR/release/bio-pkg-export-docker.exe" "$pkg_prefix/bin/bio-pkg-export-docker.exe"
     Copy-Item "$(Get-HabPackagePath "openssl")/bin/*.dll" "$pkg_prefix/bin"
     Copy-Item "$(Get-HabPackagePath "zlib")/bin/*.dll" "$pkg_prefix/bin"
     Copy-Item "$(Get-HabPackagePath "libarchive")/bin/*.dll" "$pkg_prefix/bin"

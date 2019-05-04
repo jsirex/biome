@@ -1,7 +1,7 @@
 Automated Tests
 ===============
 
-We're building out a suite of automated tests for the studio and other Habitat products. For now, these haven't been wired up to an automated build process, but they will be shortly. In the meantime, you can run them manually.
+We're building out a suite of automated tests for the studio and other Biome products. For now, these haven't been wired up to an automated build process, but they will be shortly. In the meantime, you can run them manually.
 
 # Prerequisites
 

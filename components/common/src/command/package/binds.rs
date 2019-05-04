@@ -17,7 +17,7 @@
 //! # Examples
 //!
 //! ```bash
-//! $ hab pkg binds core/redis
+//! $ bio pkg binds core/redis
 //! ```
 //!
 //! Will show all available binds.

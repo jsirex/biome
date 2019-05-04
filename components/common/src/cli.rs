@@ -20,7 +20,7 @@
 use crate::types::ListenCtlAddr;
 use clap::ArgMatches;
 
-use habitat_core::{env as henv,
+use biome_core::{env as henv,
                    fs::{cache_key_path,
                         CACHE_KEY_PATH},
                    os::process::{ShutdownSignal,
@@ -90,7 +90,7 @@ pub const BINLINK_DIR_ENVVAR: &str = "HAB_BINLINK_DIR";
 
 /// Default Binlink Dir
 #[cfg(target_os = "windows")]
-pub const DEFAULT_BINLINK_DIR: &str = "/hab/bin";
+pub const DEFAULT_BINLINK_DIR: &str = "/bio/bin";
 #[cfg(target_os = "linux")]
 pub const DEFAULT_BINLINK_DIR: &str = "/bin";
 #[cfg(target_os = "macos")]
