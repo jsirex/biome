@@ -17,8 +17,6 @@ NOTE: if you're forking this project you will likely use a feature branch instea
 
 # Upstream
 
-<img src="https://github.com/jsirex/biome/blob/master/www/source/images/biome-logo.png" width="200">
-
 [![Build Status](https://badge.buildkite.com/f527cd3d7851756ed1a5f6ec463dd41e7145f7941fd932672a.svg)](https://buildkite.com/chef/biome-sh-biome-master-verify?branch=master)
 [![Slack](http://slack.biome.sh/badge.svg)](http://slack.biome.sh/)
 [![Discourse status](https://img.shields.io/discourse/https/meta.discourse.org/status.svg?style=flat)](https://forums.habitat.sh)
