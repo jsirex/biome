@@ -409,7 +409,7 @@ declare -A pkg_exports
 declare -A pkg_binds
 declare -A pkg_binds_optional
 # The user to run the service as
-pkg_svc_user=bio
+pkg_svc_user=hab
 # The group to run the service as
 pkg_svc_group=$pkg_svc_user
 

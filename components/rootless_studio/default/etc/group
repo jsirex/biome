@@ -21,4 +21,6 @@ input:x:24:
 mail:x:34:
 nogroup:x:99:
 users:x:999:
-bio:x:42:bio
+bio:x:43:bio
+hab:x:42:hab
+

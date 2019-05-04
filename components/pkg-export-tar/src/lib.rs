@@ -81,7 +81,7 @@ fn tar_command(temp_dir_path: &Path, pkg_ident: PackageIdent, bio_pkg: &str) {
     bio_pkg_binary_path.push("bin");
 
     // Append the bio binary to the tar ball
-    tar_builder.append_dir_all("bio/bin", bio_pkg_binary_path);
+    tar_builder.append_dir_all("hab/bin", bio_pkg_binary_path);
 }
 
 fn format_tar_name(ident: PackageIdent) -> String {

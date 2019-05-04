@@ -6,14 +6,13 @@ It was generated from original using small tool [ForkMan](https://github.com/jsi
 
 ## Backporting changes
 
-1. Pull upstream changes into temporary local branch
+1. Add `habitat` repo as remote: `git remote add habitat https://github.com/habitat-sh/habitat.git`
+1. Fetch latest changes: `git fetch habitat master`
+1. Checkout new branch at upstream branch: `git checkout -b patch-branch habitat/master`
 1. Use `forkman.rb` with `habitat-sh/habitat.yml` config to refactor original repo
-1. Commit changes
-1. Switch to `master` branch and `git cherry-pick` you temporary local branch
-1. Inspect changes, resolve conflicts if any
-1. Push changes
-
-NOTE: if you're forking this project you will likely use a feature branch instead of master.
+1. Do a soft reset on master: `git reset --soft master`
+1. Inspect stage and commit appropriate changes
+1. Do a final review and push `patch-branch` for review (create merge request)
 
 # Upstream
 

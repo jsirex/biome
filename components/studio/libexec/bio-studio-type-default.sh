@@ -132,7 +132,7 @@ EOF
 # Add bio to the default PATH at the front so any wrapping scripts will
 # be found and called first
 export PATH=$HAB_ROOT_PATH/bin:\$PATH
-export HAB_BINLINK_DIR=/bio/bin
+export HAB_BINLINK_DIR=/hab/bin
 
 # Colorize grep/egrep/fgrep by default
 alias grep='grep --color=auto'
@@ -226,11 +226,11 @@ case "\${HAB_STUDIO_SUP:-}" in
 esac
 PROFILE_ENTER
 
-  echo "${run_user}:x:42:42:root:/:/bin/sh"  >> "$HAB_STUDIO_ROOT"/etc/passwd
-echo "hab:x:43:43:root:/:/bin/sh"  >> "$HAB_STUDIO_ROOT"/etc/passwd
+  echo "${run_user}:x:43:43:root:/:/bin/sh" >> "$HAB_STUDIO_ROOT"/etc/passwd
+  echo "hab:x:42:42:root:/:/bin/sh" >> "$HAB_STUDIO_ROOT"/etc/passwd
 
-  echo "${run_group}:x:42:${run_user}"  >> "$HAB_STUDIO_ROOT"/etc/group
-echo "hab:x:43:hab"  >> "$HAB_STUDIO_ROOT"/etc/group
+  echo "${run_group}:x:43:${run_user}" >> "$HAB_STUDIO_ROOT"/etc/group
+  echo "hab:x:42:hab" >> "$HAB_STUDIO_ROOT"/etc/group
 
 
   studio_env_command="$coreutils_path/bin/env"

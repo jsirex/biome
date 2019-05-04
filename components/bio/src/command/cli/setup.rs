@@ -182,7 +182,7 @@ pub fn start(ui: &mut UI, cache_path: &Path, analytics_path: &Path) -> Result<()
         ui.heading("Biome Binlink Path")?;
         ui.para("The `bio` command-line tool can create binlinks for package binaries in the \
                  'PATH' when using the 'pkg binlink' or 'pkg install --binlink' commands. By \
-                 default, Biome will create these binlinks in the '/bio/bin' directory. This \
+                 default, Biome will create these binlinks in the '/hab/bin' directory. This \
                  directory will always be included in your 'PATH' when inside a Studio \
                  environment. However, you will want this directory on your machine's \
                  persistent 'PATH' in order to access binlinks outside of a Studio.")?;
