@@ -24,7 +24,7 @@ const DOCKER_CMD: &str = "docker";
 const DOCKER_CMD_ENVVAR: &str = "HAB_DOCKER_BINARY";
 
 const DOCKER_IMAGE: &str = "biomesh/default-studio";
-biomesh/win-studio;
+const DOCKER_WINDOWS_IMAGE: &str = "biomesh/win-studio";
 const DOCKER_IMAGE_ENVVAR: &str = "HAB_DOCKER_STUDIO_IMAGE";
 const DOCKER_OPTS_ENVVAR: &str = "HAB_DOCKER_OPTS";
 const DOCKER_SOCKET: &str = "/var/run/docker.sock";
