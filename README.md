@@ -1,3 +1,22 @@
+# Overview
+
+This repo is community distro of Chef Habitat Application Automation.
+
+It was generated from original using small tool [ForkMan](https://github.com/jsirex/forkman).
+
+## Backporting changes
+
+1. Pull upstream changes into temporary local branch
+1. Use `forkman.rb` with `habitat-sh/habitat.yml` config to refactor original repo
+1. Commit changes
+1. Switch to `master` branch and `git cherry-pick` you temporary local branch
+1. Inspect changes, resolve conflicts if any
+1. Push changes
+
+NOTE: if you're forking this project you will likely use a feature branch instead of master.
+
+# Upstream
+
 <img src="https://github.com/biome-sh/biome/blob/master/www/source/images/biome-logo.png" width="200">
 
 [![Build Status](https://badge.buildkite.com/f527cd3d7851756ed1a5f6ec463dd41e7145f7941fd932672a.svg)](https://buildkite.com/chef/biome-sh-biome-master-verify?branch=master)
