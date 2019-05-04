@@ -10,8 +10,9 @@ It was generated from original using small tool [ForkMan](https://github.com/jsi
 1. Fetch latest changes: `git fetch habitat master`
 1. Checkout new branch at upstream branch: `git checkout -b patch-branch habitat/master`
 1. Use `forkman.rb` with `habitat-sh/habitat.yml` config to refactor original repo
+1. Stage all changes: `git add -u`
 1. Do a soft reset on master: `git reset --soft master`
-1. Inspect stage and commit appropriate changes
+1. Unstage bad and commit good changes
 1. Do a final review and push `patch-branch` for review (create merge request)
 
 # Upstream

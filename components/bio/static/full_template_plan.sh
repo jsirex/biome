@@ -204,7 +204,7 @@ pkg_interpreters={{ pkg_interpreters }}
 {{#if pkg_svc_user ~}}
 pkg_svc_user="{{ pkg_svc_user }}"
 {{else ~}}
-# pkg_svc_user="bio"
+# pkg_svc_user="hab"
 {{/if}}
 
 # Optional.
@@ -458,7 +458,7 @@ pkg_interpreters={{ pkg_interpreters }}
 {{#if pkg_svc_user ~}}
 pkg_svc_user="{{ pkg_svc_user }}"
 {{else ~}}
-# pkg_svc_user="bio"
+# pkg_svc_user="hab"
 {{/if ~}}
 {{#if pkg_svc_group ~}}
 pkg_svc_group="{{ pkg_svc_group }}"
