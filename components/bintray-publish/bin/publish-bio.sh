@@ -270,7 +270,7 @@ _publish_slim_release() {
       --user="$BINTRAY_USER" \
       --key="$BINTRAY_KEY" \
       --licenses=Apache-2.0 \
-      --vcs-url=https://github.com/biome-sh/biome \
+      --vcs-url=https://github.com/jsirex/biome \
       --issuetracker-url=https://github.com/habitat-sh/habitat/issues \
       --pub-dn=false \
       --pub-stats=false \

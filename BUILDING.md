@@ -14,7 +14,7 @@ sudo -E apt-get install -y --no-install-recommends git
 Then, clone the codebase and enter the directory:
 
 ```
-git clone https://github.com/biome-sh/biome.git
+git clone https://github.com/jsirex/biome.git
 cd biome
 ```
 
@@ -147,7 +147,7 @@ must be run from the source directory of the project to correctly identify the n
 
 ## HAB_STUDIO_BINARY
 
-This one is a bit special. Technically [bio-studio.sh](https://github.com/biome-sh/biome/blob/master/components/studio/bin/bio-studio.sh) is a shell script file and not binary. This also means that there is no need to build anything; set `HAB_STUDIO_BINARY` to the path to a version of `bio-studio.sh` within a `biome` checkout and it will be used. This override will also affect which versions of the files in [studio/libexec](https://github.com/biome-sh/biome/tree/master/components/studio/libexec) are used. So if you want to test out changes to [bio-studio-profile.sh](https://github.com/biome-sh/biome/blob/master/components/studio/libexec/bio-studio-profile.sh) or [bio-studio-type-default.sh](https://github.com/biome-sh/biome/blob/master/components/studio/libexec/bio-studio-type-default.sh), make those changes in a checkout of the `biome` repo located at `/path/to/biome/repo` and set `HAB_STUDIO_BINARY` to `/path/to/biome/repo/components/studio/bin/bio-studio.sh`. For example:
+This one is a bit special. Technically [bio-studio.sh](https://github.com/jsirex/biome/blob/master/components/studio/bin/bio-studio.sh) is a shell script file and not binary. This also means that there is no need to build anything; set `HAB_STUDIO_BINARY` to the path to a version of `bio-studio.sh` within a `biome` checkout and it will be used. This override will also affect which versions of the files in [studio/libexec](https://github.com/jsirex/biome/tree/master/components/studio/libexec) are used. So if you want to test out changes to [bio-studio-profile.sh](https://github.com/jsirex/biome/blob/master/components/studio/libexec/bio-studio-profile.sh) or [bio-studio-type-default.sh](https://github.com/jsirex/biome/blob/master/components/studio/libexec/bio-studio-type-default.sh), make those changes in a checkout of the `biome` repo located at `/path/to/biome/repo` and set `HAB_STUDIO_BINARY` to `/path/to/biome/repo/components/studio/bin/bio-studio.sh`. For example:
 ```bash
 $ env HAB_STUDIO_BINARY=/path/to/biome/repo/components/studio/bin/bio-studio.sh bio studio enter
 ```
@@ -166,7 +166,7 @@ team suggests that you use our consistent development environment that we call
 the "devshell" as the easiest way to get started.
 
 1. [Install Docker for Mac](https://www.docker.com/products/docker)
-1. Checkout the source by running `git clone git@github.com:biome-sh/biome.git; cd biome`
+1. Checkout the source by running `git clone git@github.com:jsirex/biome.git; cd biome`
 1. Run `make` to compile all Rust software components (this will take a while)
 1. (Optional) Run `make test` if you want to run the tests. This will take a while.
 
@@ -210,7 +210,7 @@ using another environment.
 First clone the codebase and enter the directory:
 
 ```
-git clone https://github.com/biome-sh/biome.git
+git clone https://github.com/jsirex/biome.git
 cd biome
 ```
 
@@ -247,7 +247,7 @@ libsodium and czmq aren't available.
 First clone the codebase and enter the directory:
 
 ```
-git clone https://github.com/biome-sh/biome.git
+git clone https://github.com/jsirex/biome.git
 cd biome
 ```
 
@@ -276,7 +276,7 @@ sudo su - jdoe
 First clone the codebase and enter the directory:
 
 ```
-git clone https://github.com/biome-sh/biome.git
+git clone https://github.com/jsirex/biome.git
 cd biome
 ```
 
@@ -311,7 +311,7 @@ sudo su - jdoe
 First clone the codebase and enter the directory:
 
 ```
-git clone https://github.com/biome-sh/biome.git
+git clone https://github.com/jsirex/biome.git
 cd biome
 ```
 
@@ -353,7 +353,7 @@ Feel free to use this file as a jumping-off point for customizing your own Biome
 ```
 vagrant ssh
 sudo su -
-git clone https://github.com/biome-sh/biome.git
+git clone https://github.com/jsirex/biome.git
 cd biome/components/builder-api
 cargo test
 ```
@@ -369,7 +369,7 @@ making `git` better in your PowerShell console (`install-module posh-git`).
 
 ```
 # Clone the Biome source
-git clone https://github.com/biome-sh/biome.git
+git clone https://github.com/jsirex/biome.git
 
 cd biome
 ./build.ps1 components/bio -configure

@@ -20,7 +20,7 @@ ifeq ($(IN_DOCKER),true)
 		run_args := $(run_args) -e https_proxy="${https_proxy}"
 	endif
 
-	dimage := biome/devshell
+	dimage := biomesh/devshell
 	docker_cmd := env http_proxy= https_proxy= docker
 	compose_cmd := env http_proxy= https_proxy= docker-compose
 	common_run := $(compose_cmd) run --rm $(run_args)
@@ -42,7 +42,7 @@ else
 endif
 
 # launcher is intentionally omitted from the standard build process
-# see https://github.com/biome-sh/biome/blob/master/components/launcher/README.md
+# see https://github.com/jsirex/biome/blob/master/components/launcher/README.md
 BIN = bio pkg-export-docker pkg-export-kubernetes sup
 LIB = butterfly common builder-api-client sup-protocol sup-client
 ALL = $(BIN) $(LIB)

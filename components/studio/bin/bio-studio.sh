@@ -16,7 +16,7 @@
 # TESTING CHANGES
 # Documentation on testing local changes to this file and its friends in
 # ../libexec lives here:
-# https://github.com/biome-sh/biome/blob/master/BUILDING.md#testing-changes
+# https://github.com/jsirex/biome/blob/master/BUILDING.md#testing-changes
 
 # # Internals
 

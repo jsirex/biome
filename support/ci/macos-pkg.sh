@@ -24,7 +24,7 @@ cat <<- EOF > "$src_root"/out/bio-bintray.json
     "desc": "",
     "website_url": "https://www.biome.sh",
     "issue_tracker_url": "https://github.com/habitat-sh/habitat/issues",
-    "vcs_url": "https://github.com/biome-sh/biome",
+    "vcs_url": "https://github.com/jsirex/biome",
     "github_use_tag_release_notes": true,
     "github_release_notes_file": "RELEASE.md",
     "licenses": ["Apache-2.0"],

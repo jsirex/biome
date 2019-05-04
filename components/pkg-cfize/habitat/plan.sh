@@ -4,7 +4,7 @@ pkg_origin=biome
 pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 pkg_license=('Apache-2.0')
 pkg_description="Biome Cloud Foundry image exporter"
-pkg_upstream_url="https://github.com/biome-sh/biome"
+pkg_upstream_url="https://github.com/jsirex/biome"
 
 # Docker is actually also pulled in by bio-pkg-export-docker, but we
 # explicitly call it here, so it's a dependency. Docker doesn't have

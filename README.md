@@ -17,11 +17,11 @@ NOTE: if you're forking this project you will likely use a feature branch instea
 
 # Upstream
 
-<img src="https://github.com/biome-sh/biome/blob/master/www/source/images/biome-logo.png" width="200">
+<img src="https://github.com/jsirex/biome/blob/master/www/source/images/biome-logo.png" width="200">
 
 [![Build Status](https://badge.buildkite.com/f527cd3d7851756ed1a5f6ec463dd41e7145f7941fd932672a.svg)](https://buildkite.com/chef/biome-sh-biome-master-verify?branch=master)
 [![Slack](http://slack.biome.sh/badge.svg)](http://slack.biome.sh/)
-[![Discourse status](https://img.shields.io/discourse/https/meta.discourse.org/status.svg?style=flat)](https://forums.biome.sh)
+[![Discourse status](https://img.shields.io/discourse/https/meta.discourse.org/status.svg?style=flat)](https://forums.habitat.sh)
 [![Open Source Helpers](https://www.codetriage.com/biome-sh/biome/badges/users.svg)](https://www.codetriage.com/biome-sh/biome)
 
 
@@ -56,19 +56,19 @@ Graphics that will help you and your team better understand the concepts and how
 Try the interactive infographics on the [website](http://biome.sh#reference-diagram)!
 
 ### How Biome Works
-* [Architecture Overview](https://github.com/biome-sh/biome/raw/master/www/source/images/infographics/biome-architecture-overview.png)
-* [Initial Package Build Flow](https://github.com/biome-sh/biome/raw/master/www/source/images/infographics/biome-initial-package-build-flow.png)
-* [Application Rebuild Flow](https://github.com/biome-sh/biome/raw/master/www/source/images/infographics/biome-application-rebuild-flow.png)
-* [Dependency Update Flow](https://github.com/biome-sh/biome/raw/master/www/source/images/infographics/biome-dependency-update-flow.png)
-* [Promote Packages Through Channels](https://github.com/biome-sh/biome/raw/master/www/source/images/infographics/biome-promote-packages-through-channels.png)
+* [Architecture Overview](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-architecture-overview.png)
+* [Initial Package Build Flow](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-initial-package-build-flow.png)
+* [Application Rebuild Flow](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-application-rebuild-flow.png)
+* [Dependency Update Flow](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-dependency-update-flow.png)
+* [Promote Packages Through Channels](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-promote-packages-through-channels.png)
 
 ### Biome and **Docker**
-* [Initial Docker Container Publishing Flow](https://github.com/biome-sh/biome/raw/master/www/source/images/infographics/biome-initial-docker-container-publishing-flow.png)
-* [Automated Docker Container Publishing Flow](https://github.com/biome-sh/biome/raw/master/www/source/images/infographics/biome-automated-docker-container-publishing-flow.png)
+* [Initial Docker Container Publishing Flow](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-initial-docker-container-publishing-flow.png)
+* [Automated Docker Container Publishing Flow](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-automated-docker-container-publishing-flow.png)
 
 ### Biome and **Kubernetes**
-* [Three Tiers of Service Deployment](https://github.com/biome-sh/biome/raw/master/www/source/images/infographics/biome-and-kubernetes-three-tiers-of-service-deployment.png)
-* [Deploy Services to Kubernetes with Biome](https://github.com/biome-sh/biome/raw/master/www/source/images/infographics/deploy-services-to-kubernetes-with-biome-flow.png)
+* [Three Tiers of Service Deployment](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-and-kubernetes-three-tiers-of-service-deployment.png)
+* [Deploy Services to Kubernetes with Biome](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/deploy-services-to-kubernetes-with-biome-flow.png)
 
 *View all diagrams in [Docs](https://www.biome.sh/docs/diagrams/)*
 
@@ -99,10 +99,10 @@ C:\> choco install biome
 ```
 
 If you do _not_ run Homebrew or Chocolatey, or if you use Linux, you can use the [Biome install
-script](https://github.com/biome-sh/biome/blob/master/components/bio/install.sh) from a bash shell.
+script](https://github.com/jsirex/biome/blob/master/components/bio/install.sh) from a bash shell.
 
 ```
-$ curl https://raw.githubusercontent.com/biome-sh/biome/master/components/bio/install.sh | sudo bash
+$ curl https://raw.githubusercontent.com/jsirex/biome/master/components/bio/install.sh | sudo bash
 ```
 
 ## Contribute
@@ -121,7 +121,7 @@ The Biome plans that are built and maintained by Biome's Core Team are in [their
 
 ### Biome Supervisor and other core components
 
-The code for the Biome Supervisor and other core components are in the [components directory](https://github.com/biome-sh/biome/tree/master/components).
+The code for the Biome Supervisor and other core components are in the [components directory](https://github.com/jsirex/biome/tree/master/components).
 
 ### Docs
 
@@ -131,12 +131,12 @@ Biome's website and documentation source is located in the `www` directory of th
 
 The Biome project's roadmap is public and is on our [community page](https://www.biome.sh/community/).
 
-The Biome core team's project tracker is also public and on [Github.](https://github.com/biome-sh/biome/projects/1)
+The Biome core team's project tracker is also public and on [Github.](https://github.com/jsirex/biome/projects/1)
 
 ## Community and support
 
 * [Biome Slack](http://slack.biome.sh)
-* [Forums](https://forums.biome.sh)
+* [Forums](https://forums.habitat.sh)
 * Community triage is every Tuesday at 10am Pacific. The link to participate is shared in the [Biome Slack channel](http://slack.biome.sh), and videos are posted on the [Biome YouTube channel](https://youtube.com/channel/UC0wJZeP2dfPZaDUPgvpVpSg).
 
 ## Building
@@ -155,7 +155,7 @@ See [BUILDING.md](BUILDING.md) for platform specific info on building Biome from
 * [POSIX Shell Command Language](http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html)
 
 ## Code of Conduct
-Participation in the Biome community is governed by the [code of conduct](https://github.com/biome-sh/biome/blob/master/CODE_OF_CONDUCT.md).
+Participation in the Biome community is governed by the [code of conduct](https://github.com/jsirex/biome/blob/master/CODE_OF_CONDUCT.md).
 
 ## License
 
