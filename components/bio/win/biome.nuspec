@@ -17,13 +17,13 @@ Biome can be deployed and run on various infrastructure environments including b
     </description>
     <projectUrl>https://biome.sh</projectUrl>
     <iconUrl>https://brand.chef.io/images/biome/logos/logo-3.png</iconUrl>
-    <projectSourceUrl>https://github.com/jsirex/biome</projectSourceUrl>
+    <projectSourceUrl>https://github.com/biome-sh/biome</projectSourceUrl>
     <docsUrl>https://www.biome.sh/docs/overview/</docsUrl>
     <mailingListUrl>https://forums.habitat.sh/</mailingListUrl>
     <bugTrackerUrl>https://github.com/habitat-sh/habitat/issues</bugTrackerUrl>
     <tags>biome</tags>
     <copyright>Copyright (c) 2016-2017 Chef Software Inc. and/or applicable contributors</copyright>
-    <licenseUrl>https://github.com/jsirex/biome/blob/master/LICENSE</licenseUrl>
+    <licenseUrl>https://github.com/biome-sh/biome/blob/master/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
   </metadata>
 </package>

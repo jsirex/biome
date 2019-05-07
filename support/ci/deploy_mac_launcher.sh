@@ -25,7 +25,7 @@ ssh "${ssh_args[@]}" ${mac_builder} << EOF
     mkdir -p \${bio_src_dir}
     cd \${bio_src_dir}
     sudo find /hab/cache/src \! -newerct '1 month ago' -print -delete # remove old builds or else we run out of space
-    git clone https://github.com/jsirex/biome
+    git clone https://github.com/biome-sh/biome
     cd biome
     eval $fetch
     git checkout -qf $co

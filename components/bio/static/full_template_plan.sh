@@ -251,7 +251,7 @@ pkg_upstream_url="{{ pkg_upstream_url }}"
 #
 # The default implementations (the do_default_* functions) are defined in the
 # plan build script:
-# https://github.com/jsirex/biome/tree/master/components/plan-build/bin/bio-plan-build.sh
+# https://github.com/biome-sh/biome/tree/master/components/plan-build/bin/bio-plan-build.sh
 
 # There is no default implementation of this callback. You can use it to execute
 # any arbitrary commands before anything else happens.

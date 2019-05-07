@@ -11,7 +11,7 @@ RUN set -ex \
     bash \
   \
   && cd /tmp \
-  && wget https://raw.githubusercontent.com/jsirex/biome/master/components/bio/install.sh \
+  && wget https://raw.githubusercontent.com/biome-sh/biome/master/components/bio/install.sh \
   && bash install.sh -t ${PACKAGE_TARGET} \
   && rm -rf install.sh /hab/cache /root/.wget-hsts /root/.gnupg \
   && apk del .build-deps

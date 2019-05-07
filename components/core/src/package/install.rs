@@ -405,7 +405,7 @@ impl PackageInstall {
                 // The `filter()` in this chain is to reject any path entries that do not start
                 // with the package's `installed_path` (aka pkg_prefix). This check is for any
                 // packages built after
-                // https://github.com/jsirex/biome/commit/13344a679155e5210dd58ecb9d94654f5ae676d3
+                // https://github.com/biome-sh/biome/commit/13344a679155e5210dd58ecb9d94654f5ae676d3
                 // was merged (in https://github.com/habitat-sh/habitat/pull/4067, released in
                 // Biome 0.50.0, 2017-11-30) which produced `PATH` metafiles containing extra
                 // path entries.
@@ -417,7 +417,7 @@ impl PackageInstall {
             Err(Error::MetaFileNotFound(MetaFile::Path)) => {
                 if cfg!(windows) {
                     // This check is for any packages built after
-                    // https://github.com/jsirex/biome/commit/cc1f35e4bd9f7a8d881a602380730488e6ad055a
+                    // https://github.com/biome-sh/biome/commit/cc1f35e4bd9f7a8d881a602380730488e6ad055a
                     // was merged (in https://github.com/habitat-sh/habitat/pull/4478, released in
                     // Biome 0.53.0, 2018-02-05) which stopped producing `PATH` metafiles. This
                     // workaround attempts to fallback to the `RUNTIME_ENVIRONMENT` metafile and
@@ -510,7 +510,7 @@ impl PackageInstall {
     /// present once in the order of their first appearance.
     ///
     /// Preserved reference implementation:
-    /// https://github.com/jsirex/biome/blob/333b75d6234db0531cf4a5bdcb859f7d4adc2478/components/core/src/package/install.rs#L321-L350
+    /// https://github.com/biome-sh/biome/blob/333b75d6234db0531cf4a5bdcb859f7d4adc2478/components/core/src/package/install.rs#L321-L350
     fn legacy_runtime_paths(&self) -> Result<Vec<PathBuf>> {
         let mut paths = Vec::new();
         let mut seen = HashSet::new();
