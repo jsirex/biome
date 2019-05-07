@@ -157,7 +157,7 @@ build_aci() {
 : "${FS_ROOT:=}"
 # The root path of the Biome file system. If the `$HAB_ROOT_PATH` environment
 # variable is set, this value is overridden, otherwise it is set to its default
-: "${HAB_ROOT_PATH:=$FS_ROOT/bio}"
+: "${HAB_ROOT_PATH:=$FS_ROOT/hab}"
 # Directory to write ACIs to. If $HAB_RESULTS_DIR environment variable
 # is set, this value is overridden
 : "${HAB_RESULTS_DIR:=/src/results}"
