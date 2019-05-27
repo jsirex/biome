@@ -74,7 +74,7 @@ fn tar_command(temp_dir_path: &Path, pkg_ident: PackageIdent, bio_pkg: &str) {
     // https://github.com/alexcrichton/tar-rs/issues/147
     // Until this is sorted out, I am not doing anything with the result
     // that is returned by this command -NSH
-    tar_builder.append_dir_all("bio", bio_pkgs_path);
+    tar_builder.append_dir_all("hab", bio_pkgs_path);
 
     // Find the path to the bio binary
     let mut bio_pkg_binary_path = bio_install_path(&bio_package_ident(bio_pkg), &root_fs);

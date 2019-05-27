@@ -18,7 +18,7 @@ Biome can be deployed and run on various infrastructure environments including b
     <projectUrl>https://biome.sh</projectUrl>
     <iconUrl>https://brand.chef.io/images/biome/logos/logo-3.png</iconUrl>
     <projectSourceUrl>https://github.com/biome-sh/biome</projectSourceUrl>
-    <docsUrl>https://www.biome.sh/docs/overview/</docsUrl>
+    <docsUrl>https://www.habitat.sh/docs/overview/</docsUrl>
     <mailingListUrl>https://forums.habitat.sh/</mailingListUrl>
     <bugTrackerUrl>https://github.com/habitat-sh/habitat/issues</bugTrackerUrl>
     <tags>biome</tags>

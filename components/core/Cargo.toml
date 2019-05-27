@@ -8,11 +8,12 @@ build = "build.rs"
 
 [build-dependencies]
 base64 = "*"
-gcc = "0.3"
+cc = "*"
 
 [dependencies]
 base64 = "*"
 dirs = "*"
+dns-lookup = "*"
 errno = "*"
 hex = "*"
 lazy_static = "*"

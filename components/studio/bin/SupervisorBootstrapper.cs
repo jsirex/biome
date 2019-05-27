@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 
 public class SupervisorBootstrapper {
-    private static String logPath = Path.Combine(Environment.GetEnvironmentVariable("HAB_STUDIO_ENTER_ROOT"), "bio\\sup\\default\\out.log");
+    private static String logPath = Path.Combine(Environment.GetEnvironmentVariable("HAB_STUDIO_ENTER_ROOT"), "hab\\sup\\default\\out.log");
 
     public static void Run(bool isAnsiSupported) {
         var proc = new Process();

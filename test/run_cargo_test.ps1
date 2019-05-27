@@ -16,21 +16,26 @@ $ErrorActionPreference="stop"
 . $PSScriptRoot\..\support\ci\shared.ps1
 
 $toolchain = "stable"
-if($Nightly) { $toolchain = "nightly" }
+if($Nightly) { $toolchain = (gc $PSScriptRoot\..\RUSTFMT_VERSION | out-string).Trim() }
 
-Install-Rustup $toolchain
-Install-RustToolchain $toolchain
+Setup-Environment
 
 If($Features) {
-    $FeatureString = "--features $Features"
+    $FeatureString = "--features `"$Features`""
 } Else {
     $FeatureString = ""
 }
 
 # Set cargo test invocation
-$CargoTestCommand = "cargo +$toolchain test $FeatureString -- --nocapture $TestOptions"
-
-Setup-Environment
+if($Nightly) {
+    Install-Rustup $toolchain
+    Install-RustToolchain $toolchain
+    $CargoTestCommand = "cargo +$toolchain"
+} else {
+    $env:path = "$(bio pkg path core/rust)\bin;$env:path"
+    $CargoTestCommand = "cargo"
+}
+$CargoTestCommand += " test $FeatureString -- $TestOptions"
 
 Write-Host "--- Running cargo test on $Component with command: '$CargoTestCommand'"
 cd components/$Component

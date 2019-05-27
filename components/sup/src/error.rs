@@ -1,17 +1,3 @@
-// Copyright (c) 2016-2017 Chef Software Inc. and/or applicable contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //! Error handling for the Supervisor.
 //!
 //! Errors in the Supervisor are of the type `SupError`, which contains an `Error` along with
@@ -36,6 +22,7 @@
 //! Also included in this module is `Result<T>`, a type alias for `Result<T, SupError>`. Use
 //! it instead of the longer `Result` form.
 
+use crate::event;
 use futures::sync::oneshot;
 use glob;
 use biome_api_client;
@@ -52,12 +39,12 @@ use biome_core::{self,
                              Identifiable}};
 use biome_launcher_client;
 use biome_sup_protocol;
-use nitox;
 use notify;
 use rustls;
 use serde_json;
 use std::{env,
-          error,
+          error::{self,
+                  Error as _},
           ffi,
           fmt,
           io,
@@ -121,8 +108,7 @@ pub enum Error {
     APIClient(biome_api_client::Error),
     EnvJoinPathsError(env::JoinPathsError),
     ExecCommandNotFound(String),
-    EventError(nitox::NatsError),
-    EventStreamError(nitox::streaming::error::NatsStreamingError),
+    EventError(event::Error),
     FileNotFound(String),
     FileWatcherFileIsRoot,
     GroupNotFound(String),
@@ -160,6 +146,7 @@ pub enum Error {
     ProcessLocked(Pid),
     ProcessLockIO(PathBuf, io::Error),
     RecvError(mpsc::RecvError),
+    RecvTimeoutError(mpsc::RecvTimeoutError),
     ServiceDeserializationError(serde_json::Error),
     ServiceNotLoaded(package::PackageIdent),
     ServiceSerializationError(serde_json::Error),
@@ -229,7 +216,6 @@ impl fmt::Display for SupError {
                 format!("`{}' was not found on the filesystem or in PATH", c)
             }
             Error::EventError(ref err) => err.to_string(),
-            Error::EventStreamError(ref err) => err.to_string(),
             Error::Permissions(ref err) => err.to_string(),
             Error::BiomeCommon(ref err) => err.to_string(),
             Error::BiomeCore(ref err) => err.to_string(),
@@ -295,6 +281,7 @@ impl fmt::Display for SupError {
                         err)
             }
             Error::RecvError(ref err) => err.to_string(),
+            Error::RecvTimeoutError(ref err) => err.to_string(),
             Error::ServiceDeserializationError(ref e) => {
                 format!("Can't deserialize service status: {}", e)
             }
@@ -328,6 +315,7 @@ impl fmt::Display for SupError {
             Error::UnpackFailed => "Failed to unpack a package".to_string(),
             Error::UserNotFound(ref e) => format!("No UID for user '{}' could be found", e),
         };
+
         let progname = PROGRAM_NAME.as_str();
         let so = StructuredOutput::new(progname,
                                        self.logkey,
@@ -337,11 +325,28 @@ impl fmt::Display for SupError {
                                        output::get_format(),
                                        OutputVerbosity::Verbose,
                                        &content);
-        write!(f, "{}", so)
+
+        // TODO (CM): Consider implementing Error::source() for all
+        // our errors as a more formalized way of exposing an
+        // underlying error. See
+        // https://github.com/habitat-sh/habitat/issues/6556 for details.
+        if let Some(source) = self.source() {
+            write!(f, "{} -> {}", so, source)
+        } else {
+            write!(f, "{}", so)
+        }
     }
 }
 
 impl error::Error for SupError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self.err {
+            // Nothing else implements source yet
+            Error::EventError(ref e) => e.source(),
+            _ => None,
+        }
+    }
+
     fn description(&self) -> &str {
         match self.err {
             Error::APIClient(ref err) => err.description(),
@@ -359,9 +364,7 @@ impl error::Error for SupError {
             Error::ButterflyError(ref err) => err.description(),
             Error::CtlSecretIo(..) => "IoError while reading ctl secret",
             Error::ExecCommandNotFound(_) => "Exec command was not found on filesystem or in PATH",
-            Error::EventError(_) => "event error", // underlying NATS error doesn't implement Error
-            Error::EventStreamError(_) => "event streaming error", // underlying NATS error
-            // doesn't implement Error
+            Error::EventError(_) => "Eventing error",
             Error::GroupNotFound(_) => "No matching GID for group found",
             Error::BiomeCommon(ref err) => err.description(),
             Error::BiomeCore(ref err) => err.description(),
@@ -410,6 +413,9 @@ impl error::Error for SupError {
             }
             Error::ProcessLockIO(..) => "Unable to read or write to a process lock",
             Error::RecvError(_) => "A channel failed to receive a response",
+            Error::RecvTimeoutError(_) => {
+                "A channel failed to receive a response in the allotted time"
+            }
             Error::ServiceDeserializationError(_) => "Can't deserialize service status",
             Error::ServiceNotLoaded(_) => "Service status called when service not loaded",
             Error::ServiceSerializationError(_) => "Can't serialize service to file",
@@ -495,6 +501,10 @@ impl From<mpsc::RecvError> for SupError {
     fn from(err: mpsc::RecvError) -> SupError { sup_error!(Error::RecvError(err)) }
 }
 
+impl From<mpsc::RecvTimeoutError> for SupError {
+    fn from(err: mpsc::RecvTimeoutError) -> SupError { sup_error!(Error::RecvTimeoutError(err)) }
+}
+
 impl From<mpsc::TryRecvError> for SupError {
     fn from(err: mpsc::TryRecvError) -> SupError { sup_error!(Error::TryRecvError(err)) }
 }
@@ -515,12 +525,6 @@ impl From<oneshot::Canceled> for SupError {
     fn from(err: oneshot::Canceled) -> Self { sup_error!(Error::OneshotCanceled(err)) }
 }
 
-impl From<nitox::NatsError> for SupError {
-    fn from(err: nitox::NatsError) -> Self { sup_error!(Error::EventError(err)) }
-}
-
-impl From<nitox::streaming::error::NatsStreamingError> for SupError {
-    fn from(err: nitox::streaming::error::NatsStreamingError) -> Self {
-        sup_error!(Error::EventStreamError(err))
-    }
+impl From<event::Error> for SupError {
+    fn from(err: event::Error) -> Self { sup_error!(Error::EventError(err)) }
 }

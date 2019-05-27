@@ -158,7 +158,7 @@ namespace HabService
                 {
                     // because we declare bio-launcher as a runtime dep
                     // this path should exist
-                    string launcherBase = Path.Combine(Path.GetPathRoot(Environment.SystemDirectory), "bio\\pkgs\\core\\bio-launcher");
+                    string launcherBase = Path.Combine(Path.GetPathRoot(Environment.SystemDirectory), "hab\\pkgs\\core\\bio-launcher");
                     string latestLauncher = LastDirectory(LastDirectory(launcherBase));
                     return Path.Combine(latestLauncher, "bin\\bio-launch.exe");
                 }

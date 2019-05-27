@@ -1,18 +1,5 @@
-// Copyright (c) 2016-2017 Chef Software Inc. and/or applicable contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-use biome_butterfly::{member::{Health,
+use biome_butterfly::{error::Error,
+                        member::{Health,
                                  Member},
                         rumor::{departure::Departure,
                                 election::ElectionStatus,
@@ -179,9 +166,11 @@ impl SwimNet {
         from.remove_from_block_list(to.member_id());
     }
 
-    #[allow(clippy::assertions_on_constants)]
-    #[allow(clippy::match_wild_err_arm)]
     pub fn health_of(&self, from_entry: usize, to_entry: usize) -> Option<Health> {
+        /// To avoid deadlocking in a test, we use `health_of_by_id_with_timeout` rather than
+        /// `health_of_by_id`.
+        const HEALTH_OF_TIMEOUT: Duration = Duration::from_secs(5);
+
         let from = self.members
                        .get(from_entry)
                        .expect("Asked for a network member who is out of bounds");
@@ -189,7 +178,21 @@ impl SwimNet {
         let to = self.members
                      .get(to_entry)
                      .expect("Asked for a network member who is out of bounds");
-        from.member_list.health_of_by_id(to.member_id())
+
+        match from.member_list
+                  .health_of_by_id_with_timeout(to.member_id(), HEALTH_OF_TIMEOUT)
+        {
+            Ok(health) => Some(health),
+            Err(Error::UnknownMember(_)) => None,
+            Err(Error::Timeout(_)) => {
+                panic!("Timed out after waiting {:?} querying member health",
+                       HEALTH_OF_TIMEOUT);
+            }
+            Err(e) => {
+                println!("Unexpected error from health_of_by_id_with_timeout: {}", e);
+                None
+            }
+        }
     }
 
     pub fn network_health_of(&self, to_check: usize) -> Vec<Option<Health>> {
@@ -352,9 +355,6 @@ impl SwimNet {
     pub fn wait_for_health_of(&self, from_entry: usize, to_check: usize, health: Health) -> bool {
         let rounds_in = self.rounds_in(self.max_rounds());
         loop {
-            #[cfg(feature = "deadlock_detection")]
-            assert_no_deadlocks();
-
             if let Some(real_health) = self.health_of(from_entry, to_check) {
                 if real_health == health {
                     trace_it!(TEST: &self.members[from_entry], format!("Health {} {} as {}", self.members[to_check].name(), self.members[to_check].member_id(), health));

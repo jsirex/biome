@@ -20,6 +20,7 @@ biome_common = { path = "../common" }
 log = "*"
 lazy_static = "*"
 prometheus = "*"
+parking_lot = "*"
 prost = "*"
 prost-derive = "*"
 rand = "*"
@@ -46,4 +47,6 @@ tempfile = "*"
 [features]
 default = ["protocols"]
 protocols = []
-ignore_inconsistent_tests = []
+lock_as_rwlock = ["biome_common/lock_as_rwlock"]
+lock_as_mutex = ["biome_common/lock_as_mutex"]
+deadlock_detection = ["parking_lot/nightly", "parking_lot/deadlock_detection", "biome_common/deadlock_detection"]

@@ -7,6 +7,9 @@ param (
     [string]$Component
 )
 
+. $PSScriptRoot\shared.ps1
+Install-Biome
+
 # Since we are only verifying we don't have build failures, make everything
 # temp!
 $env:HAB_ORIGIN="throwaway"
@@ -18,6 +21,6 @@ Write-Host "--- :key: Generating fake origin key"
 bio origin key generate
 Write-Host "--- :bio: Running bio pkg build for $Component"
 
-bio studio build -D --no-tty --non-interactive components/$Component
+bio studio build components/$Component -R
 
 exit $LASTEXITCODE

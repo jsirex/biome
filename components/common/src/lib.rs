@@ -1,17 +1,3 @@
-// Copyright (c) 2016-2017 Chef Software Inc. and/or applicable contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 use crate::ui::{UIWriter,
                 UI};
 use biome_api_client as api_client;
@@ -156,5 +142,262 @@ impl FeatureFlag {
         }
 
         flags
+    }
+}
+
+pub mod sync {
+    use std::{collections::HashMap,
+              sync::Mutex,
+              thread::{self,
+                       ThreadId},
+              time::{Duration,
+                     Instant}};
+
+    type NameAndLastHeartbeat = (Option<String>, Instant);
+    type HeartbeatMap = HashMap<ThreadId, NameAndLastHeartbeat>;
+    lazy_static::lazy_static! {
+        static ref THREAD_HEARTBEATS: Mutex<HeartbeatMap> = Default::default();
+    }
+
+    biome_core::env_config_duration!(ThreadAliveThreshold,
+                                       HAB_THREAD_ALIVE_THRESHOLD_SECS,
+                                       Duration::from_secs(5 * 60));
+    biome_core::env_config_duration!(ThreadAliveCheckDelay,
+                                       HAB_THREAD_ALIVE_CHECK_DELAY_SECS,
+                                       Duration::from_secs(60));
+
+    /// Call periodically from a thread which has a work loop to indicate that the thread is
+    /// still alive and processing its loop. If this function is not called for more than
+    /// `ThreadAliveThreshold`, it will be error logged as a likely deadlock.
+    pub fn mark_thread_alive() {
+        mark_thread_alive_impl(&mut THREAD_HEARTBEATS.lock()
+                                                     .expect("THREAD_HEARTBEATS poisoned"));
+    }
+
+    fn mark_thread_alive_impl(heartbeats: &mut HeartbeatMap) {
+        let thread = thread::current();
+        heartbeats.insert(thread.id(),
+                          (thread.name().map(str::to_string), Instant::now()));
+    }
+
+    /// Call once per binary to start the thread which will check that all the threads that
+    /// call `mark_thread_alive` continue to do so.
+    pub fn spawn_thread_alive_checker() {
+        thread::Builder::new().name("thread-alive-check".to_string())
+                              .spawn(|| {
+                                  let delay = ThreadAliveCheckDelay::configured_value().into();
+                                  let threshold = ThreadAliveThreshold::configured_value().into();
+                                  loop {
+                                      check_thread_heartbeats(threshold);
+                                      thread::sleep(delay);
+                                  }
+                              })
+                              .expect("Error spawning thread alive checker");
+    }
+
+    fn check_thread_heartbeats(threshold: Duration) {
+        let heartbeats = &THREAD_HEARTBEATS.lock()
+                                           .expect("THREAD_HEARTBEATS poisoned");
+        for (name, last_heartbeat) in threads_missing_heartbeat(heartbeats, threshold) {
+            error!("No heartbeat from {} in {} seconds; deadlock likely",
+                   name.unwrap_or_else(|| { "unnamed thread".to_string() }),
+                   last_heartbeat.elapsed().as_secs());
+        }
+    }
+
+    fn threads_missing_heartbeat(heartbeats: &HeartbeatMap,
+                                 threshold: Duration)
+                                 -> Vec<NameAndLastHeartbeat> {
+        heartbeats.iter()
+                  .filter_map(|(thread_id, (thread_name, last_heartbeat))| {
+                      let time_since_last_heartbeat = last_heartbeat.elapsed();
+                      trace!("{:?} {:?} last heartbeat: {:?} ago",
+                             thread_id,
+                             thread_name,
+                             time_since_last_heartbeat);
+                      if time_since_last_heartbeat < threshold {
+                          None
+                      } else {
+                          Some((thread_name.clone(), *last_heartbeat))
+                      }
+                  })
+                  .collect::<Vec<_>>()
+    }
+
+    #[cfg(test)]
+    mod test {
+        use super::*;
+        use std::sync::{atomic::{AtomicBool,
+                                 Ordering},
+                        Arc};
+
+        const TEST_THRESHOLD: Duration = Duration::from_millis(10);
+
+        #[test]
+        fn no_tracking_without_mark_thread_alive() {
+            let heartbeats = HashMap::new();
+            thread::spawn(|| {}).join().unwrap();
+            thread::sleep(TEST_THRESHOLD * 2);
+            assert!(threads_missing_heartbeat(&heartbeats, TEST_THRESHOLD).is_empty());
+        }
+
+        #[test]
+        fn one_dead_thread() {
+            lazy_static! {
+                static ref HEARTBEATS: Mutex<HeartbeatMap> = Default::default();
+            }
+            thread::spawn(move || mark_thread_alive_impl(&mut HEARTBEATS.lock().unwrap())).join()
+                                                                                          .unwrap();
+            thread::sleep(TEST_THRESHOLD * 2);
+            assert_eq!(threads_missing_heartbeat(&HEARTBEATS.lock().unwrap(), TEST_THRESHOLD).len(),
+                       1);
+        }
+
+        #[test]
+        fn one_dead_one_alive() {
+            lazy_static! {
+                static ref HEARTBEATS: Mutex<HeartbeatMap> = Default::default();
+            }
+
+            let dead_thread_name = "expected-dead".to_string();
+            let test_done: Arc<AtomicBool> = Default::default();
+            let test_done2 = Arc::clone(&test_done);
+
+            thread::Builder::new().name(dead_thread_name.clone())
+                                  .spawn(move || {
+                                      mark_thread_alive_impl(&mut HEARTBEATS.lock().unwrap())
+                                  })
+                                  .unwrap()
+                                  .join()
+                                  .unwrap();
+            thread::spawn(move || {
+                while !test_done2.load(Ordering::Relaxed) {
+                    mark_thread_alive_impl(&mut HEARTBEATS.lock().unwrap());
+                    thread::sleep(TEST_THRESHOLD / 2)
+                }
+            });
+
+            thread::sleep(TEST_THRESHOLD * 2);
+
+            let dead_thread_names = threads_missing_heartbeat(&HEARTBEATS.lock().unwrap(),
+                                                              TEST_THRESHOLD).iter()
+                                                                             .map(|(name, _)| name.clone())
+                                                                             .collect::<Vec<_>>();
+            assert_eq!(dead_thread_names, vec![Some(dead_thread_name)]);
+            test_done.store(true, Ordering::Relaxed);
+        }
+    }
+
+    #[cfg(feature = "deadlock_detection")]
+    mod deadlock_detection {
+        use super::*;
+        use parking_lot::deadlock;
+        use std::{sync::Once,
+                  thread};
+
+        static INIT: Once = Once::new();
+
+        pub fn init() { INIT.call_once(spawn_deadlock_detector_thread); }
+
+        fn spawn_deadlock_detector_thread() {
+            thread::spawn(move || {
+                loop {
+                    thread::sleep(Duration::from_secs(10));
+                    let deadlocks = deadlock::check_deadlock();
+                    if deadlocks.is_empty() {
+                        continue;
+                    }
+
+                    println!("{} deadlocks detected", deadlocks.len());
+                    for (i, threads) in deadlocks.iter().enumerate() {
+                        println!("Deadlock #{}", i);
+                        for t in threads {
+                            println!("Thread Id {:#?}", t.thread_id());
+                            println!("{:#?}", t.backtrace());
+                        }
+                    }
+
+                    // Unfortunately, we can't do anything to resolve the deadlock and
+                    // continue, so we have to abort the whole process
+                    std::process::exit(1);
+                }
+            });
+        }
+    }
+
+    #[cfg(any(feature = "lock_as_rwlock", not(feature = "lock_as_mutex")))]
+    type InnerLock<T> = parking_lot::RwLock<T>;
+    #[cfg(feature = "lock_as_mutex")]
+    type InnerLock<T> = parking_lot::Mutex<T>;
+
+    #[cfg(any(feature = "lock_as_rwlock", not(feature = "lock_as_mutex")))]
+    pub type ReadGuard<'a, T> = parking_lot::RwLockReadGuard<'a, T>;
+    #[cfg(feature = "lock_as_mutex")]
+    pub type ReadGuard<'a, T> = parking_lot::MutexGuard<'a, T>;
+
+    #[cfg(any(feature = "lock_as_rwlock", not(feature = "lock_as_mutex")))]
+    pub type WriteGuard<'a, T> = parking_lot::RwLockWriteGuard<'a, T>;
+    #[cfg(feature = "lock_as_mutex")]
+    pub type WriteGuard<'a, T> = parking_lot::MutexGuard<'a, T>;
+
+    /// A lock which provides the interface of a read/write lock, but which has the option to
+    /// internally use either a RwLock or a Mutex in order to make it easier to expose erroneous
+    /// recursive locking in tests while still using an RwLock in production to avoid deadlocking
+    /// as much as possible.
+    #[derive(Debug)]
+    pub struct Lock<T> {
+        inner: InnerLock<T>,
+    }
+
+    impl<T> Lock<T> {
+        pub fn new(val: T) -> Self {
+            #[cfg(feature = "lock_as_mutex")]
+            println!("Lock::new is using Mutex to help find recursive locking");
+
+            #[cfg(feature = "deadlock_detection")]
+            deadlock_detection::init();
+
+            Self { inner: InnerLock::new(val), }
+        }
+
+        /// This acquires a read lock and will not deadlock if the same thread tries to acquire
+        /// the lock recursively. However, it may result in writer starvation. Once we are confident
+        /// that all recursive locking has been eliminated, we may replace this implementation
+        /// and try_read_for (or add an additional methods) to provide fair locking for readers
+        /// and writers.
+        ///
+        /// See https://github.com/habitat-sh/habitat/issues/6435
+        pub fn read(&self) -> ReadGuard<T> {
+            #[cfg(any(feature = "lock_as_rwlock", not(feature = "lock_as_mutex")))]
+            {
+                self.inner.read_recursive()
+            }
+            #[cfg(feature = "lock_as_mutex")]
+            {
+                self.inner.lock()
+            }
+        }
+
+        pub fn try_read_for(&self, timeout: Duration) -> Option<ReadGuard<T>> {
+            #[cfg(any(feature = "lock_as_rwlock", not(feature = "lock_as_mutex")))]
+            {
+                self.inner.try_read_recursive_for(timeout)
+            }
+            #[cfg(feature = "lock_as_mutex")]
+            {
+                self.inner.try_lock_for(timeout)
+            }
+        }
+
+        pub fn write(&self) -> WriteGuard<T> {
+            #[cfg(any(feature = "lock_as_rwlock", not(feature = "lock_as_mutex")))]
+            {
+                self.inner.write()
+            }
+            #[cfg(feature = "lock_as_mutex")]
+            {
+                self.inner.lock()
+            }
+        }
     }
 }

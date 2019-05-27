@@ -1,17 +1,3 @@
-// Copyright (c) 2017-2017 Chef Software Inc. and/or applicable contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 extern crate clap;
 extern crate env_logger;
 #[macro_use]
@@ -20,13 +6,11 @@ extern crate biome_sup as sup;
 extern crate jemalloc_ctl;
 #[cfg(unix)]
 extern crate jemallocator;
-extern crate libc;
 #[macro_use]
 extern crate log;
 #[cfg(test)]
 #[macro_use]
 extern crate lazy_static;
-extern crate protobuf;
 extern crate rustls;
 extern crate tempfile;
 extern crate time;
@@ -37,6 +21,7 @@ use crate::sup::{cli::cli,
                  error::{Error,
                          Result,
                          SupError},
+                 event::EventStreamConfig,
                  manager::{Manager,
                            ManagerConfig,
                            TLSConfig,
@@ -129,8 +114,9 @@ fn start(feature_flags: FeatureFlag) -> Result<()> {
         outputln!("Simulating boot failure");
         return Err(sup_error!(Error::TestBootFail));
     }
+    biome_common::sync::spawn_thread_alive_checker();
     let launcher = boot();
-    let app_matches = match cli().get_matches_safe() {
+    let app_matches = match cli(feature_flags).get_matches_safe() {
         Ok(matches) => matches,
         Err(err) => {
             let out = io::stdout();
@@ -230,6 +216,12 @@ fn mgrcfg_from_sup_run_matches(m: &ArgMatches,
                                -> Result<ManagerConfig> {
     let cache_key_path = cache_key_path_from_matches(m);
 
+    let event_stream_config = if feature_flags.contains(FeatureFlag::EVENT_STREAM) {
+        Some(EventStreamConfig::from(m))
+    } else {
+        None
+    };
+
     let cfg = ManagerConfig {
         auto_update: m.is_present("AUTO_UPDATE"),
         custom_state_path: None, // remove entirely?
@@ -294,7 +286,8 @@ fn mgrcfg_from_sup_run_matches(m: &ArgMatches,
                 ca_cert_path,
             }
         }),
-        feature_flags
+        feature_flags,
+        event_stream_config,
     };
 
     Ok(cfg)
@@ -523,8 +516,8 @@ mod test {
         fn cmd_vec_from_cmd_str(cmd: &str) -> Vec<&str> { Vec::from_iter(cmd.split_whitespace()) }
 
         fn config_from_cmd_vec(cmd_vec: Vec<&str>) -> ManagerConfig {
-            let matches = cli().get_matches_from_safe(cmd_vec)
-                               .expect("Error while getting matches");
+            let matches = cli(no_feature_flags()).get_matches_from_safe(cmd_vec)
+                                                 .expect("Error while getting matches");
             let (_, sub_matches) = matches.subcommand();
             let sub_matches = sub_matches.expect("Error getting sub command matches");
 

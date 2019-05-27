@@ -1,16 +1,3 @@
-// Copyright (c) 2016-2017 Chef Software Inc. and/or applicable contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 use std::{fs,
           io,
           path::Path,
@@ -37,31 +24,31 @@ pub fn scaffold_check(ui: &mut UI, maybe_scaffold: Option<&str>) -> Result<Optio
             init();
             match scaffold.to_lowercase().as_ref() {
                 SCAFFOLDING_GO_IDENT | "go" => {
-                    let ident = PackageIdent::from_str(SCAFFOLDING_GO_IDENT).unwrap();
+                    let ident = PackageIdent::from_str(SCAFFOLDING_GO_IDENT)?;
                     ui.status(Status::Using, &format!("Go Scaffolding '{}'", ident))?;
                     ui.para("")?;
                     Ok(Some(ident))
                 }
                 SCAFFOLDING_GRADLE_IDENT | "gradle" => {
-                    let ident = PackageIdent::from_str(SCAFFOLDING_GRADLE_IDENT).unwrap();
+                    let ident = PackageIdent::from_str(SCAFFOLDING_GRADLE_IDENT)?;
                     ui.status(Status::Using, &format!("Gradle Scaffolding '{}'", ident))?;
                     ui.para("")?;
                     Ok(Some(ident))
                 }
                 SCAFFOLDING_NODE_IDENT | "node" => {
-                    let ident = PackageIdent::from_str(SCAFFOLDING_NODE_IDENT).unwrap();
+                    let ident = PackageIdent::from_str(SCAFFOLDING_NODE_IDENT)?;
                     ui.status(Status::Using, &format!("Node Scaffolding '{}'", ident))?;
                     ui.para("")?;
                     Ok(Some(ident))
                 }
                 SCAFFOLDING_RUBY_IDENT | "ruby" => {
-                    let ident = PackageIdent::from_str(SCAFFOLDING_RUBY_IDENT).unwrap();
+                    let ident = PackageIdent::from_str(SCAFFOLDING_RUBY_IDENT)?;
                     ui.status(Status::Using, &format!("Ruby Scaffolding '{}'", ident))?;
                     ui.para("")?;
                     Ok(Some(ident))
                 }
                 _ => {
-                    let ident = PackageIdent::from_str(scaffold).unwrap();
+                    let ident = PackageIdent::from_str(scaffold)?;
                     ui.status(Status::Using, &format!("custom Scaffolding: '{}'", ident))?;
                     ui.para("")?;
                     Ok(Some(ident))
@@ -108,8 +95,8 @@ fn autodiscover_scaffolding(ui: &mut UI) -> Result<Option<PackageIdent>> {
     } else {
         ui.warn("Unable to determine the type of app in your current directory")?;
         ui.para("For now, we'll generate a plan with all of the available plan variables and \
-                 build phase callbacks. For more documentation on plan options try passing \
-                 --withdocs or visit https://www.biome.sh/docs/reference/plan-syntax/")?;
+                 build phase callbacks. For more documentation on plan options visit \
+                 https://www.habitat.sh/docs/reference/plan-syntax/")?;
         Ok(None)
     }
 }

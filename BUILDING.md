@@ -124,7 +124,7 @@ bio-pkg-export-cf 0.55.0/20180321215151
 
 ### Testing Cloud Foundry exporter
 
-See also [Exporting Docker Images for Cloud Foundry with Biome](https://www.biome.sh/blog/2018/03/biome-cloudfoundry/).
+See also [Exporting Docker Images for Cloud Foundry with Biome](https://www.habitat.sh/blog/2018/03/biome-cloudfoundry/).
 
 In order to test the Cloud Foundry exporter, you'll need a Cloud Foundry environment which supports
 Docker images. If you have one already, you can skip to step 4.
@@ -138,7 +138,7 @@ so you can't install that within a VM. Fortunately, PCF Dev is has support for L
 for the first time requires a very large download (>7 GB as of this writing).
 4. Build a `.hart` file and create a CF mapping `.toml`. See Stark and Wayne's
 [Running Biome Apps on Cloud Foundry](https://starkandwayne.com/blog/biome-to-cloud-foundry/) and
-[Exporting to Cloud Foundry documentation](https://www.biome.sh/docs/developing-packages/#exporting-to-cloud-foundry)
+[Exporting to Cloud Foundry documentation](https://www.habitat.sh/docs/developing-packages/#exporting-to-cloud-foundry)
 for more details.
 5. Run the exporter to add the `cf-` tagged image to Docker.
 6. `docker push …` the image to Docker Hub.

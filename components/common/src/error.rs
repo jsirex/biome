@@ -1,17 +1,3 @@
-// Copyright (c) 2016-2017 Chef Software Inc. and/or applicable contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 use std::{env,
           error,
           fmt,
@@ -48,11 +34,13 @@ pub enum Error {
     GossipFileRelativePath(String),
     BiomeCore(hcore::Error),
     InstallHookFailed(PackageIdent),
+    InvalidEventStreamToken(String),
     InvalidInstallHookMode(String),
     /// Occurs when making lower level IO calls.
     IO(io::Error),
     /// Errors when joining paths :)
     JoinPathsError(env::JoinPathsError),
+    MissingCLIInputError(String),
     NetParseError(net::AddrParseError),
     OfflineArtifactNotFound(PackageIdent),
     OfflineOriginKeyNotFound(String),
@@ -112,8 +100,14 @@ impl fmt::Display for Error {
                         s)
             }
             Error::BiomeCore(ref e) => format!("{}", e),
+            Error::MissingCLIInputError(ref arg) => {
+                format!("Missing required CLI argument!: {}", arg)
+            }
             Error::InstallHookFailed(ref ident) => {
                 format!("Install hook exited unsuccessfully: {}", ident)
+            }
+            Error::InvalidEventStreamToken(ref s) => {
+                format!("Invalid event stream token provided: '{}'", s)
             }
             Error::InvalidInstallHookMode(ref e) => {
                 format!("Invalid InstallHookMode conversion from {}", e)
@@ -178,9 +172,11 @@ impl error::Error for Error {
             }
             Error::BiomeCore(ref err) => err.description(),
             Error::InstallHookFailed(_) => "Install hook exited unsuccessfully",
+            Error::InvalidEventStreamToken(_) => "Invalid event stream token provided",
             Error::InvalidInstallHookMode(_) => "Invalid InstallHookMode",
             Error::IO(ref err) => err.description(),
             Error::JoinPathsError(ref err) => err.description(),
+            Error::MissingCLIInputError(_) => "Missing required CLI argument!",
             Error::NetParseError(_) => "Can't parse IP:port",
             Error::OfflineArtifactNotFound(_) => "Cached artifact not found in offline mode",
             Error::OfflineOriginKeyNotFound(_) => "Cached origin key not found in offline mode",

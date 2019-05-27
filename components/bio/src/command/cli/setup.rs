@@ -1,17 +1,3 @@
-// Copyright (c) 2016 Chef Software Inc. and/or applicable contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 #[cfg(windows)]
 use std::env;
 use std::{path::Path,
@@ -100,7 +86,7 @@ pub fn start(ui: &mut UI, cache_path: &Path, analytics_path: &Path) -> Result<()
              default origin now, you will have to tell package building commands each time what \
              origin to use.")?;
     ui.para("For more information on origins and how they are used in building packages, please \
-             consult the docs at https://www.biome.sh/docs/create-packages-build/")?;
+             consult the docs at https://www.habitat.sh/docs/create-packages-build/")?;
     if ask_default_origin(ui)? {
         ui.br()?;
         ui.para("Enter the name of your origin. If you plan to publish your packages publicly, \
@@ -132,7 +118,7 @@ pub fn start(ui: &mut UI, cache_path: &Path, analytics_path: &Path) -> Result<()
                      packages for an origin that already exists, ask the owner to give you the \
                      signing key.")?;
             ui.para("For more information on the use of origin keys, please consult the \
-                     documentation at https://www.biome.sh/docs/concepts-keys/#origin-keys")?;
+                     documentation at https://www.habitat.sh/docs/concepts-keys/#origin-keys")?;
             if ask_create_origin(ui, &origin)? {
                 create_origin(ui, &origin, cache_path)?;
                 generated_origin = true;
@@ -157,7 +143,7 @@ pub fn start(ui: &mut UI, cache_path: &Path, analytics_path: &Path) -> Result<()
              your access token. Otherwise, just enter No.")?;
     ui.para(
         "For more information on using Builder, please read the \
-         documentation at https://www.biome.sh/docs/using-builder/",
+         documentation at https://www.habitat.sh/docs/using-builder/",
     )?;
     if ask_default_auth_token(ui)? {
         ui.br()?;
@@ -203,7 +189,7 @@ pub fn start(ui: &mut UI, cache_path: &Path, analytics_path: &Path) -> Result<()
              would like to know the category of tasks users are performing, and which ones they \
              are having trouble with (e.g. mistyping command line arguments).")?;
     ui.para("To see what kinds of data are sent and how they are anonymized, please read more \
-             about our analytics here: https://www.biome.sh/docs/about-analytics/")?;
+             about our analytics here: https://www.habitat.sh/docs/about-analytics/")?;
     if ask_enable_analytics(ui, analytics_path)? {
         opt_in_analytics(ui, analytics_path, generated_origin)?;
     } else {

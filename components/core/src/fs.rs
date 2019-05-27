@@ -1,17 +1,3 @@
-// Copyright (c) 2016-2017 Chef Software Inc. and/or applicable contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 use crate::{env as henv,
             error::{Error,
                     Result},
@@ -31,7 +17,7 @@ use std::{env,
 use tempfile;
 
 /// The default root path of the Biome filesystem
-pub const ROOT_PATH: &str = "bio";
+pub const ROOT_PATH: &str = "hab";
 /// The default path for any analytics related files
 pub const CACHE_ANALYTICS_PATH: &str = "hab/cache/analytics";
 /// The default download root path for package artifacts, used on package installation
@@ -50,7 +36,7 @@ pub const LAUNCHER_ROOT_PATH: &str = "hab/launcher";
 #[cfg(not(target_os = "windows"))]
 pub const PKG_PATH: &str = "hab/pkgs";
 #[cfg(target_os = "windows")]
-pub const PKG_PATH: &str = "bio\\pkgs";
+pub const PKG_PATH: &str = "hab\\pkgs";
 /// The environment variable pointing to the filesystem root. This exists for internal
 /// Biome team usage and is not intended to be used by Biome consumers.
 /// Using this variable could lead to broken Supervisor services and it should

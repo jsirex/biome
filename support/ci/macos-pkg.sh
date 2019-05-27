@@ -22,7 +22,7 @@ cat <<- EOF > "$src_root"/out/bio-bintray.json
     "repo": "unstable",
     "subject": "biome",
     "desc": "",
-    "website_url": "https://www.biome.sh",
+    "website_url": "https://www.habitat.sh",
     "issue_tracker_url": "https://github.com/habitat-sh/habitat/issues",
     "vcs_url": "https://github.com/biome-sh/biome",
     "github_use_tag_release_notes": true,

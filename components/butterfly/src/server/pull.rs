@@ -1,17 +1,3 @@
-// Copyright (c) 2017 Chef Software Inc. and/or applicable contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //! The pull thread.
 //!
 //! This module handles pulling all the pushed rumors from every member off a ZMQ socket.
@@ -53,6 +39,8 @@ impl Pull {
     /// Run this thread. Creates a socket, binds to the `gossip_addr`, then processes messages as
     /// they are received. Uses a ZMQ pull socket, so inbound messages are fair-queued.
     pub fn run(&mut self) {
+        biome_core::env_config_int!(RecvTimeoutMillis, i32, HAB_PULL_RECV_TIMEOUT_MS, 5_000);
+
         let socket = (**ZMQ_CONTEXT).as_mut()
                                     .socket(zmq::PULL)
                                     .expect("Failure to create the ZMQ pull socket");
@@ -60,9 +48,17 @@ impl Pull {
               .expect("Failure to set the ZMQ Pull socket to not linger");
         socket.set_tcp_keepalive(0)
               .expect("Failure to set the ZMQ Pull socket to not use keepalive");
+        socket.set_rcvtimeo(RecvTimeoutMillis::configured_value().into())
+              .expect("Failure to set the ZMQ Pull socket receive timeout");
         socket.bind(&format!("tcp://{}", self.server.gossip_addr()))
               .expect("Failure to bind the ZMQ Pull socket to the port");
         'recv: loop {
+            if let Ok(-1) = socket.get_rcvtimeo() {
+                trace!("Skipping thread liveliness checks due to infinite recv timeout");
+            } else {
+                biome_common::sync::mark_thread_alive();
+            }
+
             if self.server.paused() {
                 thread::sleep(Duration::from_millis(100));
                 continue;
@@ -71,7 +67,11 @@ impl Pull {
             let msg = match socket.recv_msg(0) {
                 Ok(msg) => msg,
                 Err(e) => {
-                    error!("Error receiving message: {:?}", e);
+                    // We intentionally set a timeout above so that `mark_thread_alive` can be
+                    // used to show this thread is alive even when there's no data to receive.
+                    if e != zmq::Error::EAGAIN {
+                        error!("Error receiving message: {:?}", e);
+                    }
                     continue 'recv;
                 }
             };

@@ -1,17 +1,3 @@
-// Copyright (c) 2016-2017 Chef Software Inc. and/or applicable contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 #![recursion_limit = "128"]
 
 #[macro_use]
@@ -681,11 +667,8 @@ fn sub_bldr_job_status(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 fn sub_plan_init(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let name = m.value_of("PKG_NAME").map(String::from);
     let origin = origin_param_or_env(&m)?;
-    let with_docs = m.is_present("WITH_DOCS");
-    let with_callbacks = m.is_present("WITH_CALLBACKS");
-    let with_all = m.is_present("WITH_ALL");
-    let windows = m.is_present("WINDOWS");
-    let scaffolding_ident = if windows {
+    let minimal = m.is_present("MIN");
+    let scaffolding_ident = if cfg!(windows) {
         match m.value_of("SCAFFOLDING") {
             Some(scaffold) => Some(PackageIdent::from_str(scaffold)?),
             None => None,
@@ -694,14 +677,7 @@ fn sub_plan_init(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
         scaffolding::scaffold_check(ui, m.value_of("SCAFFOLDING"))?
     };
 
-    command::plan::init::start(ui,
-                               origin,
-                               with_docs,
-                               with_callbacks,
-                               with_all,
-                               windows,
-                               scaffolding_ident,
-                               name)
+    command::plan::init::start(ui, origin, minimal, scaffolding_ident, name)
 }
 
 fn sub_plan_render(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
