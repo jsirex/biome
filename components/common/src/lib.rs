@@ -199,9 +199,9 @@ pub mod sync {
         let heartbeats = &THREAD_HEARTBEATS.lock()
                                            .expect("THREAD_HEARTBEATS poisoned");
         for (name, last_heartbeat) in threads_missing_heartbeat(heartbeats, threshold) {
-            error!("No heartbeat from {} in {} seconds; deadlock likely",
-                   name.unwrap_or_else(|| { "unnamed thread".to_string() }),
-                   last_heartbeat.elapsed().as_secs());
+            warn!("No heartbeat from {} in {} seconds; deadlock likely",
+                  name.unwrap_or_else(|| { "unnamed thread".to_string() }),
+                  last_heartbeat.elapsed().as_secs());
         }
     }
 

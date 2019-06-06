@@ -17,7 +17,7 @@ use tokio::{executor,
             runtime::current_thread::Runtime as ThreadRuntime};
 
 /// All messages are published under this subject.
-const HABITAT_SUBJECT: &str = "biome";
+const HABITAT_SUBJECT: &str = "habitat";
 
 pub(super) fn init_stream(conn_info: EventConnectionInfo) -> Result<EventStream> {
     let (event_tx, event_rx) = futures_mpsc::unbounded();

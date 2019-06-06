@@ -31,7 +31,7 @@ fn main() {
                                          .and_then(|client| {
                                              let opts = SubscribeOptionsBuilder::default().build()
                                                                                           .unwrap();
-                                             let topic = "biome".to_string();
+                                             let topic = "habitat".to_string();
                                              println!("Subscribed to topic: '{}'", topic);
                                              println!("===================");
                                              client.subscribe(topic, opts)

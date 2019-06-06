@@ -45,5 +45,5 @@ else
   sudo -E addgroup --system bio || true
 fi
 
-sudo "$(dirname -- "$0")/../../components/bio/install.sh"
-sudo bio install core/busybox-static biome/bio-studio
+sudo "$(dirname -- "$0")/install.sh"
+sudo HAB_LICENSE="accept-no-persist" bio install core/busybox-static biome/bio-studio
