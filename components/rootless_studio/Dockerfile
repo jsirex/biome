@@ -1,17 +1,6 @@
 FROM alpine
-MAINTAINER Elliott Davis <elliott@excellent.io>
-ARG HAB_VERSION=
-ARG PACKAGE_TARGET
+MAINTAINER Yauhen Artsiukhou <jsirex@gmail.com>
 RUN set -ex \
-  && apk add --no-cache --virtual .build-deps \
-    ca-certificates \
-    gnupg \
-    libressl \
-    wget \
-    bash \
-  \
-  && cd /tmp \
-  && wget https://raw.githubusercontent.com/biome-sh/biome/master/components/bio/install.sh \
-  && bash install.sh -t ${PACKAGE_TARGET} \
-  && rm -rf install.sh /hab/cache /root/.wget-hsts /root/.gnupg \
-  && apk del .build-deps
+  && apk add --no-cache ca-certificates wget bash \
+  && wget -q -O /usr/local/bin/bio https://github.com/biome-sh/biome/releases/download/0.82.0/bio\
+  && chmod +x /usr/local/bin/bio

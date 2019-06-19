@@ -1,16 +1,15 @@
-ARG PACKAGE_TARGET
-FROM biome-${PACKAGE_TARGET}:bio-base as bio
+FROM biome:bio-base as bio
 ENV PATH=${PATH}:/hab/bin
 ARG BLDR_CHANNEL=stable
-ARG HAB_LICENSE=no-accept
+# ARG HAB_LICENSE=no-accept
 RUN bio pkg install -c ${BLDR_CHANNEL} biome/bio-backline \
   && bio pkg binlink core/bash -d /hab/bin \
   && bio pkg binlink biome/bio -d /hab/bin
 
 FROM scratch
-COPY --from=bio /bio /bio
+COPY --from=bio /hab/pkgs /hab/pkgs
 COPY --from=bio /hab/bin /bin
-COPY --from=bio /bin/bio /bin/
+# COPY --from=bio /bin/bio /bin/
 COPY ./etc/ /etc/
 ADD ./entrypoint.sh /
 ADD ./profile /etc/
