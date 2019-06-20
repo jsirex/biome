@@ -13,5 +13,3 @@ RUN apt-get install -y \
             curl
 
 RUN useradd --user-group hab
-RUN useradd --user-group bio
-

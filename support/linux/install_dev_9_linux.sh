@@ -35,14 +35,14 @@ rustc --version
 cargo --version
 
 if command -v useradd > /dev/null; then
-  sudo -E useradd --system --no-create-home bio || true
+  sudo -E useradd --system --no-create-home hab || true
 else
-  sudo -E adduser --system bio || true
+  sudo -E adduser --system hab || true
 fi
 if command -v groupadd > /dev/null; then
-  sudo -E groupadd --system bio || true
+  sudo -E groupadd --system hab || true
 else
-  sudo -E addgroup --system bio || true
+  sudo -E addgroup --system hab || true
 fi
 
 sudo "$(dirname -- "$0")/install.sh"

@@ -14,7 +14,7 @@ studio_run_command=
 base_pkgs="biome/bio biome/bio-sup"
 : "${PKGS:=}"
 
-run_user="bio"
+run_user="hab"
 run_group="$run_user"
 
 finish_setup() {
@@ -92,12 +92,8 @@ finish_setup() {
   # Set the login shell for any relevant user to be `/bin/bash`
   $bb sed -e "s,/bin/sh,$busybox_path/bin/bash,g" -i "$HAB_STUDIO_ROOT"/etc/passwd
 
-  echo "${run_user}:x:43:43:root:/:/bin/sh" >> "$HAB_STUDIO_ROOT"/etc/passwd
-  echo "hab:x:42:42:root:/:/bin/sh" >> "$HAB_STUDIO_ROOT"/etc/passwd
-
-  echo "${run_group}:x:43:${run_user}" >> "$HAB_STUDIO_ROOT"/etc/group
-  echo "hab:x:42:hab" >> "$HAB_STUDIO_ROOT"/etc/group
-
+  echo "${run_user}:x:42:42:root:/:/bin/sh" >> "$HAB_STUDIO_ROOT"/etc/passwd
+  echo "${run_group}:x:42:${run_user}" >> "$HAB_STUDIO_ROOT"/etc/group
 
   local sup="$HAB_ROOT_PATH/bin/bio sup"
   $bb touch "$HAB_STUDIO_ROOT"/.bio_pkg

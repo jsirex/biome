@@ -272,7 +272,7 @@ pkg_interpreters={{ pkg_interpreters }}
 {{~ /if}}
 
 # Optional.
-# The user to run the service as. The default is bio.
+# The user to run the service as. The default is hab.
 {{#if pkg_svc_user ~}}
 pkg_svc_user="{{ pkg_svc_user }}"
 {{~ else ~}}
@@ -280,7 +280,7 @@ pkg_svc_user="{{ pkg_svc_user }}"
 {{~ /if}}
 
 # Optional.
-# The group to run the service as. The default is bio.
+# The group to run the service as. The default is hab.
 {{#if pkg_svc_group ~}}
 pkg_svc_group="{{ pkg_svc_group }}"
 {{~ else ~}}

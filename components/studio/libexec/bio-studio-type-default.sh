@@ -17,7 +17,7 @@ studio_run_command="$HAB_ROOT_PATH/bin/bio pkg exec biome/bio-backline bash --lo
 pkgs="${HAB_STUDIO_BACKLINE_PKG:-biome/bio-backline/$(
   echo "$version" | $bb cut -d / -f 1)}"
 
-run_user="bio"
+run_user="hab"
 run_group="$run_user"
 
 finish_setup() {
@@ -226,12 +226,8 @@ case "\${HAB_STUDIO_SUP:-}" in
 esac
 PROFILE_ENTER
 
-  echo "${run_user}:x:43:43:root:/:/bin/sh" >> "$HAB_STUDIO_ROOT"/etc/passwd
-  echo "hab:x:42:42:root:/:/bin/sh" >> "$HAB_STUDIO_ROOT"/etc/passwd
-
-  echo "${run_group}:x:43:${run_user}" >> "$HAB_STUDIO_ROOT"/etc/group
-  echo "hab:x:42:hab" >> "$HAB_STUDIO_ROOT"/etc/group
-
+  echo "${run_user}:x:42:42:root:/:/bin/sh" >> "$HAB_STUDIO_ROOT"/etc/passwd
+  echo "${run_group}:x:42:${run_user}" >> "$HAB_STUDIO_ROOT"/etc/group
 
   studio_env_command="$coreutils_path/bin/env"
 }

@@ -144,7 +144,7 @@ create_application_definition() {
   echo "
   {
    \"id\": \"$PKG\",
-   \"cmd\": \"/bin/id -u bio &>/dev/null || /sbin/useradd bio; /bin/chown -R bio:bio *; mount -t proc proc proc/; mount -t sysfs sys sys/;mount -o bind /dev dev/; /usr/sbin/chroot . ./init.sh start $PKG\",
+   \"cmd\": \"/bin/id -u hab &>/dev/null || /sbin/useradd hab; /bin/chown -R hab:hab *; mount -t proc proc proc/; mount -t sysfs sys sys/;mount -o bind /dev dev/; /usr/sbin/chroot . ./init.sh start $PKG\",
    \"cpus\": $CPU,
    \"disk\": $DISK,
    \"mem\": $MEM,

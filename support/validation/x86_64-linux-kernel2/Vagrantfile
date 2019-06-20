@@ -12,7 +12,7 @@ Vagrant.configure("2") do |config|
     yum install -y wget curl git
 
     # You'll need this for running most services
-    adduser bio
+    adduser hab
 
     # You'll want this if you want to build a plan
     git clone https://github.com/habitat-sh/core-plans.git

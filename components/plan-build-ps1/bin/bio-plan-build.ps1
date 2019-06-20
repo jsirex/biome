@@ -119,7 +119,7 @@ $script:pkg_expose = @()
 # An associative array representing configuration data which should be gossiped to peers.
 $script:pkg_exports = @{}
 # The user to run the service as
-$script:pkg_svc_user = "bio"
+$script:pkg_svc_user = "hab"
 # The group to run the service as
 $script:pkg_svc_group = "$pkg_svc_user"
 

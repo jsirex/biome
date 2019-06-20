@@ -11,7 +11,7 @@ FROM ubuntu:18.04
 #
 # BATS, of course, is needed to run BATS :P
 
-RUN useradd bio
+RUN useradd hab
 
 RUN apt-get update && \
     apt-get -y install jq curl git && \

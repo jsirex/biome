@@ -515,23 +515,23 @@ impl BuildRootContext {
         let pkg = self.primary_svc()?;
         let user_name = pkg.svc_user()
                            .unwrap_or_default()
-                           .unwrap_or_else(|| String::from("bio"));
+                           .unwrap_or_else(|| String::from("hab"));
         let group_name = pkg.svc_group()
                             .unwrap_or_default()
-                            .unwrap_or_else(|| String::from("bio"));
+                            .unwrap_or_else(|| String::from("hab"));
 
         // TODO: In some cases, packages based on core/nginx and
         // core/httpd (and possibly others) will not work, because
         // they specify a SVC_USER of `root`, but implicitly rely on a
-        // `bio` user being present for running lower-privileged
+        // `hab` user being present for running lower-privileged
         // worker processes. Biome currently doesn't have a way to
         // formally represent this, so until it does, we should make
-        // sure that there is a `bio` user and group present, just in
+        // sure that there is a `hab` user and group present, just in
         // case.
         //
-        // With recent changes to the Supervisor, this bio user must
-        // be in the bio group for these packages to function
-        // properly, but only in the case that the `bio` user is
+        // With recent changes to the Supervisor, this hab user must
+        // be in the hab group for these packages to function
+        // properly, but only in the case that the `hab` user is
         // being used in this back-channel kind of way. In general,
         // there is no requirement that a user be in any specific
         // group. In particular, there is no requirement that
@@ -540,7 +540,7 @@ impl BuildRootContext {
         //
         // When we can represent this multi-user situation better, we
         // should be able to clean up some of this code (because it's
-        // a bit gnarly!) and not have to add an implicit bio user or
+        // a bit gnarly!) and not have to add an implicit hab user or
         // group.
         //
         // NOTE: If this logic ever needs to get ANY more complex, it'd
@@ -551,8 +551,8 @@ impl BuildRootContext {
         // trying to directly manage those files' contents.
 
         // Since we're potentially going to have to create an extra
-        // bio user and/or group, they're going to need
-        // identifiers. If SVC_USER or SVC_GROUP is bio, then we'll
+        // hab user and/or group, they're going to need
+        // identifiers. If SVC_USER or SVC_GROUP is hab, then we'll
         // use the IDs given by the user. On the other hand, if we're
         // adding either one of those on top of SVC_USER/SVC_GROUP,
         // then we'll use a default, incremented by one on the off
@@ -573,18 +573,18 @@ impl BuildRootContext {
             ("root", "root") => {
                 // SVC_GROUP is SVC_USER's primary group (trivially)
 
-                // Just create a bio user in a bio group for safety
-                users.push(EtcPasswdEntry::new("bio", bio_uid, bio_gid));
-                groups.push(EtcGroupEntry::group_with_users("bio", bio_gid, &["bio"]));
+                // Just create a hab user in a hab group for safety
+                users.push(EtcPasswdEntry::new("hab", bio_uid, bio_gid));
+                groups.push(EtcGroupEntry::group_with_users("hab", bio_gid, &["hab"]));
             }
-            ("root", "bio") => {
+            ("root", "hab") => {
                 // SVC_GROUP is NOT SVC_USER's primary group
 
                 // Currently, this is the anticipated case for nginx
-                // and httpd packages... the lower-privileged bio user
-                // needs to be in the bio group for things to work.
-                users.push(EtcPasswdEntry::new("bio", bio_uid, gid));
-                groups.push(EtcGroupEntry::group_with_users("bio", gid, &["bio"]));
+                // and httpd packages... the lower-privileged hab user
+                // needs to be in the hab group for things to work.
+                users.push(EtcPasswdEntry::new("hab", bio_uid, gid));
+                groups.push(EtcGroupEntry::group_with_users("hab", gid, &["hab"]));
             }
             ("root", _) => {
                 // SVC_GROUP is NOT SVC_USER's primary group
@@ -593,37 +593,37 @@ impl BuildRootContext {
                 // No user is in SVC_GROUP, actually
                 groups.push(EtcGroupEntry::empty_group(&group_name, gid));
 
-                // Just create a bio user in a bio group for safety
-                users.push(EtcPasswdEntry::new("bio", bio_uid, bio_gid));
-                groups.push(EtcGroupEntry::group_with_users("bio", bio_gid, &["bio"]));
+                // Just create a hab user in a hab group for safety
+                users.push(EtcPasswdEntry::new("hab", bio_uid, bio_gid));
+                groups.push(EtcGroupEntry::group_with_users("hab", bio_gid, &["hab"]));
             }
-            ("bio", "bio") => {
-                // If the user explicitly called for bio/bio, give it
+            ("hab", "hab") => {
+                // If the user explicitly called for hab/hab, give it
                 // to them.
                 //
                 // Strictly speaking, SVC_USER does not need to be in
                 // SVC_GROUP, but if we're making a user, we need to
                 // put them in *some* group.
-                users.push(EtcPasswdEntry::new("bio", uid, gid));
-                groups.push(EtcGroupEntry::group_with_users("bio", gid, &["bio"]));
+                users.push(EtcPasswdEntry::new("hab", uid, gid));
+                groups.push(EtcGroupEntry::group_with_users("hab", gid, &["hab"]));
             }
-            ("bio", "root") => {
+            ("hab", "root") => {
                 // SVC_GROUP is NOT SVC_USER's primary group
 
                 // To prevent having to edit the root group entry,
-                // we'll just add the bio user to the bio group to put
+                // we'll just add the hab user to the hab group to put
                 // them someplace.
-                users.push(EtcPasswdEntry::new("bio", uid, bio_gid));
-                groups.push(EtcGroupEntry::group_with_users("bio", bio_gid, &["bio"]));
+                users.push(EtcPasswdEntry::new("hab", uid, bio_gid));
+                groups.push(EtcGroupEntry::group_with_users("hab", bio_gid, &["hab"]));
             }
-            ("bio", _) => {
+            ("hab", _) => {
                 // SVC_GROUP IS SVC_USER's primary group, and there is
-                // NO bio group
+                // NO hab group
 
-                // Again, sticking the bio user into the group because
+                // Again, sticking the hab user into the group because
                 // it needs to go somewhere
-                users.push(EtcPasswdEntry::new("bio", uid, gid));
-                groups.push(EtcGroupEntry::group_with_users(&group_name, gid, &["bio"]));
+                users.push(EtcPasswdEntry::new("hab", uid, gid));
+                groups.push(EtcGroupEntry::group_with_users(&group_name, gid, &["hab"]));
             }
             (..) => {
                 // SVC_GROUP IS SVC_USER's primary group, because it
@@ -631,9 +631,9 @@ impl BuildRootContext {
                 users.push(EtcPasswdEntry::new(&user_name, uid, gid));
                 groups.push(EtcGroupEntry::group_with_users(&group_name, gid, &[&user_name]));
 
-                // Just create a bio user in a bio group for safety
-                users.push(EtcPasswdEntry::new("bio", bio_uid, bio_gid));
-                groups.push(EtcGroupEntry::group_with_users("bio", bio_gid, &["bio"]));
+                // Just create a hab user in a hab group for safety
+                users.push(EtcPasswdEntry::new("hab", bio_uid, bio_gid));
+                groups.push(EtcGroupEntry::group_with_users("hab", bio_gid, &["hab"]));
             }
         }
 

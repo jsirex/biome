@@ -18,8 +18,8 @@ use crate::{error::{Error,
                     Result},
             util::path};
 
-const DEFAULT_USER: &str = "bio";
-const DEFAULT_GROUP: &str = "bio";
+const DEFAULT_USER: &str = "hab";
+const DEFAULT_GROUP: &str = "hab";
 
 const PATH_KEY: &str = "PATH";
 
@@ -169,8 +169,8 @@ impl<'a> Serialize for PkgProxy<'a> {
 }
 
 /// check and see if a user/group is specified in package metadata.
-/// if not, we'll try and use bio/bio.
-/// If bio/bio doesn't exist, try to use (current username, current group).
+/// if not, we'll try and use hab/hab.
+/// If hab/hab doesn't exist, try to use (current username, current group).
 /// If that doesn't work, then give up.
 #[cfg(unix)]
 fn get_user_and_group(pkg_install: &PackageInstall) -> Result<(String, String)> {
@@ -183,8 +183,8 @@ fn get_user_and_group(pkg_install: &PackageInstall) -> Result<(String, String)> 
 }
 
 /// check and see if a user/group is specified in package metadata.
-/// if not, we'll try and use bio/bio.
-/// If bio/bio doesn't exist, try to use (current username, current group).
+/// if not, we'll try and use hab/hab.
+/// If hab/hab doesn't exist, try to use (current username, current group).
 /// If that doesn't work, then give up.
 /// Windows will also check if bio exists if it was the given user name
 /// If it does not exist then fall back to the current username
@@ -214,7 +214,7 @@ fn get_pkg_user_and_group(pkg_install: &PackageInstall) -> Result<Option<(String
     }
 }
 
-/// checks to see if bio/bio exists, if not, fall back to
+/// checks to see if hab/hab exists, if not, fall back to
 /// current user/group. If that fails, then return an error.
 fn default_user_and_group() -> Result<(String, String)> {
     let uid = users::get_uid_by_name(DEFAULT_USER);
@@ -222,7 +222,7 @@ fn default_user_and_group() -> Result<(String, String)> {
     match (uid, gid) {
         (Some(_), Some(_)) => Ok((DEFAULT_USER.to_string(), DEFAULT_GROUP.to_string())),
         _ => {
-            debug!("bio:bio does NOT exist");
+            debug!("hab:hab does NOT exist");
             let user = users::get_current_username();
             let group = users::get_current_groupname();
             match (user, group) {

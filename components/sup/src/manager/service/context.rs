@@ -705,8 +705,8 @@ two = 2
                             svc_var_path:    Cow::Owned("var_path".into()),
                             svc_pid_file:    Cow::Owned("pid_file".into()),
                             svc_run:         Cow::Owned("svc_run".into()),
-                            svc_user:        Cow::Owned("bio".into()),
-                            svc_group:       Cow::Owned("bio".into()), };
+                            svc_user:        Cow::Owned("hab".into()),
+                            svc_group:       Cow::Owned("hab".into()), };
 
         let group: ServiceGroup = "foo.default".parse().unwrap();
 

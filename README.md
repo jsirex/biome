@@ -1,35 +1,24 @@
-# Overview
+<img src="https://github.com/habitat-sh/habitat/blob/master/www/source/images/habitat-logo.png" width="200">
 
-This repo is community distro of Chef Habitat Application Automation.
-
-It was generated from original using small tool [ForkMan](https://github.com/jsirex/forkman).
-
-## Backporting changes
-
-1. Add `habitat` repo as remote: `git remote add habitat https://github.com/habitat-sh/habitat.git`
-1. Fetch latest changes: `git fetch habitat master`
-1. Checkout new branch at upstream branch: `git checkout -b patch-branch habitat/master`
-1. Use `forkman.rb` with `habitat-sh/habitat.yml` config to refactor original repo
-1. Stage all changes: `git add -u`
-1. Do a soft reset on master: `git reset --soft master`
-1. Unstage bad and commit good changes
-1. Do a final review and push `patch-branch` for review (create merge request)
-
-# Upstream
-
-[![Build Status](https://badge.buildkite.com/f527cd3d7851756ed1a5f6ec463dd41e7145f7941fd932672a.svg)](https://buildkite.com/chef/biome-sh-biome-master-verify?branch=master)
-[![Slack](http://slack.biome.sh/badge.svg)](http://slack.biome.sh/)
+[![Build Status](https://badge.buildkite.com/f527cd3d7851756ed1a5f6ec463dd41e7145f7941fd932672a.svg)](https://buildkite.com/chef/habitat-sh-habitat-master-verify?branch=master)
+[![Slack](http://slack.habitat.sh/badge.svg)](http://slack.habitat.sh/)
 [![Discourse status](https://img.shields.io/discourse/https/meta.discourse.org/status.svg?style=flat)](https://forums.habitat.sh)
-[![Open Source Helpers](https://www.codetriage.com/biome-sh/biome/badges/users.svg)](https://www.codetriage.com/biome-sh/biome)
+[![Open Source Helpers](https://www.codetriage.com/habitat-sh/habitat/badges/users.svg)](https://www.codetriage.com/habitat-sh/habitat)
 
 
-[Biome](http://biome.sh) is open source software that creates platform-independent build artifacts and provides built-in deployment and management capabilities.
+[Habitat](http://habitat.sh) is open source software that creates platform-independent build artifacts and provides built-in deployment and management capabilities.
 
-The goal of Biome is to allow you to automate your application behavior when you create your application, and then bundle your application with the automation it needs to behave with the correct run time behavior, update strategies, failure handling strategies, and scaling behavior, wherever you choose to deploy it.
+The goal of Habitat is to allow you to automate your application behavior when you create your application, and then bundle your application with the automation it needs to behave with the correct run time behavior, update strategies, failure handling strategies, and scaling behavior, wherever you choose to deploy it.
 
-See a quick demo of how to build, deploy and manage an application with Biome:
+See a quick demo of how to build, deploy and manage an application with Habitat:
 
-[![Build, Deploy and Manage with Biome (5:33)](images/overview-youtube-image.jpg)](http://www.youtube.com/watch?v=VW1DwDezlqM)
+**Project State**: [Active](https://github.com/chef/chef-oss-practices/blob/master/repo-management/repo-states.md#active)
+
+**Issues Response Time Max**: 5 business days
+
+**Pull Request Response Time Max**: 5 business days
+
+[![Build, Deploy and Manage with Habitat (5:33)](images/overview-youtube-image.jpg)](http://www.youtube.com/watch?v=VW1DwDezlqM)
 
 # Table of Contents
 * [Diagrams](#diagrams)
@@ -46,61 +35,61 @@ See a quick demo of how to build, deploy and manage an application with Biome:
 * [License](#license)
 
 ## Diagrams
-Graphics that will help you and your team better understand the concepts and how they fit together into the larger Biome ecosystem.
-### Where Biome Fits
+Graphics that will help you and your team better understand the concepts and how they fit together into the larger Habitat ecosystem.
+### Where Habitat Fits
 
-[![Biome Flow Infographic](images/biome-flow-infographic.png)](http://biome.sh#reference-diagram)
+[![Habitat Flow Infographic](images/habitat-flow-infographic.png)](http://habitat.sh#reference-diagram)
 
-Try the interactive infographics on the [website](http://biome.sh#reference-diagram)!
+Try the interactive infographics on the [website](http://habitat.sh#reference-diagram)!
 
-### How Biome Works
-* [Architecture Overview](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-architecture-overview.png)
-* [Initial Package Build Flow](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-initial-package-build-flow.png)
-* [Application Rebuild Flow](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-application-rebuild-flow.png)
-* [Dependency Update Flow](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-dependency-update-flow.png)
-* [Promote Packages Through Channels](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-promote-packages-through-channels.png)
+### How Habitat Works
+* [Architecture Overview](https://github.com/habitat-sh/habitat/raw/master/www/source/images/infographics/habitat-architecture-overview.png)
+* [Initial Package Build Flow](https://github.com/habitat-sh/habitat/raw/master/www/source/images/infographics/habitat-initial-package-build-flow.png)
+* [Application Rebuild Flow](https://github.com/habitat-sh/habitat/raw/master/www/source/images/infographics/habitat-application-rebuild-flow.png)
+* [Dependency Update Flow](https://github.com/habitat-sh/habitat/raw/master/www/source/images/infographics/habitat-dependency-update-flow.png)
+* [Promote Packages Through Channels](https://github.com/habitat-sh/habitat/raw/master/www/source/images/infographics/habitat-promote-packages-through-channels.png)
 
-### Biome and **Docker**
-* [Initial Docker Container Publishing Flow](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-initial-docker-container-publishing-flow.png)
-* [Automated Docker Container Publishing Flow](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-automated-docker-container-publishing-flow.png)
+### Habitat and **Docker**
+* [Initial Docker Container Publishing Flow](https://github.com/habitat-sh/habitat/raw/master/www/source/images/infographics/habitat-initial-docker-container-publishing-flow.png)
+* [Automated Docker Container Publishing Flow](https://github.com/habitat-sh/habitat/raw/master/www/source/images/infographics/habitat-automated-docker-container-publishing-flow.png)
 
-### Biome and **Kubernetes**
-* [Three Tiers of Service Deployment](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/biome-and-kubernetes-three-tiers-of-service-deployment.png)
-* [Deploy Services to Kubernetes with Biome](https://github.com/jsirex/biome/raw/master/www/source/images/infographics/deploy-services-to-kubernetes-with-biome-flow.png)
+### Habitat and **Kubernetes**
+* [Three Tiers of Service Deployment](https://github.com/habitat-sh/habitat/raw/master/www/source/images/infographics/habitat-and-kubernetes-three-tiers-of-service-deployment.png)
+* [Deploy Services to Kubernetes with Habitat](https://github.com/habitat-sh/habitat/raw/master/www/source/images/infographics/deploy-services-to-kubernetes-with-habitat-flow.png)
 
-*View all diagrams in [Docs](https://www.biome.sh/docs/diagrams/)*
+*View all diagrams in [Docs](https://www.habitat.sh/docs/diagrams/)*
 
 ## Hands-on Demos
-Choose any topic to begin learning how Biome can help your team build, deploy, and manage all of your applications - both new and legacy - in a cloud-native way:
-* [Package a sample application (15 mins)](https://www.biome.sh/demo/packaging-system/steps/1/)
-* [Set up automated deployments (20 mins)](https://www.biome.sh/demo/build-system/steps/1/)
-* [Auto-update a running application (15 mins)](https://www.biome.sh/demo/process-supervisor/steps/1/)
+Choose any topic to begin learning how Habitat can help your team build, deploy, and manage all of your applications - both new and legacy - in a cloud-native way:
+* [Package a sample application (15 mins)](https://www.habitat.sh/demo/packaging-system/steps/1/)
+* [Set up automated deployments (20 mins)](https://www.habitat.sh/demo/build-system/steps/1/)
+* [Auto-update a running application (15 mins)](https://www.habitat.sh/demo/process-supervisor/steps/1/)
 
-*View all demos and tutorials in [Learn](https://www.biome.sh/learn/)*
+*View all demos and tutorials in [Learn](https://www.habitat.sh/learn/)*
 
 
 ## Install
 
-You can download Biome from the [Biome downloads page](https://www.biome.sh/docs/install-biome/).
+You can download Habitat from the [Habitat downloads page](https://www.habitat.sh/docs/install-habitat/).
 
 Once you have downloaded it, follow the instructions on the page for your specific operating system.
 
-If you are running macOS and use [Homebrew](https://brew.sh), you can use our official [Homebrew tap](https://github.com/biome-sh/homebrew-biome).
+If you are running macOS and use [Homebrew](https://brew.sh), you can use our official [Homebrew tap](https://github.com/habitat-sh/homebrew-habitat).
 ```
-$ brew tap biome-sh/biome
-$ brew install bio
-```
-
-If you are running Windows and use [Chocolatey](https://chocolatey.org), you can install our [chocolatey package](https://chocolatey.org/packages/biome)
-```
-C:\> choco install biome
+$ brew tap habitat-sh/habitat
+$ brew install hab
 ```
 
-If you do _not_ run Homebrew or Chocolatey, or if you use Linux, you can use the [Biome install
-script](https://github.com/jsirex/biome/blob/master/components/bio/install.sh) from a bash shell.
+If you are running Windows and use [Chocolatey](https://chocolatey.org), you can install our [chocolatey package](https://chocolatey.org/packages/habitat)
+```
+C:\> choco install habitat
+```
+
+If you do _not_ run Homebrew or Chocolatey, or if you use Linux, you can use the [Habitat install
+script](https://github.com/habitat-sh/habitat/blob/master/components/hab/install.sh) from a bash shell.
 
 ```
-$ curl https://raw.githubusercontent.com/jsirex/biome/master/components/bio/install.sh | sudo bash
+$ curl https://raw.githubusercontent.com/habitat-sh/habitat/master/components/hab/install.sh | sudo bash
 ```
 
 ## Contribute
@@ -109,36 +98,36 @@ We are always looking for more opportunities for community involvement. Interest
 
 ## Documentation
 
-Get started with the [Biome tutorials](https://www.biome.sh/learn/) or plunge into the [complete documentation](https://www.biome.sh/docs/).
+Get started with the [Habitat tutorials](https://www.habitat.sh/learn/) or plunge into the [complete documentation](https://www.habitat.sh/docs/).
 
 ## Code Organization
 
 ### Core Plans
 
-The Biome plans that are built and maintained by Biome's Core Team are in [their own repo.](https://github.com/habitat-sh/core-plans)
+The Habitat plans that are built and maintained by Habitat's Core Team are in [their own repo.](https://github.com/habitat-sh/core-plans)
 
-### Biome Supervisor and other core components
+### Habitat Supervisor and other core components
 
-The code for the Biome Supervisor and other core components are in the [components directory](https://github.com/jsirex/biome/tree/master/components).
+The code for the Habitat Supervisor and other core components are in the [components directory](https://github.com/habitat-sh/habitat/tree/master/components).
 
 ### Docs
 
-Biome's website and documentation source is located in the `www` directory of the Biome source code. See [its README](www/README.md) for more information.
+Habitat's website and documentation source is located in the `www` directory of the Habitat source code. See [its README](www/README.md) for more information.
 
 ## Roadmap
 
-The Biome project's roadmap is public and is on our [community page](https://www.biome.sh/community/).
+The Habitat project's roadmap is public and is on our [community page](https://www.habitat.sh/community/).
 
-The Biome core team's project tracker is also public and on [Github.](https://github.com/jsirex/biome/projects/1)
+The Habitat core team's project tracker is also public and on [Github.](https://github.com/habitat-sh/habitat/projects/1)
 
 ## Community and support
 
-* [Biome Slack](http://slack.biome.sh)
+* [Habitat Slack](http://slack.habitat.sh)
 * [Forums](https://forums.habitat.sh)
-* Community triage is every Tuesday at 10am Pacific. The link to participate is shared in the [Biome Slack channel](http://slack.biome.sh), and videos are posted on the [Biome YouTube channel](https://youtube.com/channel/UC0wJZeP2dfPZaDUPgvpVpSg).
+* Community triage is every Tuesday at 10am Pacific. The link to participate is shared in the [Habitat Slack channel](http://slack.habitat.sh), and videos are posted on the [Habitat YouTube channel](https://youtube.com/channel/UC0wJZeP2dfPZaDUPgvpVpSg).
 
 ## Building
-See [BUILDING.md](BUILDING.md) for platform specific info on building Biome from source.
+See [BUILDING.md](BUILDING.md) for platform specific info on building Habitat from source.
 
 ## Further reference material
 
@@ -153,7 +142,7 @@ See [BUILDING.md](BUILDING.md) for platform specific info on building Biome from
 * [POSIX Shell Command Language](http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html)
 
 ## Code of Conduct
-Participation in the Biome community is governed by the [code of conduct](https://github.com/jsirex/biome/blob/master/CODE_OF_CONDUCT.md).
+Participation in the Habitat community is governed by the [code of conduct](https://github.com/habitat-sh/habitat/blob/master/CODE_OF_CONDUCT.md).
 
 ## License
 

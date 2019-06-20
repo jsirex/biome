@@ -938,7 +938,7 @@ mod test {
         let pkg = TestPkg::new(&concrete_path);
         let mut cfg = Cfg::new(&pkg, None).expect("Could not create config");
         let default_toml = "shards = []\n\n[datastore]\ndatabase = \
-                            \"builder_originsrv\"\npassword = \"\"\nuser = \"bio\"\n";
+                            \"builder_originsrv\"\npassword = \"\"\nuser = \"hab\"\n";
 
         cfg.default = Some(toml::from_str(default_toml).unwrap());
         assert_eq!(default_toml, toml::to_string(&cfg).unwrap());

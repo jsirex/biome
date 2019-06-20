@@ -36,7 +36,7 @@ sup_restarted() {
     run curl -s -o /dev/null -w "%{http_code}" http://localhost
     [ "$output" = "200" ]
 
-    # remove permissions for the bio user to access the nginx data
+    # remove permissions for the hab user to access the nginx data
     # directory. All index.html requests will now return 403
     chmod g-rwx /hab/svc/nginx/data/
     run curl -s -o /dev/null -w "%{http_code}" http://localhost
