@@ -1,4 +1,6 @@
-# Habitat CHANGELOG
+Consider below original Chef Habitat Changelog
+
+# Upstream Habitat CHANGELOG
 
 <!-- latest_release unreleased -->
 ## Unreleased

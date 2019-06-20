@@ -1,3 +1,32 @@
+# Overview
+
+This repo is community distro of Chef Habitat Application Automation.
+
+It was generated from original using small tool [ForkMan](https://github.com/jsirex/forkman).
+
+## Backporting changes
+
+There is `patch-project.sh` example. It reworks project and updates branch `forkman-raw`. It tracks upstream changes.
+
+Here is how can you proceed:
+
+1. Clone this project
+1. Add `habitat` repo as remote: `git remote add habitat https://github.com/habitat-sh/habitat.git`
+1. Fetch latest changes: `git fetch habitat master`
+1. Make sure you have local branch up to date with `origin/forkman-raw`. Script will use it as base for new changes.
+1. Use `patch-project.sh` script with `habitat-sh/habitat.yml` config to refactor original repo:
+``` shell
+# This backports habitat 0.82.0
+./patch-project.sh habitat-sh/habitat.yaml ../biome c39dcb7df3ac5a6f5bd65d7db1fc2d9ecac36c98`
+```
+1. Do not try to modify this branch, because new `forkman` run override your change with dictionary. Keep branch clean
+1. Push back `forkman-raw` branch (or create PR)
+1. If after `forkman` project requires additional manual fixes create another temporary branch from `master`, merge there `forkman-raw` and add patches after. It will presrve your changes later
+
+It is highly recommended to not change code by hand because it requires effort for further support. If it possible to patch with `forkman` - use forkman
+
+# Upstream README
+
 <img src="https://github.com/habitat-sh/habitat/blob/master/www/source/images/habitat-logo.png" width="200">
 
 [![Build Status](https://badge.buildkite.com/f527cd3d7851756ed1a5f6ec463dd41e7145f7941fd932672a.svg)](https://buildkite.com/chef/habitat-sh-habitat-master-verify?branch=master)
