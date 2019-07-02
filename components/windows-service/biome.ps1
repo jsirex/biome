@@ -4,7 +4,7 @@
 		return
 	}
 
-	if(!(Test-Path (Join-Path $env:SystemDrive "hab\pkgs\core\bio-sup"))) {
+	if(!(Test-Path (Join-Path $env:SystemDrive "hab\pkgs\biome\bio-sup"))) {
 		$bioProc = Get-Process bio -ErrorAction SilentlyContinue
 		if(!$bioProc) {
 			Write-Error "Could not locate the Biome CLI. Make sure you are running this via 'bio pkg exec core/windows-service install'."
