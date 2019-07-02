@@ -140,7 +140,7 @@ struct ProcessPathArgs {
     // The beginning of the patch to process (very often it is root,
     // but not always).
     path: PathBuf,
-    // The rest of the path as components ([biome-operator, peers])
+    // The rest of the path as components ([habitat-operator, peers])
     path_rest: VecDeque<OsString>,
     // Describes the position in the chain, used for determining from
     // where we should start reprocessing the path in case of some
