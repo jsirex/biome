@@ -45,6 +45,36 @@ Check that `cargo` is correctly installed by running
 cargo --version
 ```
 
+Next, use our installation script to install rustfmt
+```
+./support/ci/rustfmt.sh
+```
+
+At any time, you can find the version of rustfmt we are using by running this command at the root level
+of the Biome repo:
+
+```
+echo $(< RUSTFMT_VERSION)
+```
+
+Then you can run that version of rustfmt on any cargo project.
+
+For example, if:
+
+```
+echo $(< RUSTFMT_VERSION)
+```
+
+returns "nightly-2019-05-10"
+
+You would run:
+
+```
+cargo +nightly-2019-05-10 fmt
+```
+
+You may also be able to configure your editor to automatically run rustfmt every time you save.
+
 # Compiling biome binaries
 
 In the root of the `biome` repo:
@@ -77,7 +107,6 @@ release. For details on building and releasing the launcher see
 
 The `bio` command execs various other binaries such as `bio-sup`. By default, this will run the latest installed biome package version of the binary. To use your development version, this behavior can be overridden with the following environment variables:
 * HAB_BUTTERFLY_BINARY
-* HAB_DOCKER_BINARY
 * HAB_LAUNCH_BINARY
 * HAB_STUDIO_BINARY
 * HAB_SUP_BINARY

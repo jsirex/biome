@@ -27,7 +27,8 @@ use self::types::{EventMessage,
                   EventMetadata,
                   HealthCheckEvent,
                   ServiceStartedEvent,
-                  ServiceStoppedEvent};
+                  ServiceStoppedEvent,
+                  ServiceUpdateStartedEvent};
 use crate::manager::{service::{HealthCheckResult,
                                Service},
                      sys::Sys};
@@ -37,7 +38,8 @@ pub use error::{Error,
 use futures::sync::mpsc::UnboundedSender;
 use biome_common::types::{AutomateAuthToken,
                             EventStreamMetadata};
-use biome_core::env::Config as EnvConfig;
+use biome_core::{env::Config as EnvConfig,
+                   package::ident::PackageIdent};
 use state::Container;
 use std::{net::SocketAddr,
           num::ParseIntError,
@@ -66,7 +68,8 @@ pub fn init_stream(config: EventStreamConfig, event_core: EventCore) -> Result<(
     let mut return_value: Result<()> = Ok(());
 
     INIT.call_once(|| {
-            let conn_info = EventConnectionInfo::new(config.token, config.url);
+            let conn_info =
+                EventConnectionInfo::new(config.token, config.url, &event_core.supervisor_id);
             match stream_impl::init_stream(conn_info) {
                 Ok(event_stream) => {
                     EVENT_STREAM.set(event_stream);
@@ -119,8 +122,8 @@ pub struct EventConnectionInfo {
 }
 
 impl EventConnectionInfo {
-    pub fn new(auth_token: AutomateAuthToken, cluster_uri: String) -> Self {
-        EventConnectionInfo { name: "bio_client".to_string(),
+    pub fn new(auth_token: AutomateAuthToken, cluster_uri: String, supervisor_id: &str) -> Self {
+        EventConnectionInfo { name: format!("bio_client_{}", supervisor_id),
                               verbose: true,
                               cluster_uri,
                               cluster_id: "event-service".to_string(),
@@ -177,6 +180,16 @@ pub fn service_stopped(service: &Service) {
     }
 }
 
+/// Send an event at the start of a Service update.
+pub fn service_update_started(service: &Service, update: &PackageIdent) {
+    if stream_initialized() {
+        publish(ServiceUpdateStartedEvent { event_metadata:       None,
+                                            service_metadata:
+                                                Some(service.to_service_metadata()),
+                                            update_package_ident: update.clone().to_string(), });
+    }
+}
+
 // Takes metadata directly, rather than a `&Service` like other event
 // functions, because of how the asynchronous health checking
 // currently works. Revisit when async/await + Pin is all stabilized.
@@ -219,6 +232,7 @@ fn publish(mut event: impl EventMessage) {
         // one.
         //
         // The ugliness is at least contained, though.
+        debug!("Publishing to event stream: event {:?} ", event);
         event.event_metadata(EventMetadata { occurred_at:
                                                  Some(std::time::SystemTime::now().into()),
                                              ..EVENT_CORE.get::<EventCore>().to_event_metadata() });

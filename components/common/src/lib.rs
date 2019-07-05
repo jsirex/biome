@@ -85,7 +85,6 @@ bitflags::bitflags! {
         const IGNORE_LOCAL       = 0b0000_1000_0000;
         const EVENT_STREAM       = 0b0001_0000_0000;
         const TRIGGER_ELECTION   = 0b0010_0000_0000;
-        const CONFIGURE_SHUTDOWN = 0b0100_0000_0000;
     }
 }
 
@@ -99,8 +98,7 @@ lazy_static! {
                            (FeatureFlag::OFFLINE_INSTALL, "HAB_FEAT_OFFLINE_INSTALL"),
                            (FeatureFlag::IGNORE_LOCAL, "HAB_FEAT_IGNORE_LOCAL"),
                            (FeatureFlag::EVENT_STREAM, "HAB_FEAT_EVENT_STREAM"),
-                           (FeatureFlag::TRIGGER_ELECTION, "HAB_FEAT_TRIGGER_ELECTION"),
-                           (FeatureFlag::CONFIGURE_SHUTDOWN, "HAB_FEAT_CONFIGURE_SHUTDOWN")];
+                           (FeatureFlag::TRIGGER_ELECTION, "HAB_FEAT_TRIGGER_ELECTION")];
         HashMap::from_iter(mapping)
     };
 }
@@ -160,10 +158,10 @@ pub mod sync {
     }
 
     biome_core::env_config_duration!(ThreadAliveThreshold,
-                                       HAB_THREAD_ALIVE_THRESHOLD_SECS,
+                                       HAB_THREAD_ALIVE_THRESHOLD_SECS => from_secs,
                                        Duration::from_secs(5 * 60));
     biome_core::env_config_duration!(ThreadAliveCheckDelay,
-                                       HAB_THREAD_ALIVE_CHECK_DELAY_SECS,
+                                       HAB_THREAD_ALIVE_CHECK_DELAY_SECS => from_secs,
                                        Duration::from_secs(60));
 
     /// Call periodically from a thread which has a work loop to indicate that the thread is
@@ -231,7 +229,7 @@ pub mod sync {
                                  Ordering},
                         Arc};
 
-        const TEST_THRESHOLD: Duration = Duration::from_millis(10);
+        const TEST_THRESHOLD: Duration = Duration::from_secs(1);
 
         #[test]
         fn no_tracking_without_mark_thread_alive() {

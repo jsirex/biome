@@ -14,11 +14,12 @@ cp "$(bio pkg path core/busybox-static)"/bin/busybox libexec/busybox
 cp "$(bio pkg path biome/bio)"/bin/bio libexec/bio
 
 HAB_STUDIO_BACKLINE_PKG="$(< "$(bio pkg path biome/bio-backline)"/IDENT)"
+studio_command="sudo --preserve-env $(realpath bin/bio-studio.sh)"
 
 export HAB_STUDIO_BACKLINE_PKG
-export STUDIO_ENTER_COMMAND="sudo --preserve-env bin/bio-studio.sh enter"
 
-./test/shared/test-all.sh
+./test/shared/test-all.sh "${studio_command}"
+
 
 rm libexec/bio
 rm libexec/busybox

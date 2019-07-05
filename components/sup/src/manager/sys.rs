@@ -1,11 +1,11 @@
-use crate::{config::GossipListenAddr,
-            error::{Error,
+use crate::{error::{Error,
                     Result},
-            http_gateway,
             VERSION};
 use biome_butterfly::rumor::service::SysInfo;
 use biome_common::{outputln,
-                     types::ListenCtlAddr};
+                     types::{GossipListenAddr,
+                             HttpListenAddr,
+                             ListenCtlAddr}};
 use biome_core;
 use std::{net::{IpAddr,
                 Ipv4Addr,
@@ -33,7 +33,7 @@ impl Sys {
     pub fn new(permanent: bool,
                gossip: GossipListenAddr,
                ctl: ListenCtlAddr,
-               http: http_gateway::ListenAddr)
+               http: HttpListenAddr)
                -> Sys {
         let ip = match lookup_ip() {
             Ok(ip) => ip,
@@ -83,21 +83,21 @@ impl Sys {
 
     pub fn gossip_listen(&self) -> SocketAddr { SocketAddr::new(self.gossip_ip, self.gossip_port) }
 
-    pub fn http_listen(&self) -> http_gateway::ListenAddr {
-        http_gateway::ListenAddr::new(self.http_gateway_ip, self.http_gateway_port)
+    pub fn http_listen(&self) -> HttpListenAddr {
+        HttpListenAddr::new(self.http_gateway_ip, self.http_gateway_port)
     }
 }
 
 pub fn lookup_ip() -> Result<IpAddr> {
     match biome_core::util::sys::ip() {
         Ok(s) => Ok(s),
-        Err(e) => Err(sup_error!(Error::BiomeCore(e))),
+        Err(e) => Err(Error::BiomeCore(e)),
     }
 }
 
 pub fn lookup_hostname() -> Result<String> {
     match biome_core::os::net::hostname() {
         Ok(hostname) => Ok(hostname),
-        Err(_) => Err(sup_error!(Error::IPFailed)),
+        Err(_) => Err(Error::IPFailed),
     }
 }

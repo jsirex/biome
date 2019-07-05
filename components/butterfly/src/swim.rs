@@ -1,9 +1,3 @@
-use std::{fmt,
-          str::FromStr};
-
-use bytes::BytesMut;
-use prost::Message as ProstMessage;
-
 pub use crate::protocol::swim::{SwimPayload,
                                 SwimType};
 use crate::{error::{Error,
@@ -14,6 +8,10 @@ use crate::{error::{Error,
             protocol::{self,
                        swim as proto,
                        FromProto}};
+use bytes::BytesMut;
+use prost::Message as ProstMessage;
+use std::{fmt,
+          str::FromStr};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Ack {
@@ -45,12 +43,14 @@ impl FromProto<proto::Swim> for Ack {
     }
 }
 
-impl protocol::Message<proto::Swim> for Ack {}
+impl protocol::Message<proto::Swim> for Ack {
+    const MESSAGE_ID: &'static str = "Ack";
+}
 
 impl From<Ack> for proto::Ack {
     fn from(value: Ack) -> Self {
         proto::Ack { from:       Some(value.from.into()),
-                     forward_to: value.forward_to.map(Into::into), }
+                     forward_to: value.forward_to.map(proto::Member::from), }
     }
 }
 
@@ -60,7 +60,7 @@ impl From<Ack> for proto::Swim {
                       membership: value.membership
                                        .clone()
                                        .into_iter()
-                                       .map(Into::into)
+                                       .map(proto::Membership::from)
                                        .collect(),
                       payload:    Some(SwimPayload::Ack(value.into())), }
     }
@@ -130,12 +130,14 @@ impl FromProto<proto::Swim> for Ping {
     }
 }
 
-impl protocol::Message<proto::Swim> for Ping {}
+impl protocol::Message<proto::Swim> for Ping {
+    const MESSAGE_ID: &'static str = "Ping";
+}
 
 impl From<Ping> for proto::Ping {
     fn from(value: Ping) -> Self {
         proto::Ping { from:       Some(value.from.into()),
-                      forward_to: value.forward_to.map(Into::into), }
+                      forward_to: value.forward_to.map(proto::Member::from), }
     }
 }
 
@@ -145,7 +147,7 @@ impl From<Ping> for proto::Swim {
                       membership: value.membership
                                        .clone()
                                        .into_iter()
-                                       .map(Into::into)
+                                       .map(proto::Membership::from)
                                        .collect(),
                       payload:    Some(SwimPayload::Ping(value.into())), }
     }
@@ -186,7 +188,9 @@ impl FromProto<proto::Swim> for PingReq {
     }
 }
 
-impl protocol::Message<proto::Swim> for PingReq {}
+impl protocol::Message<proto::Swim> for PingReq {
+    const MESSAGE_ID: &'static str = "PingReq";
+}
 
 impl From<PingReq> for proto::PingReq {
     fn from(value: PingReq) -> Self {
@@ -201,7 +205,7 @@ impl From<PingReq> for proto::Swim {
                       membership: value.membership
                                        .clone()
                                        .into_iter()
-                                       .map(Into::into)
+                                       .map(proto::Membership::from)
                                        .collect(),
                       payload:    Some(SwimPayload::Pingreq(value.into())), }
     }
@@ -285,7 +289,10 @@ impl Swim {
 impl From<Swim> for proto::Swim {
     fn from(value: Swim) -> Self {
         proto::Swim { r#type:     value.r#type as i32,
-                      membership: value.membership.into_iter().map(Into::into).collect(),
+                      membership: value.membership
+                                       .into_iter()
+                                       .map(proto::Membership::from)
+                                       .collect(),
                       payload:    Some(value.kind.into()), }
     }
 }

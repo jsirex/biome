@@ -29,10 +29,14 @@ param (
     # Options to pass to the cargo test command
     [string]$TestOptions,
     # The Rust toolchain to use and enjoy
-    [string]$Toolchain="stable"
+    [string]$Toolchain
 )
 $ErrorActionPreference="stop"
 . $PSScriptRoot\support\ci\shared.ps1
+
+if (!$Toolchain) {
+    $Toolchain = Get-Toolchain
+}
 
 if($Command -eq "Fmt") {
     $toolchain = "$(Get-Content $PSScriptRoot/RUSTFMT_VERSION)"
@@ -87,7 +91,7 @@ function Invoke-Build([string]$Path, [switch]$Clean, [string]$Command, [switch]$
             Install-RustToolchain $toolchain
             rustup component add --toolchain $Toolchain rustfmt
             Setup-Environment
-            Invoke-Expression "cargo +$ToolChain $Command --all -- --check"
+            Invoke-Expression "cargo +$ToolChain $Command --all"
             break
         }
         "clippy" {
@@ -109,7 +113,12 @@ function Invoke-Build([string]$Path, [switch]$Clean, [string]$Command, [switch]$
         "build" {
             Install-Rustup $toolchain
             Install-RustToolchain $toolchain
-            rustup component add --toolchain $Toolchain rustfmt
+            Setup-Environment
+            Invoke-Expression "cargo +$ToolChain $Command $(if ($Release) { '--release' }) $FeatureString"
+        }
+        "check" {
+            Install-Rustup $toolchain
+            Install-RustToolchain $toolchain
             Setup-Environment
             Invoke-Expression "cargo +$ToolChain $Command $(if ($Release) { '--release' }) $FeatureString"
         }

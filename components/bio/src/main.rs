@@ -12,7 +12,8 @@ use clap::{ArgMatches,
 use env_logger;
 use futures::prelude::*;
 use bio::{analytics,
-          cli,
+          cli::{self,
+                parse_optional_arg},
           command::{self,
                     pkg::list::ListingType},
           config::{self,
@@ -47,13 +48,12 @@ use biome_core::{crypto::{init,
                             keys::PairType,
                             BoxKeyPair,
                             SigKeyPair},
-                   env as henv,
-                   env::Config as EnvConfig,
+                   env::{self as henv,
+                         Config as _},
                    fs::{cache_analytics_path,
                         cache_artifact_path,
                         launcher_root_path},
-                   os::process::{ShutdownSignal,
-                                 ShutdownTimeout},
+                   os::process::ShutdownTimeout,
                    package::{target,
                              PackageIdent,
                              PackageTarget},
@@ -289,9 +289,9 @@ fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                     }
                 }
                 ("load", Some(m)) => sub_svc_load(m)?,
-                ("unload", Some(m)) => sub_svc_unload(m, feature_flags)?,
+                ("unload", Some(m)) => sub_svc_unload(m)?,
                 ("start", Some(m)) => sub_svc_start(m)?,
-                ("stop", Some(m)) => sub_svc_stop(m, feature_flags)?,
+                ("stop", Some(m)) => sub_svc_stop(m)?,
                 ("status", Some(m)) => sub_svc_status(m)?,
                 _ => unreachable!(),
             }
@@ -313,7 +313,7 @@ fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
         ("supportbundle", _) => sub_supportbundle(ui)?,
         ("setup", Some(m)) => sub_cli_setup(ui, m)?,
         ("start", Some(m)) => sub_svc_start(m)?,
-        ("stop", Some(m)) => sub_svc_stop(m, feature_flags)?,
+        ("stop", Some(m)) => sub_svc_stop(m)?,
         ("user", Some(matches)) => {
             match matches.subcommand() {
                 ("key", Some(m)) => {
@@ -493,9 +493,8 @@ fn sub_pkg_build(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     };
     let docker = m.is_present("DOCKER");
     let reuse = m.is_present("REUSE");
-    let windows = m.is_present("WINDOWS");
 
-    command::pkg::build::start(ui, plan_context, root, src, keys, reuse, windows, docker)
+    command::pkg::build::start(ui, plan_context, root, src, keys, reuse, docker)
 }
 
 fn sub_pkg_config(m: &ArgMatches<'_>) -> Result<()> {
@@ -783,9 +782,16 @@ fn sub_pkg_provides(m: &ArgMatches<'_>) -> Result<()> {
 
 fn sub_pkg_search(m: &ArgMatches<'_>) -> Result<()> {
     let url = bldr_url_from_matches(&m)?;
-    let search_term = m.value_of("SEARCH_TERM").unwrap(); // Required via clap
+    let search_term = m.value_of("SEARCH_TERM").expect("required opt SEARCH_TERM");
+    let limit = m.value_of("LIMIT")
+                 .expect("required opt LIMIT")
+                 .parse()
+                 .expect("valid LIMIT");
     let token = maybe_auth_token(&m);
-    command::pkg::search::start(&search_term, &url, token.as_ref().map(String::as_str))
+    command::pkg::search::start(&search_term,
+                                &url,
+                                limit,
+                                token.as_ref().map(String::as_str))
 }
 
 fn sub_pkg_sign(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
@@ -1023,8 +1029,7 @@ fn sub_svc_load(m: &ArgMatches<'_>) -> Result<()> {
     let cfg = config::load()?;
     let listen_ctl_addr = listen_ctl_addr_from_input(m)?;
     let secret_key = ctl_secret_key(&cfg)?;
-    let mut msg = sup_proto::ctl::SvcLoad::default();
-    update_svc_load_from_input(m, &mut msg)?;
+    let mut msg = svc_load_from_input(m)?;
     let ident: PackageIdent = m.value_of("PKG_IDENT").unwrap().parse()?;
     msg.ident = Some(ident.into());
     SrvClient::connect(&listen_ctl_addr, &secret_key).and_then(|conn| {
@@ -1035,17 +1040,15 @@ fn sub_svc_load(m: &ArgMatches<'_>) -> Result<()> {
     Ok(())
 }
 
-fn sub_svc_unload(m: &ArgMatches<'_>, feature_flags: FeatureFlag) -> Result<()> {
+fn sub_svc_unload(m: &ArgMatches<'_>) -> Result<()> {
     let ident = PackageIdent::from_str(m.value_of("PKG_IDENT").unwrap())?;
     let cfg = config::load()?;
     let listen_ctl_addr = listen_ctl_addr_from_input(m)?;
     let secret_key = ctl_secret_key(&cfg)?;
-
-    let timeout_in_seconds = maybe_get_shutdown_timeout(m, feature_flags)?.map(Into::into);
-    let signal = maybe_get_shutdown_signal(m, feature_flags)?.map(|s| s.to_string());
+    let timeout_in_seconds =
+        parse_optional_arg::<ShutdownTimeout>("SHUTDOWN_TIMEOUT", m).map(u32::from);
 
     let msg = sup_proto::ctl::SvcUnload { ident: Some(ident.into()),
-                                          signal,
                                           timeout_in_seconds };
     SrvClient::connect(&listen_ctl_addr, &secret_key).and_then(|conn| {
                                                          conn.call(msg)
@@ -1053,32 +1056,6 @@ fn sub_svc_unload(m: &ArgMatches<'_>, feature_flags: FeatureFlag) -> Result<()> 
                                                      })
                                                      .wait()?;
     Ok(())
-}
-
-fn maybe_get_shutdown_signal(m: &ArgMatches<'_>,
-                             feature_flags: FeatureFlag)
-                             -> Result<Option<ShutdownSignal>> {
-    if feature_flags.contains(FeatureFlag::CONFIGURE_SHUTDOWN) {
-        let signal = m.value_of("SHUTDOWN_SIGNAL")
-                      .expect("SHUTDOWN_SIGNAL should have a default value")
-                      .parse()?;
-        Ok(Some(signal))
-    } else {
-        Ok(None)
-    }
-}
-
-fn maybe_get_shutdown_timeout(m: &ArgMatches<'_>,
-                              feature_flags: FeatureFlag)
-                              -> Result<Option<ShutdownTimeout>> {
-    if feature_flags.contains(FeatureFlag::CONFIGURE_SHUTDOWN) {
-        let timeout = m.value_of("SHUTDOWN_TIMEOUT")
-                       .expect("SHUTDOWN_TIMEOUT should have a default value")
-                       .parse()?;
-        Ok(Some(timeout))
-    } else {
-        Ok(None)
-    }
 }
 
 fn sub_svc_start(m: &ArgMatches<'_>) -> Result<()> {
@@ -1136,19 +1113,16 @@ fn sub_svc_status(m: &ArgMatches<'_>) -> Result<()> {
     Ok(())
 }
 
-fn sub_svc_stop(m: &ArgMatches<'_>, feature_flags: FeatureFlag) -> Result<()> {
+fn sub_svc_stop(m: &ArgMatches<'_>) -> Result<()> {
     let ident = PackageIdent::from_str(m.value_of("PKG_IDENT").unwrap())?;
     let cfg = config::load()?;
     let listen_ctl_addr = listen_ctl_addr_from_input(m)?;
     let secret_key = ctl_secret_key(&cfg)?;
-
-    let timeout_in_seconds = maybe_get_shutdown_timeout(m, feature_flags)?.map(Into::into);
-    let signal = maybe_get_shutdown_signal(m, feature_flags)?.map(|s| s.to_string());
+    let timeout_in_seconds =
+        parse_optional_arg::<ShutdownTimeout>("SHUTDOWN_TIMEOUT", m).map(u32::from);
 
     let msg = sup_proto::ctl::SvcStop { ident: Some(ident.into()),
-                                        timeout_in_seconds,
-                                        signal };
-
+                                        timeout_in_seconds };
     SrvClient::connect(&listen_ctl_addr, &secret_key).and_then(|conn| {
                                                          conn.call(msg)
                                                              .for_each(|m| handle_ctl_reply(&m))
@@ -1823,7 +1797,8 @@ fn ui() -> UI {
 
 /// Set all fields for an `SvcLoad` message that we can from the given opts. This function
 /// populates all *shared* options between `run` and `load`.
-fn update_svc_load_from_input(m: &ArgMatches<'_>, msg: &mut sup_proto::ctl::SvcLoad) -> Result<()> {
+fn svc_load_from_input(m: &ArgMatches) -> Result<sup_proto::ctl::SvcLoad> {
+    let mut msg = sup_proto::ctl::SvcLoad::default();
     msg.bldr_url = bldr_url_from_input(m);
     msg.bldr_channel = channel_from_matches(m).map(|c| c.to_string());
     msg.application_environment = get_app_env_from_input(m)?;
@@ -1837,7 +1812,9 @@ fn update_svc_load_from_input(m: &ArgMatches<'_>, msg: &mut sup_proto::ctl::SvcL
     msg.binding_mode = get_binding_mode_from_input(m).map(|v| v as i32);
     msg.topology = get_topology_from_input(m).map(|v| v as i32);
     msg.update_strategy = get_strategy_from_input(m).map(|v| v as i32);
-    Ok(())
+    msg.shutdown_timeout =
+        parse_optional_arg::<ShutdownTimeout>("SHUTDOWN_TIMEOUT", m).map(u32::from);
+    Ok(msg)
 }
 
 #[cfg(test)]

@@ -521,8 +521,6 @@ mod tests {
     use super::{super::RenderContext,
                 *};
     use crate::{census::CensusRing,
-                config::GossipListenAddr,
-                http_gateway,
                 manager::sys::Sys};
     use biome_butterfly::{member::MemberList,
                             rumor::{election::{self,
@@ -537,7 +535,9 @@ mod tests {
                          templating::{config::Cfg,
                                       package::Pkg,
                                       test_helpers::*},
-                         types::ListenCtlAddr};
+                         types::{GossipListenAddr,
+                                 HttpListenAddr,
+                                 ListenCtlAddr}};
     use biome_core::{fs::cache_key_path,
                        package::{PackageIdent,
                                  PackageInstall},
@@ -605,7 +605,7 @@ mod tests {
         let sys = Sys::new(true,
                            GossipListenAddr::default(),
                            ListenCtlAddr::default(),
-                           http_gateway::ListenAddr::default());
+                           HttpListenAddr::default());
 
         let pg_id = PackageIdent::new("testing",
                                       &service_group.service(),
@@ -657,13 +657,13 @@ mod tests {
         let service_file_store: RumorStore<ServiceFileRumor> = RumorStore::default();
 
         let mut ring = CensusRing::new("member-a");
-        ring.update_from_rumors(&cache_key_path(Some(&*FS_ROOT)),
-                                &service_store,
-                                &election_store,
-                                &election_update_store,
-                                &member_list,
-                                &service_config_store,
-                                &service_file_store);
+        ring.update_from_rumors_mlr(&cache_key_path(Some(&*FS_ROOT)),
+                                    &service_store,
+                                    &election_store,
+                                    &election_update_store,
+                                    &member_list,
+                                    &service_config_store,
+                                    &service_file_store);
 
         let bindings = iter::empty::<&ServiceBind>();
 

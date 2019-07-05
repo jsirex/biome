@@ -30,9 +30,11 @@ use std::{borrow::Cow,
           path::{Path,
                  PathBuf},
           result::Result as StdResult,
-          str::FromStr};
+          str::FromStr,
+          time::Duration};
 
 use crate::{api_client::{self,
+                         BoxedClient,
                          Client,
                          Error::APIError},
             hcore::{self,
@@ -49,6 +51,7 @@ use crate::{api_client::{self,
                               PackageIdent,
                               PackageInstall,
                               PackageTarget},
+                    util::wait_for,
                     ChannelIdent}};
 use glob;
 use hyper::status::StatusCode;
@@ -63,8 +66,8 @@ use crate::{error::{Error,
             ui::{Status,
                  UIWriter}};
 
-pub const RETRIES: u64 = 5;
-pub const RETRY_WAIT: u64 = 3000;
+pub const RETRIES: usize = 5;
+pub const RETRY_WAIT: Duration = Duration::from_millis(3000);
 
 /// Represents a locally-available `.hart` file for package
 /// installation purposes only.
@@ -415,7 +418,7 @@ fn run_install_hook<T>(ui: &mut T, package: &PackageInstall) -> Result<()>
 struct InstallTask<'a> {
     install_mode: &'a InstallMode,
     local_package_usage: &'a LocalPackageUsage,
-    api_client: Client,
+    api_client: BoxedClient,
     channel: &'a ChannelIdent,
     fs_root_path: &'a Path,
     /// The path to the local artifact cache (e.g., /hab/cache/artifacts)
@@ -626,8 +629,7 @@ impl<'a> InstallTask<'a> {
             } else {
                 artifacts_to_install.push(self.get_cached_artifact(
                     ui,
-                    (&FullyQualifiedPackageIdent::from(dependency)?,
-                                        target),
+                    (&FullyQualifiedPackageIdent::from(dependency)?, target),
                     token,
                 )?);
             }
@@ -664,16 +666,13 @@ impl<'a> InstallTask<'a> {
                               -> Result<PackageArchive>
         where T: UIWriter
     {
+        let fetch_artifact = || self.fetch_artifact(ui, (ident, target), token);
         if self.is_artifact_cached(&ident) {
             debug!("Found {} in artifact cache, skipping remote download",
                    ident);
         } else if self.is_offline() {
             return Err(Error::OfflineArtifactNotFound(ident.as_ref().clone()));
-        } else if retry(RETRIES,
-                        RETRY_WAIT,
-                        || self.fetch_artifact(ui, (ident, target), token),
-                        Result::is_ok).is_err()
-        {
+        } else if retry(wait_for(RETRY_WAIT, RETRIES), fetch_artifact).is_err() {
             return Err(Error::DownloadFailed(format!("We tried {} times but \
                                                       could not download {}. \
                                                       Giving up.",
@@ -682,7 +681,7 @@ impl<'a> InstallTask<'a> {
 
         let mut artifact = PackageArchive::new(self.cached_artifact_path(ident));
         ui.status(Status::Verifying, artifact.ident()?)?;
-        self.verify_artifact(ui, ident, &mut artifact)?;
+        self.verify_artifact(ui, ident, token, &mut artifact)?;
         Ok(artifact)
     }
 
@@ -864,7 +863,11 @@ impl<'a> InstallTask<'a> {
         }
     }
 
-    fn fetch_origin_key<T>(&self, ui: &mut T, name_with_rev: &str) -> Result<()>
+    fn fetch_origin_key<T>(&self,
+                           ui: &mut T,
+                           name_with_rev: &str,
+                           token: Option<&str>)
+                           -> Result<()>
         where T: UIWriter
     {
         if self.is_offline() {
@@ -873,8 +876,11 @@ impl<'a> InstallTask<'a> {
             ui.status(Status::Downloading,
                       format!("{} public origin key", &name_with_rev))?;
             let (name, rev) = parse_name_with_rev(&name_with_rev)?;
-            self.api_client
-                .fetch_origin_key(&name, &rev, self.key_cache_path, ui.progress())?;
+            self.api_client.fetch_origin_key(&name,
+                                              &rev,
+                                              token,
+                                              self.key_cache_path,
+                                              ui.progress())?;
             ui.status(Status::Cached,
                       format!("{} public origin key", &name_with_rev))?;
             Ok(())
@@ -923,6 +929,7 @@ impl<'a> InstallTask<'a> {
     fn verify_artifact<T>(&self,
                           ui: &mut T,
                           ident: &FullyQualifiedPackageIdent<'_>,
+                          token: Option<&str>,
                           artifact: &mut PackageArchive)
                           -> Result<()>
         where T: UIWriter
@@ -949,7 +956,7 @@ impl<'a> InstallTask<'a> {
 
         let nwr = artifact::artifact_signer(&artifact.path)?;
         if SigKeyPair::get_public_key_path(&nwr, self.key_cache_path).is_err() {
-            self.fetch_origin_key(ui, &nwr)?;
+            self.fetch_origin_key(ui, &nwr, token)?;
         }
 
         artifact.verify(&self.key_cache_path)?;

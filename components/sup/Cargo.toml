@@ -20,10 +20,6 @@ path = "src/subscriber.rs"
 doc = false
 
 [dependencies]
-# For now hardcode the version. If the version of actix is not the same as the
-# one used by actix-web it causes errors https://github.com/actix/actix-web/issues/46.
-# When actix-web updates to a 0.8.x version of actix we can change this back.
-actix = "0.7.9"
 bytes = "*"
 # This is temporary, until this is merged to the mainline and we can use the crate
 nitox = { git = "https://github.com/habitat-sh/nitox", branch="feature/nats-server" }
@@ -31,7 +27,6 @@ actix-web = { version = "*", default-features = false, features = [ "rust-tls" ]
 byteorder = "*"
 clap = { version = "*", features = [ "suggestions", "color", "unstable" ] }
 cpu-time = "*"
-env_logger = "*"
 futures = "*"
 glob = "*"
 bio = { path = "../bio" }
@@ -42,8 +37,13 @@ biome_api_client = { path = "../builder-api-client" }
 biome-launcher-client = { path = "../launcher-client" }
 biome-sup-protocol = { path = "../sup-protocol", default-features = false }
 lazy_static = "*"
-libc = "*"
+# Temporarily pin libc. The palaver crate uses the shorthand for semver compatible updates,
+# but the libc crate changed the types of some of the consts and functions it provides.
+# This pin can be removed once a release with https://github.com/alecmocatta/palaver/pull/15
+# and https://github.com/alecmocatta/palaver/pull/16 merged is made.
+libc = "= 0.2.54" 
 log = "*"
+log4rs = "*"
 notify = "*"
 num_cpus = "*"
 prometheus = "*"

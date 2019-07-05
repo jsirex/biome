@@ -30,11 +30,10 @@ use crate::{census::{CensusGroup,
                      ElectionStatus,
                      ServiceFile},
             error::{Error,
-                    Result,
-                    SupError},
-            manager::{action::ShutdownSpec,
-                      FsCfg,
+                    Result},
+            manager::{FsCfg,
                       GatewayState,
+                      ShutdownConfig,
                       Sys},
             sup_futures};
 use futures::{future,
@@ -54,6 +53,7 @@ use biome_core::{crypto::hash,
                         svc_hooks_path,
                         SvcDir,
                         FS_ROOT_PATH},
+                   os::process::ShutdownTimeout,
                    package::{metadata::Bind,
                              PackageIdent,
                              PackageInstall},
@@ -116,10 +116,10 @@ enum BindStatus<'a> {
     /// satisfies the contract of the bind.
     Satisfied,
     /// An error was encountered determining the status
-    Unknown(SupError),
+    Unknown(Error),
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct Service {
     pub service_group:       ServiceGroup,
     pub bldr_url:            String,
@@ -134,8 +134,8 @@ pub struct Service {
     pub sys:                 Arc<Sys>,
     pub initialized:         bool,
     pub user_config_updated: bool,
+    pub shutdown_timeout:    Option<ShutdownTimeout>,
 
-    #[serde(skip_serializing)]
     config_renderer: CfgRenderer,
     // Note: This field is really only needed for serializing a
     // Service in the gateway (see ServiceProxy's Serialize
@@ -174,27 +174,22 @@ pub struct Service {
     /// We don't serialize because this is purely runtime information
     /// that should be reconciled against the current state of the
     /// census.
-    #[serde(skip_serializing)]
     unsatisfied_binds: HashSet<ServiceBind>,
     hooks: HookTable,
     config_from: Option<PathBuf>,
     manager_fs_cfg: Arc<FsCfg>,
-    #[serde(rename = "process")]
     supervisor: Arc<Mutex<Supervisor>>,
     svc_encrypted_password: Option<String>,
     health_check_interval: HealthCheckInterval,
 
-    #[serde(skip_serializing)]
     /// Whether a service's default configuration changed on a package
     /// update. Used to control when templates are re-rendered.
     defaults_updated: bool,
-    #[serde(skip_serializing)]
     gateway_state: Arc<RwLock<GatewayState>>,
 
     /// A "handle" to the never-ending future that periodically runs
     /// health checks on this service. This is the means by which we
     /// can stop that future.
-    #[serde(skip_serializing)]
     health_check_handle: Option<sup_futures::FutureHandle>,
 }
 
@@ -248,7 +243,8 @@ impl Service {
                      health_check_interval: spec.health_check_interval,
                      defaults_updated: false,
                      gateway_state,
-                     health_check_handle: None })
+                     health_check_handle: None,
+                     shutdown_timeout: spec.shutdown_timeout })
     }
 
     /// Returns the config root given the package and optional config-from path.
@@ -365,8 +361,8 @@ impl Service {
     /// Return a future that will shut down a service, performing any
     /// necessary cleanup, and run its post-stop hook, if any.
     pub fn stop(&mut self,
-                shutdown_spec: ShutdownSpec)
-                -> impl Future<Item = (), Error = SupError> {
+                shutdown_config: ShutdownConfig)
+                -> impl Future<Item = (), Error = Error> {
         self.stop_health_checks();
 
         let service_group = self.service_group.clone();
@@ -375,7 +371,7 @@ impl Service {
         let f = self.supervisor
                     .lock()
                     .expect("Couldn't lock supervisor")
-                    .stop(shutdown_spec)
+                    .stop(shutdown_config)
                     .and_then(move |_| {
                         gs.write()
                           .expect("GatewayState lock is poisoned")
@@ -545,6 +541,7 @@ impl Service {
             spec.svc_encrypted_password = Some(password.clone())
         }
         spec.health_check_interval = self.health_check_interval;
+        spec.shutdown_timeout = self.shutdown_timeout;
         spec
     }
 
@@ -681,7 +678,7 @@ impl Service {
         self.all_pkg_binds
             .iter()
             .find(|b| b.service == binding_name)
-            .ok_or(sup_error!(Error::NoSuchBind(binding_name.to_string())))
+            .ok_or_else(|| Error::NoSuchBind(binding_name.to_string()))
             .map(|b| b.exports.iter().collect())
     }
 
@@ -1173,21 +1170,20 @@ impl<'a> Serialize for ServiceProxy<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{config::GossipListenAddr,
-                http_gateway,
-                test_helpers::*};
-    use biome_common::types::ListenCtlAddr;
+    use crate::test_helpers::*;
+    use biome_common::types::{GossipListenAddr,
+                                HttpListenAddr,
+                                ListenCtlAddr};
     use serde_json;
     use std::str::FromStr;
 
     fn initialize_test_service() -> Service {
         let listen_ctl_addr =
             ListenCtlAddr::from_str("127.0.0.1:1234").expect("Can't parse IP into SocketAddr");
-        let http_addr = http_gateway::ListenAddr::default();
         let sys = Sys::new(false,
                            GossipListenAddr::default(),
                            listen_ctl_addr,
-                           http_addr);
+                           HttpListenAddr::default());
 
         let ident = if cfg!(target_os = "linux") {
             PackageIdent::new("core", "tree", Some("1.7.0"), Some("20180609045201"))

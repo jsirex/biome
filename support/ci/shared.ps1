@@ -19,6 +19,8 @@ function Install-Rustup($Toolchain) {
 
     if (get-command -Name rustup.exe -ErrorAction SilentlyContinue) {
         Write-Host "rustup is currently installed"
+        rustup set default-host x86_64-pc-windows-msvc
+        rustup default stable-x86_64-pc-windows-msvc
     } else {
         Write-Host "Installing rustup and $toolchain-x86_64-pc-windows-msvc Rust."
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -26,6 +28,10 @@ function Install-Rustup($Toolchain) {
         ./rustup-init.exe -y --default-toolchain $toolchain-x86_64-pc-windows-msvc --no-modify-path
         $env:path += ";$env:USERPROFILE\.cargo\bin"
     }
+}
+
+function Get-Toolchain {
+    "$(Get-Content $PSScriptRoot\..\..\rust-toolchain)"
 }
 
 function Install-RustToolchain($Toolchain) {
@@ -45,13 +51,10 @@ function Install-Rustfmt($Toolchain) {
 }
 
 function Install-Biome {
-    if (-not (get-command choco -ErrorAction SilentlyContinue)) {
-        Write-Host "Installing Chocolatey"
-        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')) | out-null
-    }
-
-    if (!((choco list biome --local-only) -match '^1 packages installed\.$')) {
-        choco install biome -y
+    if (get-command -Name bio -ErrorAction SilentlyContinue) {
+        Write-Host "Using biome version:`n$(bio --version)"
+    } else {
+        ."$PSScriptRoot\..\..\components\bio\install.ps1"
     }
 }
 
@@ -135,10 +138,6 @@ function Setup-Environment {
 
 # On buildkite, the rust binaries will be directly in C:
 if($env:BUILDKITE) {
-    $env:CARGO_HOME="C:\rust\.cargo"
-    $env:path = New-PathString -StartingPath $env:path -Path "C:\rust\.cargo\bin"
     # this will avoid a path length limit from the long buildkite working dir path
     $env:CARGO_TARGET_DIR = "c:\target"
-    $env:RUSTUP_HOME="C:\rust\.rustup"
-    $env:path = New-PathString -StartingPath $env:path -Path "C:\rust\.rustup\bin"
 }

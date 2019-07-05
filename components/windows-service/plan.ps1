@@ -1,10 +1,13 @@
 $pkg_name="windows-service"
 $pkg_origin="core"
-$pkg_version="0.4.0"
+$pkg_version="0.5.0"
 $pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 $pkg_license=@('Apache-2.0')
 $pkg_description="A Windows Service for runnung the Biome Supervisor"
-$pkg_deps=@("biome/bio-launcher", "core/powershell")
+$pkg_deps=@(
+  "biome/bio-launcher",
+  "core/powershell/$(Get-Content "$PLAN_CONTEXT/../../POWERSHELL_VERSION")"
+)
 $pkg_build_deps=@("core/dotnet-core-sdk")
 $pkg_bin_dirs=@("bin")
 

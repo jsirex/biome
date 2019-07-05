@@ -9,23 +9,50 @@ use crate::{common::ui::UI,
                     fs}};
 
 use crate::{config,
-            error::Result};
+            error::Result,
+            BLDR_URL_ENVVAR,
+            CTL_SECRET_ENVVAR,
+            ORIGIN_ENVVAR};
+
+use biome_core::AUTH_TOKEN_ENVVAR;
 
 pub const ARTIFACT_PATH_ENVVAR: &str = "ARTIFACT_PATH";
 
-const ORIGIN_ENVVAR: &str = "HAB_ORIGIN";
 const STUDIO_CMD: &str = "bio-studio";
 const STUDIO_CMD_ENVVAR: &str = "HAB_STUDIO_BINARY";
 const STUDIO_PACKAGE_IDENT: &str = "biome/bio-studio";
 
-pub fn start(ui: &mut UI, args: &[OsString]) -> Result<()> {
-    if henv::var(ORIGIN_ENVVAR).is_err() {
-        let config = config::load()?;
-        if let Some(default_origin) = config.origin {
-            debug!("Setting default origin {} via CLI config", &default_origin);
-            env::set_var("HAB_ORIGIN", default_origin);
+#[derive(Clone, Copy)]
+enum Sensitivity {
+    PrintValue,
+    NoPrintValue,
+}
+
+fn set_env_var_from_config(env_var: &str, config_val: Option<String>, sensitive: Sensitivity) {
+    if henv::var(env_var).is_err() {
+        if let Some(val) = config_val {
+            match sensitive {
+                Sensitivity::NoPrintValue => {
+                    debug!("Setting {}=REDACTED (sensitive) via config file", env_var)
+                }
+                Sensitivity::PrintValue => debug!("Setting {}={} via config file", env_var, val),
+            }
+            env::set_var(env_var, val);
         }
     }
+}
+
+pub fn start(ui: &mut UI, args: &[OsString]) -> Result<()> {
+    let config = config::load()?;
+
+    set_env_var_from_config(AUTH_TOKEN_ENVVAR,
+                            config.auth_token,
+                            Sensitivity::NoPrintValue);
+    set_env_var_from_config(BLDR_URL_ENVVAR, config.bldr_url, Sensitivity::PrintValue);
+    set_env_var_from_config(CTL_SECRET_ENVVAR,
+                            config.ctl_secret,
+                            Sensitivity::NoPrintValue);
+    set_env_var_from_config(ORIGIN_ENVVAR, config.origin, Sensitivity::PrintValue);
 
     if henv::var(CACHE_KEY_PATH_ENV_VAR).is_err() {
         let path = fs::cache_key_path(None::<&str>);
@@ -63,7 +90,8 @@ mod inner {
                         fs::{am_i_root,
                              find_command},
                         os::process,
-                        package::PackageIdent,
+                        package::{PackageIdent,
+                                  PackageInstall},
                         users::linux as group},
                 VERSION};
     use std::{env,
@@ -86,6 +114,24 @@ mod inner {
                     let ident = PackageIdent::from_str(&format!("{}/{}",
                                                                 super::STUDIO_PACKAGE_IDENT,
                                                                 version[0]))?;
+                    // This is a duplicate of the code in `bio pkg exec` and
+                    // should be refactored as part of or after:
+                    // https://github.com/habitat-sh/habitat/issues/6633
+                    // https://github.com/habitat-sh/habitat/issues/6634
+                    let pkg_install = PackageInstall::load(&ident, None)?;
+                    let cmd_env = pkg_install.environment_for_command()?;
+                    for (key, value) in cmd_env.into_iter() {
+                        debug!("Setting: {}='{}'", key, value);
+                        env::set_var(key, value);
+                    }
+
+                    let mut display_args = super::STUDIO_CMD.to_string();
+                    for arg in args {
+                        display_args.push(' ');
+                        display_args.push_str(arg.to_string_lossy().as_ref());
+                    }
+                    debug!("Running: {}", display_args);
+
                     exec::command_from_min_pkg(ui, super::STUDIO_CMD, &ident)?
                 }
             };
@@ -205,14 +251,6 @@ mod inner {
             let str_arg = arg.to_string_lossy();
             if str_arg == "-D" {
                 return false;
-            }
-        }
-
-        // -w/--windows is deprecated and should be removed in a post 0.64.0 release
-        for arg in args.iter() {
-            let str_arg = arg.to_string_lossy().to_lowercase();
-            if str_arg == "--windows" || str_arg == "-w" {
-                return true;
             }
         }
 

@@ -6,7 +6,7 @@ export HAB_LICENSE="accept-no-persist"
 
 bio studio rm
 
-export STUDIO_ENTER_COMMAND="bio studio enter"
+studio_command="bio studio"
 
-./test/shared/test-all.sh
+./test/shared/test-all.sh "${studio_command}"
 
