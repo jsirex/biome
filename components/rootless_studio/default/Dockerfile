@@ -1,4 +1,4 @@
-FROM biome:bio-base as bio
+FROM biomesh/bio:0.83.0 as bio
 ENV PATH=${PATH}:/hab/bin
 ARG BLDR_CHANNEL=stable
 # ARG HAB_LICENSE=no-accept
