@@ -3,14 +3,68 @@
 <!-- latest_release unreleased -->
 ## Unreleased
 
-<!-- latest_release -->
+#### Behavioral Changes
+- Add rst-reader back again [#6619](https://github.com/habitat-sh/habitat/pull/6619) ([raskchanky](https://github.com/raskchanky))
 
-## [0.82.0](https://github.com/habitat-sh/habitat/tree/0.82.0) (2019-06-03)
+#### Bug Fixes
+- do not overwrite PSModulePath when setting up build environment [#6697](https://github.com/habitat-sh/habitat/pull/6697) ([mwrock](https://github.com/mwrock))
+- provide a better error when no value is passed to Set-BuildtimeEnv or Set-RuntimeEnv [#6684](https://github.com/habitat-sh/habitat/pull/6684) ([mwrock](https://github.com/mwrock))
+- Remove recusive memberlist locking [#6662](https://github.com/habitat-sh/habitat/pull/6662) ([baumanj](https://github.com/baumanj))
+- allow windows service to set arbitrary environment variables [#6648](https://github.com/habitat-sh/habitat/pull/6648) ([mwrock](https://github.com/mwrock))
+
+#### New Features & Enhancements
+- add a invoke-after function for powershell plans [#6685](https://github.com/habitat-sh/habitat/pull/6685) ([mwrock](https://github.com/mwrock))
+- allow windows docker studio and exported images to run on kernels later than 2016ltsc [#6643](https://github.com/habitat-sh/habitat/pull/6643) ([mwrock](https://github.com/mwrock))
+- Switch to log4rs in the Supervisor [#6622](https://github.com/habitat-sh/habitat/pull/6622) ([christophermaier](https://github.com/christophermaier))
+- Store configurable shutdown parameters [#6539](https://github.com/habitat-sh/habitat/pull/6539) ([davidMcneil](https://github.com/davidMcneil))
 
 #### Merged Pull Requests
-- Release 0.82.0 [#6613](https://github.com/habitat-sh/habitat/pull/6613) ([smacfarlane](https://github.com/smacfarlane))
+- Refactor DatFile, again [#6703](https://github.com/habitat-sh/habitat/pull/6703) ([raskchanky](https://github.com/raskchanky))
+- fail build on docker push failures [#6702](https://github.com/habitat-sh/habitat/pull/6702) ([mwrock](https://github.com/mwrock))
+- powershell based install script [#6691](https://github.com/habitat-sh/habitat/pull/6691) ([mwrock](https://github.com/mwrock))
+- Add docs for installing the kernel2 CLI [#6692](https://github.com/habitat-sh/habitat/pull/6692) ([raskchanky](https://github.com/raskchanky))
+- Fix a crash when starting butterfly with no rumor file [#6690](https://github.com/habitat-sh/habitat/pull/6690) ([raskchanky](https://github.com/raskchanky))
+- Make the plans&#39; build use rust-toolchain version [#6680](https://github.com/habitat-sh/habitat/pull/6680) ([baumanj](https://github.com/baumanj))
+- resolve build deps before run deps [#6683](https://github.com/habitat-sh/habitat/pull/6683) ([mwrock](https://github.com/mwrock))
+- Changed &#39;Habitat&#39; to &#39;Chef Habitat&#39; in documentation &amp; blog. [#6667](https://github.com/habitat-sh/habitat/pull/6667) ([IanMadd](https://github.com/IanMadd))
+- Upgrade to actix 1.0 [#6677](https://github.com/habitat-sh/habitat/pull/6677) ([davidMcneil](https://github.com/davidMcneil))
+- update widestring crate [#6679](https://github.com/habitat-sh/habitat/pull/6679) ([mwrock](https://github.com/mwrock))
+- remove deprecated -w/--windows arg for studio [#6678](https://github.com/habitat-sh/habitat/pull/6678) ([mwrock](https://github.com/mwrock))
+- use explicit version of powershell [#6676](https://github.com/habitat-sh/habitat/pull/6676) ([mwrock](https://github.com/mwrock))
+- Disable artifactory mirror for choco [#6673](https://github.com/habitat-sh/habitat/pull/6673) ([scotthain](https://github.com/scotthain))
+- fix cargo check in windows build script [#6672](https://github.com/habitat-sh/habitat/pull/6672) ([mwrock](https://github.com/mwrock))
+- Fix --scaffolding flag [#6666](https://github.com/habitat-sh/habitat/pull/6666) ([davidMcneil](https://github.com/davidMcneil))
+- bump travis ruby and build www in a pr [#6663](https://github.com/habitat-sh/habitat/pull/6663) ([mwrock](https://github.com/mwrock))
+- Qubitrenegade 6644 [#6655](https://github.com/habitat-sh/habitat/pull/6655) ([baumanj](https://github.com/baumanj))
+- Load config variables from cli.toml when entering hab-studio [#6644](https://github.com/habitat-sh/habitat/pull/6644) ([qubitrenegade](https://github.com/qubitrenegade))
+- Remove duplication in BuilderAPI create [#6660](https://github.com/habitat-sh/habitat/pull/6660) ([davidMcneil](https://github.com/davidMcneil))
+- Fix conflict in search interface [#6659](https://github.com/habitat-sh/habitat/pull/6659) ([chefsalim](https://github.com/chefsalim))
+- correct documentation to reflect removal of --windows arg from plan init [#6641](https://github.com/habitat-sh/habitat/pull/6641) ([mwrock](https://github.com/mwrock))
+- Replace `busybox mount` with direct read of /proc/mounts [#6608](https://github.com/habitat-sh/habitat/pull/6608) ([smacfarlane](https://github.com/smacfarlane))
+- 6345 danielhertenstein [#6656](https://github.com/habitat-sh/habitat/pull/6656) ([baumanj](https://github.com/baumanj))
+- Check for missing cache key path when entering dockerized studio [#6345](https://github.com/habitat-sh/habitat/pull/6345) ([danielhertenstein](https://github.com/danielhertenstein))
+- Add Artifactory as BuilderAPIProvider [#6653](https://github.com/habitat-sh/habitat/pull/6653) ([chefsalim](https://github.com/chefsalim))
+- remove assert for no events in spec watcher tests after adding files to be watched [#6651](https://github.com/habitat-sh/habitat/pull/6651) ([mwrock](https://github.com/mwrock))
+- Update README.md for serving docs [#6652](https://github.com/habitat-sh/habitat/pull/6652) ([kagarmoe](https://github.com/kagarmoe))
+- spell check [#6654](https://github.com/habitat-sh/habitat/pull/6654) ([kagarmoe](https://github.com/kagarmoe))
+- Add limit option to hab pkg search [#6581](https://github.com/habitat-sh/habitat/pull/6581) ([davidMcneil](https://github.com/davidMcneil))
+- Make studio backline dependency explicit [#6549](https://github.com/habitat-sh/habitat/pull/6549) ([smacfarlane](https://github.com/smacfarlane))
+- Update bldr.toml to reflect changes to the repository [#6595](https://github.com/habitat-sh/habitat/pull/6595) ([smacfarlane](https://github.com/smacfarlane))
+- [Studio][Tests] Use absolute drive path for windows studio name [#6645](https://github.com/habitat-sh/habitat/pull/6645) ([smacfarlane](https://github.com/smacfarlane))
+- adds rustfmt instructions to supported dev env [#6570](https://github.com/habitat-sh/habitat/pull/6570) ([nellshamrell](https://github.com/nellshamrell))
+- updates ruby version [#6631](https://github.com/habitat-sh/habitat/pull/6631) ([nellshamrell](https://github.com/nellshamrell))
+- use chocolatey mirror on buildkite [#6638](https://github.com/habitat-sh/habitat/pull/6638) ([mwrock](https://github.com/mwrock))
+- Update to Rust 1.35.0 [#6615](https://github.com/habitat-sh/habitat/pull/6615) ([raskchanky](https://github.com/raskchanky))
+- Add Builder provider interface [#6626](https://github.com/habitat-sh/habitat/pull/6626) ([chefsalim](https://github.com/chefsalim))
+- Swap windows jobs to docker (as much as possible) [#6603](https://github.com/habitat-sh/habitat/pull/6603) ([scotthain](https://github.com/scotthain))
+- Adds service update started event [#6611](https://github.com/habitat-sh/habitat/pull/6611) ([gpeers](https://github.com/gpeers))
+- Update docs for 0.82.0 [#6627](https://github.com/habitat-sh/habitat/pull/6627) ([smacfarlane](https://github.com/smacfarlane))
+- Decouple logging concerns from Supervisor errors [#6590](https://github.com/habitat-sh/habitat/pull/6590) ([christophermaier](https://github.com/christophermaier))
+- Generate a unique NATS client id for event msgs [#6623](https://github.com/habitat-sh/habitat/pull/6623) ([afiune](https://github.com/afiune))
+- update kubernetes and helm exporter docs to include information about license acceptance [#6573](https://github.com/habitat-sh/habitat/pull/6573) ([nellshamrell](https://github.com/nellshamrell))
+<!-- latest_release -->
 
- ## [0.82.0](https://github.com/habitat-sh/habitat/tree/0.82.0) (2019-05-06)
+ ## [0.82.0](https://github.com/habitat-sh/habitat/tree/0.82.0) (2019-06-06)
  [Full Changelog](https://github.com/habitat-sh/habitat/compare/0.81.0...0.82.0)
 
 

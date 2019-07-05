@@ -1,0 +1,20 @@
+[package]
+name = "biome-rst-reader"
+version = "0.0.0"
+authors = ["The Biome Maintainers <humans@biome.sh>"]
+edition = "2018"
+workspace = "../../"
+
+[[bin]]
+name = "rst-reader"
+path = "src/main.rs"
+doc = false
+
+[dependencies]
+env_logger = "*"
+biome_butterfly = { path = "../butterfly", default-features = false }
+log = "*"
+
+[dependencies.clap]
+version = "*"
+features = ["suggestions", "color", "unstable"]

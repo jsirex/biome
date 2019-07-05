@@ -5,7 +5,7 @@ $pkg_maintainer = "The Biome Maintainers <humans@biome.sh>"
 $pkg_license = @("Apache-2.0")
 $pkg_bin_dirs = @("bin")
 $pkg_deps=@(
-    "core/powershell",
+    "core/powershell/$(Get-Content "$PLAN_CONTEXT/../../../POWERSHELL_VERSION")",
     "core/openssl",
     "core/zlib",
     "core/libarchive",
@@ -16,7 +16,7 @@ $pkg_deps=@(
 )
 $pkg_build_deps = @(
     "core/visual-cpp-build-tools-2015",
-    "core/rust",
+    "core/rust/$(Get-Content "$PLAN_CONTEXT/../../../rust-toolchain")",
     "core/cacerts",
     "core/raml2html"
 )

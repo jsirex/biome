@@ -3,7 +3,11 @@ $pkg_origin="core"
 $pkg_version=Get-Content "$PLAN_CONTEXT/../../../VERSION"
 $pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 $pkg_license=@("Apache-2.0")
-$pkg_build_deps=@("core/powershell", "biome/bio", "biome/bio-plan-build-ps1", "core/7zip")
+$pkg_build_deps=@(
+  "core/powershell/$(Get-Content "$PLAN_CONTEXT/../../../POWERSHELL_VERSION")",
+  "biome/bio",
+  "biome/bio-plan-build-ps1",
+  "core/7zip")
 $pkg_bin_dirs=@("bin")
 
 function Invoke-Build {

@@ -3,8 +3,8 @@ use crate::{error::{Error,
             manager::file_watcher::{default_file_watcher,
                                     Callbacks}};
 use biome_butterfly::member::Member;
-use biome_common::{cli::GOSSIP_DEFAULT_PORT,
-                     outputln};
+use biome_common::{outputln,
+                     types::GossipListenAddr};
 use std::{fs::File,
           io::{BufRead,
                BufReader},
@@ -69,8 +69,8 @@ impl PeerWatcher {
         let callbacks = PeerCallbacks { have_events };
         let mut file_watcher = match default_file_watcher(&path, callbacks) {
             Ok(w) => w,
-            Err(sup_err) => {
-                match sup_err.err {
+            Err(e) => {
+                match e {
                     Error::NotifyError(err) => {
                         outputln!("PeerWatcher({}) failed to start watching the directories \
                                    ({}), {}",
@@ -83,7 +83,7 @@ impl PeerWatcher {
                         outputln!("PeerWatcher({}) could not create file watcher, ending thread \
                                    ({})",
                                   path.display(),
-                                  sup_err);
+                                  e);
                         return true;
                     }
                 }
@@ -104,9 +104,7 @@ impl PeerWatcher {
             self.have_events.store(false, Ordering::Relaxed);
             return Ok(Vec::new());
         }
-        let file = File::open(&self.path).map_err(|err| {
-                                             return sup_error!(Error::Io(err));
-                                         })?;
+        let file = File::open(&self.path).map_err(Error::Io)?;
         let reader = BufReader::new(file);
         let mut members: Vec<Member> = Vec::new();
         for line in reader.lines() {
@@ -114,13 +112,13 @@ impl PeerWatcher {
                 let peer_addr = if peer.find(':').is_some() {
                     peer
                 } else {
-                    format!("{}:{}", peer, GOSSIP_DEFAULT_PORT)
+                    format!("{}:{}", peer, GossipListenAddr::DEFAULT_PORT)
                 };
                 let addrs: Vec<SocketAddr> = match peer_addr.to_socket_addrs() {
                     Ok(addrs) => addrs.collect(),
                     Err(e) => {
                         outputln!("Failed to resolve peer: {}", peer_addr);
-                        return Err(sup_error!(Error::NameLookup(e)));
+                        return Err(Error::NameLookup(e));
                     }
                 };
                 let addr: SocketAddr = addrs[0];
@@ -138,9 +136,8 @@ impl PeerWatcher {
 
 #[cfg(test)]
 mod tests {
-    use super::PeerWatcher;
+    use super::*;
     use biome_butterfly::member::Member;
-    use biome_common::cli::GOSSIP_DEFAULT_PORT;
     use std::{fs::{File,
                    OpenOptions},
               io::Write};
@@ -185,8 +182,8 @@ mod tests {
         let mut member2 = Member::default();
         member2.id = String::new();
         member2.address = String::from("4.3.2.1");
-        member2.swim_port = GOSSIP_DEFAULT_PORT;
-        member2.gossip_port = GOSSIP_DEFAULT_PORT;
+        member2.swim_port = GossipListenAddr::DEFAULT_PORT;
+        member2.gossip_port = GossipListenAddr::DEFAULT_PORT;
         let expected_members = vec![member1, member2];
         let mut members = watcher.get_members().unwrap();
         for mut member in &mut members {

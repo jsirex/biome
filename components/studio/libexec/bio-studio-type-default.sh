@@ -14,9 +14,6 @@ studio_build_command="_record_build $HAB_ROOT_PATH/bin/build"
 studio_run_environment=
 studio_run_command="$HAB_ROOT_PATH/bin/bio pkg exec biome/bio-backline bash --login"
 
-pkgs="${HAB_STUDIO_BACKLINE_PKG:-biome/bio-backline/$(
-  echo "$version" | $bb cut -d / -f 1)}"
-
 run_user="hab"
 run_group="$run_user"
 
@@ -26,6 +23,7 @@ finish_setup() {
     # will use the outside cache key path, whereas the `_bio` function has
     # the `$FS_ROOT` set for the inside of the Studio. We're copying from
     # the outside in, using `bio` twice. I love my job.
+    # shellcheck disable=SC2154
     for key in $(echo "$HAB_ORIGIN_KEYS" | $bb tr ',' ' '); do
       # Import the secret origin key, required for signing packages
       info "Importing '$key' secret origin key"
@@ -88,17 +86,7 @@ finish_setup() {
   # (This is also why we're not using HAB_BLDR_CHANNEL for this and
   # replicating the fallback logic from bio-plan-build; it'd be too
   # easy to create an unstable studio.)
-  for pkg in $pkgs; do
-    if [ -n "${CI_OVERRIDE_CHANNEL:-}" ]; then
-      info "Override channel set; retrieving ${pkg} from ${CI_OVERRIDE_CHANNEL}"
-      _bio install --channel="${CI_OVERRIDE_CHANNEL}" "${pkg}" || {
-        info "Package not found in ${CI_OVERRIDE_CHANNEL}; falling back to stable"
-        _bio install "${pkg}"
-      }
-    else
-      _bio install "$pkg"
-    fi
-  done
+  _bio install "$HAB_STUDIO_BACKLINE_PKG"
 
   bash_path=$(_pkgpath_for core/bash)
   coreutils_path=$(_pkgpath_for core/coreutils)

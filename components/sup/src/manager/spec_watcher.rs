@@ -5,56 +5,32 @@
 use super::spec_dir::SpecDir;
 use crate::error::{Error,
                    Result};
-use biome_core::env::Config as EnvConfig;
 use notify::{DebouncedEvent,
              RecommendedWatcher,
              RecursiveMode,
              Watcher};
-use std::{num::ParseIntError,
-          str::FromStr,
-          sync::mpsc,
+use std::{sync::mpsc,
           thread::Builder,
           time::Duration};
 
-static LOGKEY: &'static str = "SW";
-
-/// How long should we wait to consolidate filesystem events?
-///
-/// This should strike a balance between responsiveness and
-/// too-granular a series of events.
-///
-/// See https://docs.rs/notify/4.0.6/notify/trait.Watcher.html#tymethod.new
-struct SpecWatcherDelay(Duration);
-
-impl From<Duration> for SpecWatcherDelay {
-    fn from(d: Duration) -> SpecWatcherDelay { SpecWatcherDelay(d) }
-}
-
-impl Default for SpecWatcherDelay {
-    fn default() -> Self {
-        // There's nothing particularly magical about 2s, particularly
-        // since we're monitoring at such a coarse level ("something
-        // happened in this directory").
-        //
-        // Smaller is probably fine, but you wouldn't want to go much
-        // higher, as this could extend the amount of time you'd need
-        // to wait before realizing you need to take action on a
-        // service.
-        Duration::from_secs(2).into()
-    }
-}
-
-impl FromStr for SpecWatcherDelay {
-    type Err = ParseIntError;
-
-    fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
-        Ok(Duration::from_millis(s.parse()?).into())
-    }
-}
-
-impl EnvConfig for SpecWatcherDelay {
-    const ENVVAR: &'static str = "HAB_SPEC_WATCHER_DELAY_MS";
-}
+biome_core::env_config_duration!(
+    /// How long should we wait to consolidate filesystem events?
+    ///
+    /// This should strike a balance between responsiveness and
+    /// too-granular a series of events.
+    ///
+    /// See https://docs.rs/notify/4.0.6/notify/trait.Watcher.html#tymethod.new
+    SpecWatcherDelay,
+    HAB_SPEC_WATCHER_DELAY_MS => from_millis,
+    // There's nothing particularly magical about 2s, particularly
+    // since we're monitoring at such a coarse level ("something
+    // happened in this directory").
+    //
+    // Smaller is probably fine, but you wouldn't want to go much
+    // higher, as this could extend the amount of time you'd need
+    // to wait before realizing you need to take action on a
+    // service.
+    Duration::from_secs(2));
 
 // TODO (CM): A strong argument could be made for folding the
 // SpecWatcher functionality into SpecDir itself.
@@ -98,7 +74,7 @@ impl SpecWatcher {
                       .join()
                       .map_err(|_| {
                           error!("SpecWatcher spawning thread panicked!");
-                          sup_error!(Error::SpecWatcherNotCreated)
+                          Error::SpecWatcherNotCreated
                       })?
     }
 
@@ -197,8 +173,6 @@ mod tests {
 
     #[test]
     fn can_get_events_for_spec_files() {
-        env_logger::try_init().ok();
-        error!("can_get_events_for_spec_files starting");
         let _delay = lock_delay_var();
 
         let dir = TempDir::new().expect("Could not create directory");
@@ -209,16 +183,12 @@ mod tests {
 
         file_with_content(&dir, "foo.spec", "fooooooo").expect("couldn't create file");
 
-        assert!(!sw.has_events(),
-                "Need to allow for the debounce interval to pass before you can expect events");
-
         while !sw.has_events() {
             wait_for_debounce_interval();
         }
 
         assert!(!sw.has_events(),
                 "Should be no more events after you've checked");
-        error!("can_get_events_for_spec_files done");
     }
 
     /// Currently, the spec watcher will respond to changes to any
@@ -229,8 +199,6 @@ mod tests {
     /// to their final `*.spec` form.
     #[test]
     fn can_get_events_for_non_spec_files() {
-        env_logger::try_init().ok();
-        error!("can_get_events_for_non_spec_files starting");
         let _delay = lock_delay_var();
 
         let dir = TempDir::new().expect("Could not create directory");
@@ -241,22 +209,16 @@ mod tests {
 
         file_with_content(&dir, "foo.abc123xyz", "fooooooo").expect("couldn't create file");
 
-        assert!(!sw.has_events(),
-                "Need to allow for the debounce interval to pass before you can expect events");
-
         while !sw.has_events() {
             wait_for_debounce_interval();
         }
 
         assert!(!sw.has_events(),
                 "Should be no more events after you've checked");
-        error!("can_get_events_for_non_spec_files done");
     }
 
     #[test]
     fn short_debounce_delays_also_work() {
-        env_logger::try_init().ok();
-        error!("short_debounce_delays_also_work starting");
         let delay = lock_delay_var();
         delay.set("1");
 
@@ -272,15 +234,11 @@ mod tests {
 
         file_with_content(&dir, "foo.spec", "fooooooo").expect("couldn't create file");
 
-        assert!(!sw.has_events(),
-                "Need to allow for the debounce interval to pass before you can expect events");
-
         while !sw.has_events() {
             wait_for_debounce_interval();
         }
 
         assert!(!sw.has_events(),
                 "Should be no more events after you've checked");
-        error!("short_debounce_delays_also_work starting");
     }
 }

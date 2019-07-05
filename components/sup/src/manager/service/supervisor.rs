@@ -6,9 +6,8 @@
 use super::{terminator,
             ProcessState};
 use crate::{error::{Error,
-                    Result,
-                    SupError},
-            manager::action::ShutdownSpec};
+                    Result},
+            manager::ShutdownConfig};
 use futures::{future,
               Future};
 use biome_common::{outputln,
@@ -86,10 +85,14 @@ impl Supervisor {
         if users::can_run_services_as_svc_user() {
             // We have the ability to run services as a user / group other
             // than ourselves, so they better exist
-            let uid = users::get_uid_by_name(&pkg.svc_user)
-                .ok_or(sup_error!(Error::UserNotFound(pkg.svc_user.to_string(),)))?;
-            let gid = users::get_gid_by_name(&pkg.svc_group)
-                .ok_or(sup_error!(Error::GroupNotFound(pkg.svc_group.to_string(),)))?;
+            let uid = users::get_uid_by_name(&pkg.svc_user).ok_or_else(|| {
+                                                               Error::UserNotFound(pkg.svc_user
+                                                                                      .to_string())
+                                                           })?;
+            let gid = users::get_gid_by_name(&pkg.svc_group).ok_or_else(|| {
+                                                                Error::GroupNotFound(pkg.svc_group
+                                                                                  .to_string())
+                                                            })?;
 
             Ok(UserInfo { username:  Some(pkg.svc_user.clone()),
                           uid:       Some(uid),
@@ -183,7 +186,7 @@ impl Supervisor {
     }
 
     /// Returns a future that stops a service asynchronously.
-    pub fn stop(&self, shutdown_spec: ShutdownSpec) -> impl Future<Item = (), Error = SupError> {
+    pub fn stop(&self, shutdown_config: ShutdownConfig) -> impl Future<Item = (), Error = Error> {
         // TODO (CM): we should really just keep the service
         // group around AS a service group
         let service_group = self.preamble.clone();
@@ -191,7 +194,7 @@ impl Supervisor {
         if let Some(pid) = self.pid {
             let pid_file = self.pid_file.clone();
 
-            future::Either::A(terminator::terminate_service(pid, service_group, shutdown_spec).and_then(
+            future::Either::A(terminator::terminate_service(pid, service_group, shutdown_config).and_then(
                 |_shutdown_method| {
                     Supervisor::cleanup_pidfile_future(pid_file);
                     Ok(())
@@ -222,7 +225,7 @@ impl Supervisor {
                     Err(err) => {
                         self.cleanup_pidfile();
                         self.change_state(ProcessState::Down);
-                        Err(sup_error!(Error::Launcher(err)))
+                        Err(Error::Launcher(err))
                     }
                 }
             }
@@ -291,18 +294,12 @@ fn read_pid<T>(pid_file: T) -> Result<Pid>
                 Some(Ok(line)) => {
                     match line.parse::<Pid>() {
                         Ok(pid) => Ok(pid),
-                        Err(_) => {
-                            Err(sup_error!(Error::PidFileCorrupt(pid_file.as_ref().to_path_buf())))
-                        }
+                        Err(_) => Err(Error::PidFileCorrupt(pid_file.as_ref().to_path_buf())),
                     }
                 }
-                _ => Err(sup_error!(Error::PidFileCorrupt(pid_file.as_ref().to_path_buf()))),
+                _ => Err(Error::PidFileCorrupt(pid_file.as_ref().to_path_buf())),
             }
         }
-        Err(err) => {
-            Err(sup_error!(Error::PidFileIO(pid_file.as_ref()
-                                                    .to_path_buf(),
-                                            err)))
-        }
+        Err(err) => Err(Error::PidFileIO(pid_file.as_ref().to_path_buf(), err)),
     }
 }

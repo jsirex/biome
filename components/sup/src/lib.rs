@@ -54,26 +54,17 @@ extern crate time as time_crate;
 #[cfg(test)]
 extern crate json;
 
-#[macro_export]
-/// Creates a new SupError, embedding the current file name, line number, column, and module path.
-macro_rules! sup_error {
-    ($p:expr) => {{
-        use $crate::error::SupError;
-        SupError::new($p, LOGKEY, file!(), line!(), column!())
-    }};
-}
-
 #[cfg(test)]
 #[macro_use]
 pub mod cli_test_helpers;
 pub mod census;
 pub mod cli;
 pub mod command;
-pub mod config;
 pub mod ctl_gateway;
 pub mod error;
 pub mod event;
 pub mod http_gateway;
+pub mod logger; // must be pub if used in the `bio-sup` binary
 pub mod manager;
 mod sup_futures;
 mod sys;

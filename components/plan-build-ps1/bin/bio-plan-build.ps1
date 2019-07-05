@@ -375,6 +375,17 @@ function Invoke-Before {
 function Invoke-DefaultBefore {
 }
 
+# At this phase of the build, the package has been built and installed,
+# but before the package metadata is written and the artifact is
+# created and signed.
+function Invoke-After {
+  Invoke-DefaultAfter
+}
+
+# Default implementation for the `Invoke-After` phase.
+function Invoke-DefaultAfter {
+}
+
 function _Set-HabBin {
   if ($env:NO_INSTALL_DEPS) {
     Write-BuildLine "`$env:NO_INSTALL_DEPS set: no package dependencies will be installed"
@@ -830,18 +841,18 @@ function _Resolve-ScaffoldingDependencies {
 function _Set_DependencyArrays {
   # Build `${pkg_all_deps_resolved[@]}` containing all direct build and run
   # dependencies. The build dependencies appear before the run dependencies.
-  $script:pkg_all_deps_resolved = $pkg_deps_resolved + $pkg_build_deps_resolved
+  $script:pkg_all_deps_resolved = $pkg_build_deps_resolved + $pkg_deps_resolved
   # Build an ordered set of all build and run dependencies (direct and
   # transitive). The order is important as this gets used when setting the
   # `$PATH` ordering in the build environment. To give priority to direct
   # dependencies over transitive ones the order of packages is the following:
   #
-  # 1. All direct run dependencies
-  # 2. All direct build dependencies
-  # 3. All unique transitive run dependencies that aren't already added
-  # 4. All unique transitive build dependencies that aren't already added
-  $script:pkg_all_tdeps_resolved = $pkg_deps_resolved + $pkg_build_deps_resolved
-  foreach($dep in ($pkg_tdeps_resolved + $pkg_build_tdeps_resolved)) {
+  # 1. All direct build dependencies
+  # 2. All direct run dependencies
+  # 3. All unique transitive build dependencies that aren't already added
+  # 4. All unique transitive run dependencies that aren't already added
+  $script:pkg_all_tdeps_resolved = $pkg_build_deps_resolved + $pkg_deps_resolved
+  foreach($dep in ($pkg_build_tdeps_resolved + $pkg_tdeps_resolved)) {
     $script:pkg_all_tdeps_resolved = @(_return_or_append_to_set $dep $pkg_all_tdeps_resolved)
   }
 }
@@ -1256,7 +1267,7 @@ function Invoke-SetupEnvironmentWrapper {
     # the real environment, except for PATH; for that, push the
     # runtime path onto the front of the system path
     foreach($k in $env["Runtime"].keys) {
-        if(@("PATH", "LIB", "INCLUDE") -contains $k) {
+        if(@("PATH", "LIB", "INCLUDE", "PSMODULEPATH") -contains $k) {
             $currentVal = ""
             if(Test-path env:\$k) {
                 $currentVal = Get-Content env:\$k
@@ -1456,34 +1467,6 @@ function __env_var_type($VarName) {
     }
 }
 
-# Simply converts contents of pkg_bin_dirs, pkg_lib_dirs and pkg_include_dirs
-# into a PATH, LIB and INCLUDE variable
-function __process_paths($Environment) {
-    if($Environment -ne "Runtime") { return }
-
-    # Contents of `pkg_xxx_dirs` are relative to the plan root;
-    # prepend the full path to this release so everything resolves
-    # properly once the package is installed.
-    $prefixDrive = (Resolve-Path $originalPath).Drive.Root
-    $strippedPrefix = $pkg_prefix.Substring($prefixDrive.length)
-    if(!$strippedPrefix.StartsWith('\')) { $strippedPrefix = "\$strippedPrefix" }
-
-    if ($pkg_bin_dirs.Length -gt 0) {
-        $path = $($pkg_bin_dirs | % { "$strippedPrefix\$_" }) -join ';'
-        __push_env $Environment "PATH" $path ";" "${pkg_origin}/${pkg_name}/${pkg_version}/${pkg_release}"
-    }
-
-    if ($pkg_lib_dirs.Length -gt 0) {
-        $lib = $($pkg_lib_dirs | % { "$strippedPrefix\$_" }) -join ';'
-        __push_env $Environment "LIB" $lib ";" "${pkg_origin}/${pkg_name}/${pkg_version}/${pkg_release}"
-    }
-
-    if ($pkg_include_dirs.Length -gt 0) {
-        $include = $($pkg_include_dirs | % { "$strippedPrefix\$_" }) -join ';'
-        __push_env $Environment "INCLUDE" $include ";" "${pkg_origin}/${pkg_name}/${pkg_version}/${pkg_release}"
-    }
-}
-
 # For dependencies that do not have a RUNTIME_ENVIRONMENT file, we'll
 # at least assemble a PATH, LIB, and INCLUDE variable that can be used. To be complete
 # and utterly paranoid, we'll iterate through the TDEPS of the
@@ -1523,11 +1506,17 @@ function __assemble_legacy_paths($DepPath, $pathFile) {
     $path
 }
 
-function Set-BuildtimeEnv($VarName, $VarValue, [switch]$force) {
+function Set-BuildtimeEnv(
+  $VarName,
+  $VarValue = $(throw "Must provide a value to Set-BuildtimeEnv for key '$VarName'"),
+  [switch]$force) {
     set_env "BuildTime" @PSBoundParameters
 }
 
-function Set-RuntimeEnv($VarName, $VarValue, [switch]$force) {
+function Set-RuntimeEnv(
+  $VarName,
+  $VarValue = $(throw "Must provide a value to Set-RuntimeEnv for key '$VarName'"),
+  [switch]$force) {
     set_env "RunTime" @PSBoundParameters
 }
 
@@ -1974,6 +1963,10 @@ function _Write-Metadata {
         "$pkg_svc_group" |
             Out-File "$pkg_prefix\SVC_GROUP" -Encoding ascii
     }
+    if (-Not ([string]::IsNullOrEmpty($pkg_shutdown_timeout_sec))) {
+        "$pkg_shutdown_timeout_sec" |
+            Out-File "$pkg_prefix\SHUTDOWN_TIMEOUT" -Encoding ascii
+    }
 
     # Generate the blake2b hashes of all the files in the package. This
     # is not in the resulting MANIFEST because MANIFEST is included!
@@ -2307,6 +2300,10 @@ try {
 
     # Copy the service management scripts
     Invoke-BuildService
+
+    # Run any code after the package has finished building and installing, but
+    # before the artifact metadata is generated and the artifact is signed.
+    Invoke-After
 
     # Write the manifest
     _Write-Manifest

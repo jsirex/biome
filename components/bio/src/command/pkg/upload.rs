@@ -24,6 +24,7 @@ use retry::retry;
 
 // Local Dependencies
 use crate::{api_client::{self,
+                         BoxedClient,
                          Client},
             common::{command::package::install::{RETRIES,
                                                  RETRY_WAIT},
@@ -37,6 +38,7 @@ use crate::{api_client::{self,
                     package::{PackageArchive,
                               PackageIdent,
                               PackageTarget},
+                    util::wait_for,
                     ChannelIdent},
             PRODUCT,
             VERSION};
@@ -67,17 +69,14 @@ pub fn start(ui: &mut UI,
     let ident = archive.ident()?;
     let target = archive.target()?;
 
-    match api_client.show_package((&ident, target), &ChannelIdent::unstable(), Some(token)) {
+    match api_client.check_package((&ident, target), Some(token)) {
         Ok(_) if !force_upload => {
             ui.status(Status::Using, format!("existing {}", &ident))?;
             Ok(())
         }
         Err(api_client::Error::APIError(StatusCode::NotFound, _)) | Ok(_) => {
             for dep in tdeps.into_iter() {
-                match api_client.show_package((&dep, target),
-                                              &ChannelIdent::unstable(),
-                                              Some(token))
-                {
+                match api_client.check_package((&dep, target), Some(token)) {
                     Ok(_) => ui.status(Status::Using, format!("existing {}", &dep))?,
                     Err(api_client::Error::APIError(StatusCode::NotFound, _)) => {
                         let candidate_path = match archive_path.parent() {
@@ -93,7 +92,7 @@ pub fn start(ui: &mut UI,
                                                &candidate_path,
                                                key_path)
                         };
-                        match retry(RETRIES, RETRY_WAIT, upload, Result::is_ok) {
+                        match retry(wait_for(RETRY_WAIT, RETRIES), upload) {
                             Ok(_) => trace!("attempt_upload_dep succeeded"),
                             Err(_) => {
                                 return Err(Error::from(api_client::Error::UploadFailed(format!(
@@ -116,7 +115,7 @@ pub fn start(ui: &mut UI,
                                   force_upload,
                                   &mut archive)
             };
-            match retry(RETRIES, RETRY_WAIT, upload, Result::is_ok) {
+            match retry(wait_for(RETRY_WAIT, RETRIES), upload) {
                 Ok(_) => trace!("upload_into_depot succeeded"),
                 Err(_) => {
                     return Err(Error::from(api_client::Error::UploadFailed(format!(
@@ -137,7 +136,7 @@ pub fn start(ui: &mut UI,
 /// `additional_release_channel` is provided, packages will be
 /// promoted to that channel as well.
 fn upload_into_depot(ui: &mut UI,
-                     api_client: &Client,
+                     api_client: &BoxedClient,
                      token: &str,
                      (ident, target): (&PackageIdent, PackageTarget),
                      additional_release_channel: &Option<ChannelIdent>,
@@ -196,7 +195,7 @@ fn upload_into_depot(ui: &mut UI,
 
 #[allow(clippy::too_many_arguments)]
 fn attempt_upload_dep(ui: &mut UI,
-                      api_client: &Client,
+                      api_client: &BoxedClient,
                       token: &str,
                       (ident, target): (&PackageIdent, PackageTarget),
                       additional_release_channel: &Option<ChannelIdent>,
@@ -230,7 +229,7 @@ fn attempt_upload_dep(ui: &mut UI,
 
 fn upload_public_key(ui: &mut UI,
                      token: &str,
-                     api_client: &Client,
+                     api_client: &BoxedClient,
                      archive: &mut PackageArchive,
                      key_path: &Path)
                      -> Result<()> {

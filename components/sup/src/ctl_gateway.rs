@@ -126,9 +126,9 @@ impl UIWriter for CtlRequest {
 
     fn is_err_a_terminal(&self) -> bool { true }
 
-    fn progress(&self) -> Option<Self::ProgressBar> {
+    fn progress(&self) -> Option<Box<dyn DisplayProgress>> {
         if self.is_out_a_terminal() {
-            Some(Self::ProgressBar::new(self.clone()))
+            Some(Box::new(Self::ProgressBar::new(self.clone())))
         } else {
             None
         }
@@ -260,8 +260,7 @@ pub fn readgen_secret_key<T>(sup_root: T) -> Result<String>
 {
     let mut out = String::new();
     fs::create_dir_all(&sup_root).map_err(|e| {
-                                     sup_error!(Error::CtlSecretIo(sup_root.as_ref().to_path_buf(),
-                                                                   e))
+                                     Error::CtlSecretIo(sup_root.as_ref().to_path_buf(), e)
                                  })?;
     if biome_sup_protocol::read_secret_key(&sup_root, &mut out).ok()
                                                                  .unwrap_or(false)

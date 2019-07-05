@@ -21,6 +21,7 @@ libarchive = "*"
 libc = "*"
 libsodium-sys = "0.0.16"
 log = "*"
+os_info = "*"
 rand = "*"
 regex = "*"
 rust-crypto = "*"
@@ -50,6 +51,7 @@ windows-acl = "*"
 [dev-dependencies]
 # Pending upgrade activities in https://github.com/biome-sh/core/issues/72
 hyper = "0.10"
+num_cpus = "*" # For doc tests
 
 [features]
 default = []

@@ -1,6 +1,4 @@
 extern crate clap;
-extern crate env_logger;
-#[macro_use]
 extern crate biome_sup as sup;
 #[cfg(unix)]
 extern crate jemalloc_ctl;
@@ -19,22 +17,23 @@ extern crate url;
 use crate::sup::{cli::cli,
                  command,
                  error::{Error,
-                         Result,
-                         SupError},
+                         Result},
                  event::EventStreamConfig,
+                 logger,
                  manager::{Manager,
                            ManagerConfig,
                            TLSConfig,
                            PROC_LOCK_FILE},
                  util};
 use clap::ArgMatches;
-use biome_common::{cli::{cache_key_path_from_matches,
-                           GOSSIP_DEFAULT_PORT},
+use bio::cli::parse_optional_arg;
+use biome_common::{cli::cache_key_path_from_matches,
                      command::package::install::InstallSource,
                      output::{self,
                               OutputFormat,
                               OutputVerbosity},
                      outputln,
+                     types::GossipListenAddr,
                      ui::{NONINTERACTIVE_ENVVAR,
                           UI},
                      FeatureFlag};
@@ -42,12 +41,14 @@ use biome_common::{cli::{cache_key_path_from_matches,
 use biome_core::crypto::dpapi::encrypt;
 use biome_core::{crypto::{self,
                             SymKey},
+                   os::process::ShutdownTimeout,
                    url::{bldr_url_from_env,
                          default_bldr_url},
                    ChannelIdent};
 use biome_launcher_client::{LauncherCli,
                               ERR_NO_RETRY_EXCODE};
-use biome_sup_protocol::{ctl::ServiceBindList,
+use biome_sup_protocol::{self as sup_proto,
+                           ctl::ServiceBindList,
                            types::{ApplicationEnvironment,
                                    BindingMode,
                                    ServiceBind,
@@ -56,8 +57,7 @@ use biome_sup_protocol::{ctl::ServiceBindList,
 use std::{env,
           io::{self,
                Write},
-          net::{Ipv4Addr,
-                SocketAddr,
+          net::{SocketAddr,
                 ToSocketAddrs},
           path::{Path,
                  PathBuf},
@@ -75,10 +75,10 @@ static LOGKEY: &'static str = "MN";
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn main() {
-    env_logger::init();
+    logger::init();
     let mut ui = UI::default_with_env();
     let flags = FeatureFlag::from_env(&mut ui);
-    let result = start(flags);
+    let result = start_mlr(flags);
     let exit_code = match result {
         Ok(_) => 0,
         Err(ref err) => {
@@ -109,10 +109,13 @@ fn boot() -> Option<LauncherCli> {
     }
 }
 
-fn start(feature_flags: FeatureFlag) -> Result<()> {
+/// # Locking
+/// * `MemberList::entries` (read) This method must not be called while any MemberList::entries lock
+///   is held.
+fn start_mlr(feature_flags: FeatureFlag) -> Result<()> {
     if feature_flags.contains(FeatureFlag::TEST_BOOT_FAIL) {
         outputln!("Simulating boot failure");
-        return Err(sup_error!(Error::TestBootFail));
+        return Err(Error::TestBootFail);
     }
     biome_common::sync::spawn_thread_alive_checker();
     let launcher = boot();
@@ -138,8 +141,8 @@ fn start(feature_flags: FeatureFlag) -> Result<()> {
     match app_matches.subcommand() {
         ("bash", Some(_)) => sub_bash(),
         ("run", Some(m)) => {
-            let launcher = launcher.ok_or(sup_error!(Error::NoLauncher))?;
-            sub_run(m, launcher, feature_flags)
+            let launcher = launcher.ok_or(Error::NoLauncher)?;
+            sub_run_mlw_imlw(m, launcher, feature_flags)
         }
         ("sh", Some(_)) => sub_sh(),
         ("term", Some(_)) => sub_term(),
@@ -149,16 +152,23 @@ fn start(feature_flags: FeatureFlag) -> Result<()> {
 
 fn sub_bash() -> Result<()> { command::shell::bash() }
 
-fn sub_run(m: &ArgMatches, launcher: LauncherCli, feature_flags: FeatureFlag) -> Result<()> {
+/// # Locking
+/// * `MemberList::entries` (write) This method must not be called while any MemberList::entries
+///   lock is held.
+/// * `MemberList::intitial_entries` (write) This method must not be called while any
+///   MemberList::intitial_entries lock is held.
+fn sub_run_mlw_imlw(m: &ArgMatches,
+                    launcher: LauncherCli,
+                    feature_flags: FeatureFlag)
+                    -> Result<()> {
     set_supervisor_logging_options(m);
 
     let cfg = mgrcfg_from_sup_run_matches(m, feature_flags)?;
-    let manager = Manager::load(cfg, launcher)?;
+    let manager = Manager::load_imlw(cfg, launcher)?;
 
     // We need to determine if we have an initial service to start
     let svc = if let Some(pkg) = m.value_of("PKG_IDENT_OR_ARTIFACT") {
-        let mut msg = biome_sup_protocol::ctl::SvcLoad::default();
-        update_svc_load_from_input(m, &mut msg)?;
+        let mut msg = svc_load_from_input(m)?;
         // Always force - running with a package ident is a "do what I mean" operation. You
         // don't care if a service was loaded previously or not and with what options. You
         // want one loaded right now and in this way.
@@ -177,8 +187,7 @@ fn sub_run(m: &ArgMatches, launcher: LauncherCli, feature_flags: FeatureFlag) ->
                                        &msg.bldr_channel
                                            .clone()
                                            .map(ChannelIdent::from)
-                                           .expect("update_svc_load_from_input to always set to \
-                                                    Some"))?;
+                                           .expect("svc_load_from_input to always set to Some"))?;
                 install.ident.into()
             }
             InstallSource::Ident(ident, _) => ident.into(),
@@ -188,7 +197,7 @@ fn sub_run(m: &ArgMatches, launcher: LauncherCli, feature_flags: FeatureFlag) ->
     } else {
         None
     };
-    manager.run(svc)
+    manager.run_mlw_imlw(svc)
 }
 
 fn sub_sh() -> Result<()> { command::shell::sh() }
@@ -199,8 +208,7 @@ fn sub_term() -> Result<()> {
     // a function to generate said config, we can just explicitly pass the default.
     let proc_lock_file = biome_sup_protocol::sup_root(None).join(PROC_LOCK_FILE);
     match Manager::term(&proc_lock_file) {
-        Err(SupError { err: Error::ProcessLockIO(..),
-                       .. }) => {
+        Err(Error::ProcessLockIO(..)) => {
             println!("Supervisor not started.");
             Ok(())
         }
@@ -222,6 +230,7 @@ fn mgrcfg_from_sup_run_matches(m: &ArgMatches,
         None
     };
 
+    #[rustfmt::skip]
     let cfg = ManagerConfig {
         auto_update: m.is_present("AUTO_UPDATE"),
         custom_state_path: None, // remove entirely?
@@ -234,46 +243,13 @@ fn mgrcfg_from_sup_run_matches(m: &ArgMatches,
         ring_key: get_ring_key(m, &cache_key_path_from_matches(m))?,
         gossip_peers: get_peers(m)?,
         watch_peer_file: m.value_of("PEER_WATCH_FILE").map(str::to_string),
-        // TODO: Refactor this to remove the duplication
         gossip_listen: if m.is_present("LOCAL_GOSSIP_MODE") {
-            // When local gossip mode is used we still startup the gossip layer but set
-            // it to listen on 127.0.0.2 to scope it to the local node.
-            sup::config::GossipListenAddr::new(Ipv4Addr::new(127, 0, 0, 2), GOSSIP_DEFAULT_PORT)
+            GossipListenAddr::local_only()
         } else {
-            m.value_of("LISTEN_GOSSIP").map_or_else(
-                || {
-                    let default = sup::config::GossipListenAddr::default();
-                    error!(
-                        "Value for LISTEN_GOSSIP has not been set. Using default: {}",
-                        default
-                    );
-                    Ok(default)
-                },
-                str::parse,
-            )?
+            m.value_of("LISTEN_GOSSIP").and_then(|s| s.parse().ok()).unwrap_or_default()
         },
-        ctl_listen: m.value_of("LISTEN_CTL").map_or_else(
-            || {
-                let default = biome_common::types::ListenCtlAddr::default();
-                error!(
-                    "Value for LISTEN_CTL has not been set. Using default: {}",
-                    default
-                );
-                Ok(default)
-            },
-            str::parse,
-        )?,
-        http_listen: m.value_of("LISTEN_HTTP").map_or_else(
-            || {
-                let default = sup::http_gateway::ListenAddr::default();
-                error!(
-                    "Value for LISTEN_HTTP has not been set. Using default: {}",
-                    default
-                );
-                Ok(default)
-            },
-            str::parse,
-        )?,
+        ctl_listen: m.value_of("LISTEN_CTL").and_then(|s| s.parse().ok()).unwrap_or_default(),
+        http_listen: m.value_of("LISTEN_HTTP").and_then(|s| s.parse().ok()).unwrap_or_default(),
         tls_config: m.value_of("KEY_FILE").map(|kf| {
             let cert_path = m
                 .value_of("CERT_FILE")
@@ -305,13 +281,13 @@ fn get_peers(matches: &ArgMatches) -> Result<Vec<SocketAddr>> {
             let peer_addr = if peer.find(':').is_some() {
                 peer.to_string()
             } else {
-                format!("{}:{}", peer, GOSSIP_DEFAULT_PORT)
+                format!("{}:{}", peer, GossipListenAddr::DEFAULT_PORT)
             };
             let addrs: Vec<SocketAddr> = match peer_addr.to_socket_addrs() {
                 Ok(addrs) => addrs.collect(),
                 Err(e) => {
                     outputln!("Failed to resolve peer: {}", peer_addr);
-                    return Err(sup_error!(Error::NameLookup(e)));
+                    return Err(Error::NameLookup(e));
                 }
             };
             if let Some(addr) = addrs.get(0) {
@@ -472,9 +448,8 @@ fn ui() -> UI {
 
 /// Set all fields for an `SvcLoad` message that we can from the given opts. This function
 /// populates all *shared* options between `run` and `load`.
-fn update_svc_load_from_input(m: &ArgMatches,
-                              msg: &mut biome_sup_protocol::ctl::SvcLoad)
-                              -> Result<()> {
+fn svc_load_from_input(m: &ArgMatches) -> Result<sup_proto::ctl::SvcLoad> {
+    let mut msg = sup_proto::ctl::SvcLoad::default();
     msg.bldr_url = Some(bldr_url(m));
     msg.bldr_channel = Some(channel(m).to_string());
     msg.application_environment = get_app_env_from_input(m)?;
@@ -488,16 +463,18 @@ fn update_svc_load_from_input(m: &ArgMatches,
     msg.binding_mode = get_binding_mode_from_input(m).map(|v| v as i32);
     msg.topology = get_topology_from_input(m).map(|v| v as i32);
     msg.update_strategy = get_strategy_from_input(m).map(|v| v as i32);
-    Ok(())
+    msg.shutdown_timeout =
+        parse_optional_arg::<ShutdownTimeout>("SHUTDOWN_TIMEOUT", m).map(u32::from);
+    Ok(msg)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::sup::{config::GossipListenAddr,
-                     http_gateway};
     use biome_common::{locked_env_var,
-                         types::ListenCtlAddr};
+                         types::{GossipListenAddr,
+                                 HttpListenAddr,
+                                 ListenCtlAddr}};
 
     fn no_feature_flags() -> FeatureFlag { FeatureFlag::empty() }
 
@@ -578,15 +555,15 @@ mod test {
         fn http_listen_should_be_set() {
             let config = config_from_cmd_str("bio-sup run --listen-http 2.2.2.2:2222");
             let expected_addr =
-                http_gateway::ListenAddr::from_str("2.2.2.2:2222").expect("Could not create http \
-                                                                           listen addr");
+                HttpListenAddr::from_str("2.2.2.2:2222").expect("Could not create http listen \
+                                                                 addr");
             assert_eq!(config.http_listen, expected_addr);
         }
 
         #[test]
         fn http_listen_is_set_default_when_not_specified() {
             let config = config_from_cmd_str("bio-sup run");
-            let expected_addr = http_gateway::ListenAddr::default();
+            let expected_addr = HttpListenAddr::default();
             assert_eq!(config.http_listen, expected_addr);
         }
 
@@ -651,7 +628,9 @@ mod test {
             let expected_peers: Vec<SocketAddr> =
                 vec!["1.1.1.1", "2.2.2.2", "3.3.3.3"].into_iter()
                                                      .map(|peer| {
-                                                         format!("{}:{}", peer, GOSSIP_DEFAULT_PORT)
+                                                         format!("{}:{}",
+                                                                 peer,
+                                                                 GossipListenAddr::DEFAULT_PORT)
                                                      })
                                                      .flat_map(|peer| {
                                                          peer.to_socket_addrs()

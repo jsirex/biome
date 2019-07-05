@@ -1,27 +1,24 @@
 use crate::command::studio;
 use clap::{App,
            AppSettings,
-           Arg};
+           Arg,
+           ArgMatches};
 use biome_common::{cli::{BINLINK_DIR_ENVVAR,
                            DEFAULT_BINLINK_DIR,
-                           GOSSIP_DEFAULT_ADDR,
-                           GOSSIP_LISTEN_ADDRESS_ENVVAR,
-                           LISTEN_CTL_DEFAULT_ADDR_STRING,
-                           LISTEN_HTTP_ADDRESS_ENVVAR,
-                           LISTEN_HTTP_DEFAULT_ADDR,
                            PACKAGE_TARGET_ENVVAR,
                            RING_ENVVAR,
-                           RING_KEY_ENVVAR,
-                           SHUTDOWN_SIGNAL_DEFAULT,
-                           SHUTDOWN_TIMEOUT_DEFAULT},
+                           RING_KEY_ENVVAR},
                      types::{AutomateAuthToken,
                              EventStreamMetadata,
+                             GossipListenAddr,
+                             HttpListenAddr,
                              ListenCtlAddr},
                      FeatureFlag};
 use biome_core::{crypto::{keys::PairType,
                             CACHE_KEY_PATH_ENV_VAR},
                    env::Config,
                    fs::CACHE_KEY_PATH,
+                   os::process::ShutdownTimeout,
                    package::{ident,
                              Identifiable,
                              PackageIdent,
@@ -50,9 +47,9 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
     let alias_start = sub_svc_start().about("Alias for 'svc start'")
                                      .aliases(&["sta", "star"])
                                      .setting(AppSettings::Hidden);
-    let alias_stop = sub_svc_stop(feature_flags).about("Alias for 'svc stop'")
-                                                .aliases(&["sto"])
-                                                .setting(AppSettings::Hidden);
+    let alias_stop = sub_svc_stop().about("Alias for 'svc stop'")
+                                   .aliases(&["sto"])
+                                   .setting(AppSettings::Hidden);
 
     clap_app!(bio =>
         (about: "\"A Biome is the natural environment for your services\" - Alan Turing")
@@ -262,34 +259,34 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@subcommand download =>
                     (about: "Download origin key(s)")
                     (aliases: &["d", "do", "dow", "down", "downl", "downlo", "downloa"])
-                    (arg: arg_cache_key_path("Path to download keys to. \
+                    (arg: arg_cache_key_path("Path to download origin keys to. \
                         Default value is hab/cache/keys if root and .hab/cache/keys under the home \
                         directory otherwise."))
                     (@arg ORIGIN: +required {valid_origin} "The origin name" )
-                    (@arg REVISION: "The key revision")
+                    (@arg REVISION: "The origin key revision")
                     (@arg BLDR_URL: -u --url +takes_value {valid_url}
                         "Specify an alternate Builder endpoint. If not specified, the value will \
                          be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                          https://bldr.habitat.sh)")
                     (@arg WITH_SECRET: -s --secret
-                        "Download secret signing key instead of public signing key")
+                        "Download origin private key instead of origin public key")
                     (@arg WITH_ENCRYPTION: -e --encryption
-                        "Download public encryption key instead of public signing key")
+                        "Download public encryption key instead of origin public key")
                     (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder \
-                        (required for downloading secret keys)")
+                        (required for downloading origin private keys)")
                 )
                 (@subcommand export =>
                     (about: "Outputs the latest origin key contents to stdout")
                     (aliases: &["e", "ex", "exp", "expo", "expor"])
                     (@arg ORIGIN: +required +takes_value {valid_origin})
                     (@arg PAIR_TYPE: -t --type +takes_value {valid_pair_type}
-                        "Export either the 'public' or 'secret' key")
-                    (arg: arg_cache_key_path("Path to export keys from. \
+                        "Export either the 'public' or 'private' key")
+                    (arg: arg_cache_key_path("Path to export origin keys from. \
                         Default value is hab/cache/keys if root and .hab/cache/keys under the home \
                         directory otherwise."))
                 )
                 (@subcommand generate =>
-                    (about: "Generates a Biome origin key")
+                    (about: "Generates a Biome origin key pair")
                     (aliases: &["g", "ge", "gen", "gene", "gener", "genera", "generat"])
                     (@arg ORIGIN: {valid_origin} "The origin name")
                     (arg: arg_cache_key_path("Path to store generated keys. \
@@ -298,10 +295,10 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
 
                 )
                 (@subcommand import =>
-                    (about: "Reads a stdin stream containing a public or secret origin key \
+                    (about: "Reads a stdin stream containing a public or private origin key \
                         contents and writes the key to disk")
                     (aliases: &["i", "im", "imp", "impo", "impor"])
-                    (arg: arg_cache_key_path("Path to import keys to. \
+                    (arg: arg_cache_key_path("Path to import origin keys to. \
                         Default value is hab/cache/keys if root and .hab/cache/keys under the home \
                         directory otherwise."))
                 )
@@ -314,13 +311,13 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                     )
                     (about: "Upload origin keys to Builder")
                     (aliases: &["u", "up", "upl", "uplo", "uploa"])
-                    (arg: arg_cache_key_path("Path to upload keys from. \
+                    (arg: arg_cache_key_path("Path to upload origin keys from. \
                         Default value is hab/cache/keys if root and .hab/cache/keys under the home \
                         directory otherwise."))
                     (@arg WITH_SECRET: -s --secret conflicts_with[PUBLIC_FILE]
-                        "Upload secret key in addition to the public key")
+                        "Upload origin private key in addition to the public key")
                     (@arg SECRET_FILE: --secfile +takes_value {file_exists} conflicts_with[ORIGIN]
-                        "Path to a local secret origin key file on disk")
+                        "Path to a local origin private key file on disk")
                     (@arg BLDR_URL: -u --url +takes_value {valid_url}
                         "Specify an alternate Builder endpoint. If not specified, the value will \
                          be taken from the HAB_BLDR_URL environment variable if defined. (default: \
@@ -477,6 +474,8 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                     endpoint. If not specified, the value will be taken from the HAB_BLDR_URL \
                     environment variable if defined. (default: https://bldr.habitat.sh)")
                 (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
+                (@arg LIMIT: -l --limit +takes_value default_value("50") {valid_numeric::<usize>}
+                    "Limit how many packages to retrieve")
             )
             (@subcommand sign =>
                 (about: "Signs an archive with an origin key, generating a Biome Artifact")
@@ -617,7 +616,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@arg PKG_NAME: +takes_value "Name for the new app")
                 (@arg ORIGIN: --origin -o +takes_value {valid_origin} "Origin for the new app")
                 (@arg MIN: --min -m "Create a minimal plan file")
-                (@arg SCAFFOLDING: --scaffolding -s
+                (@arg SCAFFOLDING: --scaffolding -s +takes_value
                     "Specify explicit Scaffolding for your app (ex: node, ruby)")
             )
             (@subcommand render =>
@@ -691,8 +690,8 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (subcommand: sub_svc_load().aliases(&["l", "lo", "loa"]))
             (subcommand: sub_svc_start().aliases(&["star"]))
             (subcommand: sub_svc_status().aliases(&["stat", "statu"]))
-            (subcommand: sub_svc_stop(feature_flags).aliases(&["sto"]))
-            (subcommand: sub_svc_unload(feature_flags).aliases(&["u", "un", "unl", "unlo", "unloa"]))
+            (subcommand: sub_svc_stop().aliases(&["sto"]))
+            (subcommand: sub_svc_unload().aliases(&["u", "un", "unl", "unlo", "unloa"]))
         )
         (@subcommand studio =>
             (about: "Commands relating to Biome Studios")
@@ -859,13 +858,6 @@ fn sub_pkg_build() -> App<'static, 'static> {
                                               .long("docker"));
     }
 
-    if cfg!(windows) {
-        sub = sub.arg(Arg::with_name("WINDOWS").help("Use a local Windows Studio instead of a \
-                                                      Docker Studio")
-                                               .short("w")
-                                               .long("windows"));
-    }
-
     sub
 }
 
@@ -961,15 +953,15 @@ pub fn sub_sup_run(feature_flags: FeatureFlag) -> App<'static, 'static> {
                             // is displayed confusingly as `bio-sup`
                             // see: https://github.com/kbknapp/clap-rs/blob/2724ec5399c500b12a1a24d356f4090f4816f5e2/src/app/mod.rs#L373-L394
                             (usage: "bio sup run [FLAGS] [OPTIONS] [--] [PKG_IDENT_OR_ARTIFACT]")
-                            (@arg LISTEN_GOSSIP: --("listen-gossip") env(GOSSIP_LISTEN_ADDRESS_ENVVAR) default_value(&GOSSIP_DEFAULT_ADDR) {valid_socket_addr}
+                            (@arg LISTEN_GOSSIP: --("listen-gossip") env(GossipListenAddr::ENVVAR) default_value(GossipListenAddr::default_as_str()) {valid_socket_addr}
                              "The listen address for the Gossip System Gateway.")
                             (@arg LOCAL_GOSSIP_MODE: --("local-gossip-mode") conflicts_with("LISTEN_GOSSIP") conflicts_with("PEER") conflicts_with("PEER_WATCH_FILE")
                              "Start the supervisor in local mode.")
-                            (@arg LISTEN_HTTP: --("listen-http") env(LISTEN_HTTP_ADDRESS_ENVVAR) default_value(&LISTEN_HTTP_DEFAULT_ADDR) {valid_socket_addr}
+                            (@arg LISTEN_HTTP: --("listen-http") env(HttpListenAddr::ENVVAR) default_value(HttpListenAddr::default_as_str()) {valid_socket_addr}
                              "The listen address for the HTTP Gateway.")
                             (@arg HTTP_DISABLE: --("http-disable") -D
                              "Disable the HTTP Gateway completely [default: false]")
-                            (@arg LISTEN_CTL: --("listen-ctl") env(ListenCtlAddr::ENVVAR) default_value(&LISTEN_CTL_DEFAULT_ADDR_STRING) {valid_socket_addr}
+                            (@arg LISTEN_CTL: --("listen-ctl") env(ListenCtlAddr::ENVVAR) default_value(ListenCtlAddr::default_as_str()) {valid_socket_addr}
                              "The listen address for the Control Gateway. If not specified, the value will \
                               be taken from the HAB_LISTEN_CTL environment variable if defined. [default: 127.0.0.1:9632]")
                             (@arg ORGANIZATION: --org +takes_value
@@ -1042,11 +1034,12 @@ pub fn sub_sup_run(feature_flags: FeatureFlag) -> App<'static, 'static> {
                              "The interval (seconds) on which to run health checks [default: 30]")
     );
 
-    if feature_flags.contains(FeatureFlag::EVENT_STREAM) {
+    let sub = if feature_flags.contains(FeatureFlag::EVENT_STREAM) {
         add_event_stream_options(sub)
     } else {
         sub
-    }
+    };
+    add_shutdown_timeout_option(sub)
 }
 
 pub fn sub_sup_sh() -> App<'static, 'static> {
@@ -1090,7 +1083,13 @@ pub fn sub_svc_status() -> App<'static, 'static> {
     )
 }
 
-fn sub_svc_stop(feature_flags: FeatureFlag) -> App<'static, 'static> {
+pub fn parse_optional_arg<T: FromStr>(name: &str, m: &ArgMatches) -> Option<T>
+    where <T as std::str::FromStr>::Err: std::fmt::Debug
+{
+    m.value_of(name).map(|s| s.parse().expect("Valid argument"))
+}
+
+fn sub_svc_stop() -> App<'static, 'static> {
     let sub = clap_app!(@subcommand stop =>
         (about: "Stop a running Biome service.")
         (@arg PKG_IDENT: +required +takes_value {valid_ident}
@@ -1098,7 +1097,7 @@ fn sub_svc_stop(feature_flags: FeatureFlag) -> App<'static, 'static> {
         (@arg REMOTE_SUP: --("remote-sup") -r +takes_value
             "Address to a remote Supervisor's Control Gateway [default: 127.0.0.1:9632]")
     );
-    maybe_add_configurable_shutdown_options(sub, feature_flags)
+    add_shutdown_timeout_option(sub)
 }
 
 fn sub_svc_load() -> App<'static, 'static> {
@@ -1143,10 +1142,10 @@ fn sub_svc_load() -> App<'static, 'static> {
                                                 .help("Password of the service user"));
     }
 
-    sub
+    add_shutdown_timeout_option(sub)
 }
 
-fn sub_svc_unload(feature_flags: FeatureFlag) -> App<'static, 'static> {
+fn sub_svc_unload() -> App<'static, 'static> {
     let sub = clap_app!(@subcommand unload =>
         (about: "Unload a service loaded by the Biome Supervisor. If the service is \
             running it will additionally be stopped.")
@@ -1155,7 +1154,7 @@ fn sub_svc_unload(feature_flags: FeatureFlag) -> App<'static, 'static> {
         (@arg REMOTE_SUP: --("remote-sup") -r +takes_value
             "Address to a remote Supervisor's Control Gateway [default: 127.0.0.1:9632]")
     );
-    maybe_add_configurable_shutdown_options(sub, feature_flags)
+    add_shutdown_timeout_option(sub)
 }
 
 // TODO (CM): yeah, this is uuuuuuuuuugly. Ideally, we'd just not have
@@ -1364,6 +1363,18 @@ fn valid_origin(val: String) -> result::Result<(), String> {
 }
 
 #[allow(clippy::needless_pass_by_value)] // Signature required by CLAP
+fn valid_shutdown_timeout(val: String) -> result::Result<(), String> {
+    match ShutdownTimeout::from_str(&val) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            Err(format!("'{}' is not a valid value for shutdown timeout: \
+                         {}",
+                        val, e))
+        }
+    }
+}
+
+#[allow(clippy::needless_pass_by_value)] // Signature required by CLAP
 fn non_empty(val: String) -> result::Result<(), String> {
     if val.is_empty() {
         Err("must not be empty (check env overrides)".to_string())
@@ -1372,34 +1383,14 @@ fn non_empty(val: String) -> result::Result<(), String> {
     }
 }
 
-/// Adds extra configuration options for shutting down a service with
-/// a customized shutdown signal and timeout.
-///
-/// These are currently feature-flagged. Eventually, we hope to have
-/// this be definable in a package or at load time.
-fn maybe_add_configurable_shutdown_options(mut app: App<'static, 'static>,
-                                           feature_flags: FeatureFlag)
-                                           -> App<'static, 'static> {
-    if feature_flags.contains(FeatureFlag::CONFIGURE_SHUTDOWN) {
-        app = app.arg(Arg::with_name("SHUTDOWN_SIGNAL").help("The signal to send to a service \
-                                                              to safely shut it down. Only has \
-                                                              meaning when dealing with \
-                                                              services running on non-Windows \
-                                                              platforms.")
-                                                       .long("shutdown-signal")
-                                                       .takes_value(true)
-                                                       .default_value(&SHUTDOWN_SIGNAL_DEFAULT));
-        app = app.arg(Arg::with_name("SHUTDOWN_TIMEOUT").help("The number of seconds after \
-                                                               sending a shutdown signal to \
-                                                               wait before killing a service \
-                                                               process")
-                                                        .long("shutdown-timeout")
-                                                        .takes_value(true)
-                                                        .default_value(&SHUTDOWN_TIMEOUT_DEFAULT));
-        app
-    } else {
-        app
-    }
+/// Adds extra configuration option for shutting down a service with a customized timeout.
+fn add_shutdown_timeout_option(app: App<'static, 'static>) -> App<'static, 'static> {
+    app.arg(Arg::with_name("SHUTDOWN_TIMEOUT").help("The number of seconds after sending a \
+                                                     shutdown signal to wait before killing a \
+                                                     service process (default: set in plan)")
+                                              .long("shutdown-timeout")
+                                              .validator(valid_shutdown_timeout)
+                                              .takes_value(true))
 }
 
 ////////////////////////////////////////////////////////////////////////

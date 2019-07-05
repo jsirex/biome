@@ -8,6 +8,7 @@ workspace = "../../"
 [dependencies]
 broadcast = "*"
 chrono = "*"
+env = "*"
 biome_core = { path = "../core" }
 biome_http_client = { path = "../http-client" }
 # Pending upgrade activities in https://github.com/biome-sh/core/issues/72
