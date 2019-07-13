@@ -1,0 +1,91 @@
+env:
+  HAB_LICENSE: "accept-no-persist"
+  HAB_STUDIO_SECRET_HAB_LICENSE: "accept-no-persist"
+
+steps:
+  - label: ":right-facing_fist: :boom: :left-facing_fist: Promote Release for consumption by Builder"
+    command: .buildkite/scripts/promote_release_channel.sh builder-live
+    agents:
+      queue: biome-release
+    env:
+      BUILD_PKG_TARGET: "x86_64-linux"
+
+  - block: ":habicat: Ensure that Builder is stable on the new release"
+    prompt: |
+      We do not anticipate any issues updating the Supervisors in
+      Builder, but on the off chance that we discover some terrible
+      bug at the last minute, this allows us one last opportunity to
+      halt the release.
+
+      After this step is unblocked, the new artifacts become available
+      to the world.
+
+  - label: ":right-facing_fist: :boom: :left-facing_fist: Promote Release to stable"
+    command: .buildkite/scripts/promote_release_channel.sh stable
+    agents:
+      queue: biome-release
+    env:
+      BUILD_PKG_TARGET: "x86_64-linux"
+
+  - wait
+
+  - label: "Publish Bintray Releases"
+    command: .buildkite/scripts/bintray_publish.sh
+    agents:
+      # All artifacts can be published from a Linux machine
+      queue: biome-release
+
+  - label: ":mac: Promote Homebrew Release"
+    command: .buildkite/scripts/bump_homebrew_release.sh
+    agents:
+      queue: biome-release
+    plugins:
+      docker#v1.1.1:
+        image: "chefes/buildkite"
+        environment:
+          - CHEF_CI_GITHUB_TOKEN
+
+  - label: "Build Bootstrap Bundle and push to :s3:"
+    command: /bin/true
+    skip: Not implemented yet
+    agents:
+      queue: biome-release
+
+  - label: ":linux: Add core/backline to Acceptance Environment"
+    command: .buildkite/scripts/upload_backline_to_acceptance.sh
+    agents:
+      queue: biome-release
+    env:
+      BUILD_PKG_TARGET: "x86_64-linux"
+
+  - label: ":linux: :two: Add core/backline to Acceptance Environment"
+    command: .buildkite/scripts/upload_backline_to_acceptance.sh
+    agents:
+      queue: biome-release
+    env:
+      BUILD_PKG_TARGET: "x86_64-linux-kernel2"
+
+  - label: "Rebuild and promote the worker"
+    command: /bin/true
+    skip: Not implemented yet
+    agents:
+      queue: biome-release
+
+  - label: ":github: Publish Github Release"
+    command: /bin/true
+    skip: Not implemented yet
+    agents:
+      queue: biome-release
+
+  - label: "Update Documentation"
+    command: /bin/true
+    skip: Not implemented yet
+    agents:
+      queue: biome-release
+
+  - wait
+
+  - label: ":habicat: :boom: Destroy release channel"
+    command: .buildkite/scripts/destroy_release_channel.sh
+    agents:
+      queue: biome-release
