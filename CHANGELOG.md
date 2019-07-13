@@ -7,6 +7,8 @@
 - Add rst-reader back again [#6619](https://github.com/habitat-sh/habitat/pull/6619) ([raskchanky](https://github.com/raskchanky))
 
 #### Bug Fixes
+- Improve liveliness checker [#6714](https://github.com/habitat-sh/habitat/pull/6714) ([baumanj](https://github.com/baumanj))
+- Stop health check futures when upgrading the Supervisor [#6717](https://github.com/habitat-sh/habitat/pull/6717) ([christophermaier](https://github.com/christophermaier))
 - do not overwrite PSModulePath when setting up build environment [#6697](https://github.com/habitat-sh/habitat/pull/6697) ([mwrock](https://github.com/mwrock))
 - provide a better error when no value is passed to Set-BuildtimeEnv or Set-RuntimeEnv [#6684](https://github.com/habitat-sh/habitat/pull/6684) ([mwrock](https://github.com/mwrock))
 - Remove recusive memberlist locking [#6662](https://github.com/habitat-sh/habitat/pull/6662) ([baumanj](https://github.com/baumanj))
@@ -19,6 +21,9 @@
 - Store configurable shutdown parameters [#6539](https://github.com/habitat-sh/habitat/pull/6539) ([davidMcneil](https://github.com/davidMcneil))
 
 #### Merged Pull Requests
+- Migrate Mac Builds to new pipeline [#6726](https://github.com/habitat-sh/habitat/pull/6726) ([scotthain](https://github.com/scotthain))
+- Explicitly use windows 2016 queues [#6720](https://github.com/habitat-sh/habitat/pull/6720) ([scotthain](https://github.com/scotthain))
+- Accept habitat license [#6710](https://github.com/habitat-sh/habitat/pull/6710) ([davidMcneil](https://github.com/davidMcneil))
 - Refactor DatFile, again [#6703](https://github.com/habitat-sh/habitat/pull/6703) ([raskchanky](https://github.com/raskchanky))
 - fail build on docker push failures [#6702](https://github.com/habitat-sh/habitat/pull/6702) ([mwrock](https://github.com/mwrock))
 - powershell based install script [#6691](https://github.com/habitat-sh/habitat/pull/6691) ([mwrock](https://github.com/mwrock))

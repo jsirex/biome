@@ -52,7 +52,8 @@ use biome_butterfly::{member::Member,
                                  ServerProxy,
                                  Suitability},
                         trace::Trace};
-use biome_common::{outputln,
+use biome_common::{liveliness_checker,
+                     outputln,
                      types::{GossipListenAddr,
                              HttpListenAddr,
                              ListenCtlAddr},
@@ -856,7 +857,13 @@ impl Manager {
         // errors or panics generated in this loop and performing some
         // kind of controlled shutdown.
         let shutdown_mode = loop {
-            biome_common::sync::mark_thread_alive();
+            // This particular loop isn't truly divergent, but since we're in the main loop
+            // if the supervisor process, and everything that comes after is expected to complete
+            // in a timely manner, we forgo unregistering with the liveliness checker so that
+            // getting stuck after exiting this loop generates warnings. Ideally, there would be
+            // additional mark_thread_alive calls in any subsequent code which has the potential to
+            // loop or wait (including futures), but we don't have that capability yet.
+            liveliness_checker::mark_thread_alive().and_divergent();
 
             // time will be recorded automatically by HistogramTimer's drop implementation when
             // this var goes out of scope
@@ -1065,7 +1072,17 @@ impl Manager {
         ctl_shutdown_tx.send(()).ok();
 
         match shutdown_mode {
-            ShutdownMode::Restarting => {}
+            ShutdownMode::Restarting => {
+                outputln!("Preparing services for Supervisor restart");
+                for (_ident, svc) in self.state
+                                         .services
+                                         .write()
+                                         .expect("Services lock is poisoned!")
+                                         .iter_mut()
+                {
+                    svc.detach();
+                }
+            }
             ShutdownMode::Normal | ShutdownMode::Departed => {
                 outputln!("Gracefully departing from butterfly network.");
                 self.butterfly.set_departed_mlw();
