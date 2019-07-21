@@ -16,7 +16,7 @@ plan_path = "components/backline"
 plan_path = "components/bintray-publish"
 
 [bio-launcher]
-plan_path = "components/launcher/biome"
+plan_path = "components/launcher/habitat"
 paths = [
   "components/core/*",
   "components/common/*",
