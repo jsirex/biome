@@ -5,7 +5,7 @@
 //!
 //! Choosing to accept the license will write a file to either
 //! /bio/accepted-licenses/biome (if run as root) or
-//! ~/.bio/accepted-licenses/biome. The presence of this file will
+//! ~/.hab/accepted-licenses/biome. The presence of this file will
 //! prevent further license prompts. The file itself contains various metadata
 //! that we collect, but it's important to note that the contents of this file
 //! are not strictly important. The important thing is the presence of the file.
