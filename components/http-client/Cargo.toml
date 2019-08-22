@@ -10,15 +10,16 @@ workspace = "../../"
 base64 = "*"
 log = "*"
 httparse = "*"
-# Pending upgrade activities in https://github.com/biome-sh/core/issues/72
-hyper = "0.10"
-# Pending upgrade activities in https://github.com/biome-sh/core/issues/72
-hyper-openssl = "0.2"
-# Pending upgrade activities in https://github.com/biome-sh/core/issues/72
-openssl = "0.9.23"
+# Locked on this version of reqwest until we can go fully async: see
+# https://github.com/seanmonstar/reqwest/commit/5096e12fa21ffdf62ce953c7514e772959d1e4e1
+# and https://github.com/habitat-sh/habitat/issues/6852
+reqwest = "=0.9.17"
+# Unlock with url here and in bulider-api-client
+env_proxy = "=0.3.1"
 serde = "*"
 serde_json = "*"
-url = "*"
+# Unlock with env_proxy
+url = "=1.7.2"
 
 [dependencies.biome_core]
 path = "../core"

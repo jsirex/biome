@@ -1,30 +1,30 @@
+use crate::{bio_core,
+            bio_http};
+use reqwest;
+use serde_json;
 use std::{error,
           fmt,
           io,
           num,
           path::PathBuf,
           result};
-
-use hyper;
-use serde_json;
 use url;
-
-use crate::{bio_core,
-            bio_http};
 
 pub type Result<T> = result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
-    APIError(hyper::status::StatusCode, String),
+    APIError(reqwest::StatusCode, String),
     BadResponseBody(io::Error),
     DownloadWrite(PathBuf, io::Error),
     BiomeCore(bio_core::Error),
     BiomeHttpClient(bio_http::Error),
-    HyperError(hyper::error::Error),
+    ReqwestError(reqwest::Error),
     IO(io::Error),
     Json(serde_json::Error),
     KeyReadError(PathBuf, io::Error),
+    MissingHeader(String),
+    InvalidHeader(String),
     NoFilePart,
     PackageReadError(PathBuf, io::Error),
     ParseIntError(num::ParseIntError),
@@ -48,12 +48,14 @@ impl fmt::Display for Error {
             }
             Error::BiomeCore(ref e) => format!("{}", e),
             Error::BiomeHttpClient(ref e) => format!("{}", e),
-            Error::HyperError(ref err) => format!("{}", err),
+            Error::ReqwestError(ref err) => format!("{}", err),
             Error::IO(ref e) => format!("{}", e),
             Error::Json(ref e) => format!("{}", e),
             Error::KeyReadError(ref p, ref e) => {
                 format!("Failed to read origin key, {}, {}", p.display(), e)
             }
+            Error::MissingHeader(ref s) => format!("Response is missing a required header: {}", s),
+            Error::InvalidHeader(ref s) => format!("Response header is invalid: {}", s),
             Error::NoFilePart => "An invalid path was passed - we needed a filename, and this \
                                   path does not have one"
                                                          .to_string(),
@@ -85,10 +87,12 @@ impl error::Error for Error {
             Error::DownloadWrite(..) => "Failed to write response contents to file",
             Error::BiomeCore(ref err) => err.description(),
             Error::BiomeHttpClient(ref err) => err.description(),
-            Error::HyperError(ref err) => err.description(),
+            Error::ReqwestError(ref err) => err.description(),
             Error::IO(ref err) => err.description(),
             Error::Json(ref err) => err.description(),
             Error::KeyReadError(..) => "Failed to read origin key from disk",
+            Error::MissingHeader(_) => "Missing header",
+            Error::InvalidHeader(_) => "Invalid header",
             Error::NoFilePart => {
                 "An invalid path was passed - we needed a filename, and this path does not have one"
             }
@@ -116,8 +120,8 @@ impl From<bio_http::Error> for Error {
     fn from(err: bio_http::Error) -> Error { Error::BiomeHttpClient(err) }
 }
 
-impl From<hyper::error::Error> for Error {
-    fn from(err: hyper::error::Error) -> Error { Error::HyperError(err) }
+impl From<reqwest::Error> for Error {
+    fn from(err: reqwest::Error) -> Error { Error::ReqwestError(err) }
 }
 
 impl From<io::Error> for Error {

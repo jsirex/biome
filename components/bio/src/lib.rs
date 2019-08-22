@@ -3,7 +3,6 @@
 use biome_api_client as api_client;
 use biome_common as common;
 use biome_core as hcore;
-use biome_http_client as http_client;
 use biome_sup_client as sup_client;
 use biome_sup_protocol as protocol;
 
@@ -17,6 +16,7 @@ extern crate log;
 extern crate serde_derive;
 
 extern crate serde_json;
+extern crate toml;
 
 #[cfg(windows)]
 extern crate widestring;
@@ -25,7 +25,6 @@ extern crate winapi;
 #[cfg(windows)]
 extern crate winreg;
 
-pub mod analytics;
 pub mod cli;
 pub mod command;
 pub mod config;

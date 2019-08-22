@@ -9,6 +9,7 @@ use biome_common::{cli::{BINLINK_DIR_ENVVAR,
                            RING_ENVVAR,
                            RING_KEY_ENVVAR},
                      types::{AutomateAuthToken,
+                             EventStreamConnectMethod,
                              EventStreamMetadata,
                              GossipListenAddr,
                              HttpListenAddr,
@@ -242,6 +243,16 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (about: "Commands relating to Biome origin keys")
             (aliases: &["o", "or", "ori", "orig", "origi"])
             (@setting ArgRequiredElseHelp)
+            (@subcommand create =>
+                (about: "Creates a new Builder origin")
+                (aliases: &["cre", "crea"])
+                (@arg ORIGIN: +required {valid_origin} "The origin to be created")
+                (@arg BLDR_URL: -u --url +takes_value {valid_url}
+                     "Specify an alternate Builder endpoint. If not specified, the value will \
+                     be taken from the `HAB_BLDR_URL environment variable if defined. (default: \
+                     https://bldr.habitat.sh)")
+                (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
+            )
             (@subcommand delete =>
                 (about: "Removes an unused/empty origin")
                 (aliases: &["del", "dele"])
@@ -516,6 +527,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@arg FORCE: --force "Skips checking availability of package and \
                     force uploads, potentially overwriting a stored copy of a package. \
                     (default: false)")
+                (@arg NO_BUILD: --("no-build")  "Disable auto-build for all packages in this upload.")
                 (@arg HART_FILE: +required +multiple {file_exists}
                     "One or more filepaths to a Biome Artifact \
                     (ex: /home/acme-redis-3.0.7-21120102031201-x86_64-linux.hart)")
@@ -1164,6 +1176,8 @@ fn sub_svc_unload() -> App<'static, 'static> {
 // For now, though, these at least provide a place to supply the
 // information; we can revise as we go.
 fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static> {
+    // Create shorter alias so formating works correctly
+    type ConnectMethod = EventStreamConnectMethod;
     app.arg(Arg::with_name("EVENT_STREAM_APPLICATION").help("The name of the application for \
                                                              event stream purposes. This is \
                                                              distinct from the `--application` \
@@ -1184,6 +1198,18 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
                                                       .required(true)
                                                       .takes_value(true)
                                                       .validator(non_empty))
+       .arg(Arg::with_name(ConnectMethod::ARG_NAME).help("How long in seconds to wait for an \
+                                                          event stream connection before exiting \
+                                                          the supervisor. Set to '0' to \
+                                                          immediately start the supervisor and \
+                                                          continue running regardless of the \
+                                                          event stream status.")
+                                                   .long("event-stream-connect-timeout")
+                                                   .required(false)
+                                                   .takes_value(true)
+                                                   .env(ConnectMethod::ENVVAR)
+                                                   .default_value("5")
+                                                   .validator(valid_numeric::<u64>))
        .arg(Arg::with_name("EVENT_STREAM_URL").help("The event stream connection string \
                                                      (host:port) used by this Supervisor to send \
                                                      events to a messaging server.")
@@ -1430,7 +1456,6 @@ mod tests {
             let run_matches = run_matches.expect("Error while getting run matches");
             assert_eq!(run_matches.value_of("PEER"), Some("1.1.1.1"));
         }
-
     }
 
     mod event_stream_feature {
@@ -1792,6 +1817,5 @@ mod tests {
             let error = matches.unwrap_err();
             assert_eq!(error.kind, clap::ErrorKind::ValueValidation);
         }
-
     }
 }

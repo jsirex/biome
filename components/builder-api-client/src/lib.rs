@@ -1,7 +1,5 @@
 use biome_core as bio_core;
 use biome_http_client as bio_http;
-#[macro_use]
-extern crate hyper;
 
 #[macro_use]
 extern crate log;
@@ -15,6 +13,7 @@ extern crate serde_json;
 pub mod artifactory;
 pub mod builder;
 pub mod error;
+pub mod response;
 
 use std::str::FromStr;
 
@@ -27,7 +26,7 @@ use std::{fmt,
                  PathBuf}};
 
 use chrono::DateTime;
-use hyper::client::IntoUrl;
+use reqwest::IntoUrl;
 
 pub use crate::error::{Error,
                        Result};
@@ -41,10 +40,7 @@ use crate::{artifactory::ArtifactoryClient,
                                  PackageTarget},
                        ChannelIdent}};
 
-header! { (XFileName, "X-Filename") => [String] }
-header! { (ETag, "ETag") => [String] }
-
-pub trait DisplayProgress: Write {
+pub trait DisplayProgress: Write + Send {
     fn size(&mut self, size: u64);
     fn finish(&mut self);
 }
@@ -244,6 +240,12 @@ pub struct ReverseDependencies {
     pub rdeps:  Vec<String>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum BuildOnUpload {
+    PackageDefault,
+    Disable,
+}
+
 pub trait BuilderAPIProvider: Sync + Send {
     type Progress;
 
@@ -276,6 +278,8 @@ pub trait BuilderAPIProvider: Sync + Send {
                                           progress: Option<Self::Progress>)
                                           -> Result<PathBuf>;
 
+    fn create_origin(&self, origin: &str, token: &str) -> Result<()>;
+
     fn create_origin_secret(&self,
                             origin: &str,
                             token: &str,
@@ -293,6 +297,7 @@ pub trait BuilderAPIProvider: Sync + Send {
                    pa: &mut PackageArchive,
                    token: &str,
                    force_upload: bool,
+                   auto_build: BuildOnUpload,
                    progress: Option<Self::Progress>)
                    -> Result<()>;
 
@@ -396,7 +401,7 @@ impl Client {
                   -> Result<BoxedClient>
         where U: IntoUrl
     {
-        let endpoint = endpoint.into_url().map_err(Error::UrlParseError)?;
+        let endpoint = endpoint.into_url().map_err(Error::ReqwestError)?;
 
         match &env::var("HAB_BLDR_PROVIDER").unwrap_or_else(|_| "builder".to_string())[..] {
             "artifactory" => ArtifactoryClient::create(endpoint, product, version, fs_root_path),

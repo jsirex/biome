@@ -5,23 +5,33 @@
 //!
 //! # RPC Call Example
 //!
-//! ```ignore
-//! let conn = SrvClient::connect(&listen_addr, secret_key).wait()?;
-//! let msg = protocols::ctl::ServiceGetDefaultCfg::new();
-//! conn.call(msg).for_each(|reply| {
-//!     match reply.message_id() {
-//!         "ServiceCfg" => {
-//!             let m = reply.parse::<protocols::types::ServiceCfg>().unwrap();
-//!             println!("{}", m.get_default());
-//!         }
-//!         "NetErr" => {
-//!             let m = reply.parse::<protocols::net::NetErr>().unwrap();
-//!             println!("{}", m);
-//!         }
-//!         _ => (),
-//!     }
-//!     Ok(())
-//! })
+//! ```
+//! # use futures::future::Future as _;
+//! # use futures::stream::Stream as _;
+//! # use biome_sup_client::SrvClient;
+//! # use biome_sup_protocol as protocols;
+//! # use biome_common::types::ListenCtlAddr;
+//! # let listen_addr = ListenCtlAddr::default();
+//! # let secret_key = "seekrit";
+//! let conn = SrvClient::connect(&listen_addr, secret_key);
+//! let msg = protocols::ctl::SvcGetDefaultCfg::default();
+//! conn.and_then(|conn| {
+//!         conn.call(msg).for_each(|reply| {
+//!                           match reply.message_id() {
+//!                               "ServiceCfg" => {
+//!                                   let m =
+//!                                       reply.parse::<protocols::types::ServiceCfg>().unwrap();
+//!                                   println!("{}", m.default.unwrap_or_default());
+//!                               }
+//!                               "NetErr" => {
+//!                                   let m = reply.parse::<protocols::net::NetErr>().unwrap();
+//!                                   println!("{}", m);
+//!                               }
+//!                               _ => (),
+//!                           }
+//!                           Ok(())
+//!                       })
+//!     });
 //! ```
 
 #[macro_use]
@@ -29,27 +39,26 @@ extern crate futures;
 use biome_sup_protocol as protocol;
 #[macro_use]
 extern crate log;
+use crate::{common::types::ListenCtlAddr,
+            protocol::{codec::*,
+                       net::NetErr}};
+use futures::{prelude::*,
+              sink};
 use biome_common as common;
-
 use std::{error,
           fmt,
           io,
           path::PathBuf};
-
-use crate::protocol::{codec::*,
-                      net::NetErr};
-use futures::{prelude::*,
-              sink};
 use tokio::net::TcpStream;
 use tokio_codec::Framed;
-
-use crate::common::types::ListenCtlAddr;
 
 pub type SrvSend = sink::Send<SrvStream>;
 
 /// Error types returned by a [`SrvClient`].
 #[derive(Debug)]
 pub enum SrvClientError {
+    /// Connection refused
+    ConnectionRefused,
     /// The remote server unexpectedly closed the connection.
     ConnectionClosed,
     /// Unable to locate a secret key on disk.
@@ -68,6 +77,7 @@ impl error::Error for SrvClientError {
     fn description(&self) -> &str {
         match *self {
             SrvClientError::ConnectionClosed => "Connection closed",
+            SrvClientError::ConnectionRefused => "Connection refused",
             SrvClientError::CtlSecretNotFound(_) => "Ctl secret key not found",
             SrvClientError::Decode(ref err) => err.description(),
             SrvClientError::Io(ref err) => err.description(),
@@ -86,6 +96,13 @@ impl fmt::Display for SrvClientError {
                  command requests."
                                    .to_string()
             }
+            SrvClientError::ConnectionRefused => {
+                "Unable to contact the Supervisor.\n\nIf the Supervisor you are contacting is \
+                 local, this probably means it is not running. You can run a Supervisor in the \
+                 foreground with:\n\nbio sup run\n\nOr try restarting the Supervisor through your \
+                 operating system's init process or Windows service."
+                                                                     .to_string()
+            }
             SrvClientError::CtlSecretNotFound(ref path) => {
                 format!("No Supervisor CtlGateway secret set in `cli.toml` or found at {}. Run \
                          `bio setup` or run the Supervisor for the first time before attempting \
@@ -93,14 +110,7 @@ impl fmt::Display for SrvClientError {
                         path.display())
             }
             SrvClientError::Decode(ref err) => format!("{}", err),
-            SrvClientError::Io(ref err) => {
-                format!("Unable to contact the Supervisor.\n\nIf the Supervisor you are \
-                         contacting is local, this probably means it is not running. You can run \
-                         a Supervisor in the foreground with:\n\nbio sup run\n\nOr try restarting \
-                         the Supervisor through your operating system's init process or Windows \
-                         service.\n\nOriginal error is:\n\n{}",
-                        err)
-            }
+            SrvClientError::Io(ref err) => format!("{}", err),
             SrvClientError::NetErr(ref err) => format!("{}", err),
             SrvClientError::ParseColor(ref err) => format!("{}", err),
         };
@@ -113,7 +123,12 @@ impl From<NetErr> for SrvClientError {
 }
 
 impl From<io::Error> for SrvClientError {
-    fn from(err: io::Error) -> Self { SrvClientError::Io(err) }
+    fn from(err: io::Error) -> Self {
+        match err.kind() {
+            io::ErrorKind::ConnectionRefused => SrvClientError::ConnectionRefused,
+            _ => SrvClientError::Io(err),
+        }
+    }
 }
 
 impl From<prost::DecodeError> for SrvClientError {

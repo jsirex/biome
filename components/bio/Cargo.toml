@@ -23,17 +23,18 @@ futures = "*"
 biome_api_client = { path = "../builder-api-client" }
 biome_common = { path = "../common" }
 biome_core = { path = "../core" }
-biome_http_client = { path = "../http-client" }
 biome-sup-client = { path = "../sup-client" }
 biome-sup-protocol = { path = "../sup-protocol", default-features = false }
 # We need to lock here since v0.30.0 bumps to a version of pest that fails to build on Windows.
 handlebars = { version = "0.29.1", default-features = false }
-# Pending upgrade activities in https://github.com/biome-sh/core/issues/72
-hyper = "0.10"
 lazy_static = "*"
 libc = "*"
 log = "*"
 pbr = "*"
+# Locked on this version of reqwest until we can go fully async: see
+# https://github.com/seanmonstar/reqwest/commit/5096e12fa21ffdf62ce953c7514e772959d1e4e1
+# and https://github.com/habitat-sh/habitat/issues/6852
+reqwest = "=0.9.17"
 retry = "*"
 serde = "*"
 serde_derive = "*"

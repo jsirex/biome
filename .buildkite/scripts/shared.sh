@@ -9,9 +9,9 @@ set -eou pipefail
 # through the pipeline. As we bring more platforms into play, this may
 # change. FYI.
 import_keys() {
-    echo "--- :key: Downloading 'core' public keys from Builder"
+    echo "--- :key: Downloading 'core' public keys from ${HAB_BLDR_URL:-Builder}"
     ${bio_binary:?} origin key download core
-    echo "--- :closed_lock_with_key: Downloading latest 'core' secret key from Builder"
+    echo "--- :closed_lock_with_key: Downloading latest 'core' secret key from ${HAB_BLDR_URL:-Builder}"
     ${bio_binary:?} origin key download \
         --auth="${HAB_AUTH_TOKEN}" \
         --secret \
@@ -76,22 +76,26 @@ set_bio_binary() {
     # ActiveTarget. Otherwise, if we were to attempt to install an
     # `x86_64-linux-kernel2` package with the `bio` on our path, it
     # would result in an error and fail the build.
-    # 
-    # TODO (SM): We also need to set the pkg_target so that we pull 
+    #
+    # TODO (SM): We also need to set the pkg_target so that we pull
     # the correct meta-data from BK for bio-version and bio-studio
-    # It might be better to expect BUILD_PKG_TARGET to always be 
-    # explicitly set. 
+    # It might be better to expect BUILD_PKG_TARGET to always be
+    # explicitly set.
     local pkg_target
     case "${BUILD_PKG_TARGET}" in
         x86_64-linux)
             pkg_target="x86_64-linux"
             install_bio_binary "$pkg_target" "/hab/bin"
             bio_binary="/hab/bin/bio-$pkg_target"
+            # TODO: workaround for https://github.com/habitat-sh/habitat/issues/6771
+            sudo -E ${bio_binary} pkg install biome/bio-studio
             ;;
         x86_64-linux-kernel2)
             pkg_target="x86_64-linux-kernel2"
             install_bio_binary "$pkg_target" "/hab/bin"
             bio_binary="/hab/bin/bio-$pkg_target"
+            # TODO: workaround for https://github.com/habitat-sh/habitat/issues/6771
+            sudo -E ${bio_binary} pkg install biome/bio-studio
             ;;
         x86_64-windows)
             # We're going to use the existing bio binary here.
@@ -99,7 +103,7 @@ set_bio_binary() {
             bio_binary="$(command -v bio)"
             pkg_target="x86_64-windows"
             ;;
-        *) 
+        *)
             echo "--- :no_entry_sign: Unknown PackageTarget: ${BUILD_PKG_TARGET}"
             exit 1
             ;;
@@ -116,8 +120,14 @@ set_bio_binary() {
         # Note that we are explicitly not binlinking here; this is to
         # prevent accidentally polluting the builder for any future
         # runs that may take place on it.
-        sudo env HAB_LICENSE="${HAB_LICENSE}" "${bio_binary:?}" pkg install "${bio_ident}"
-        sudo env HAB_LICENSE="${HAB_LICENSE}" "${bio_binary:?}" pkg install "$(get_studio_ident $pkg_target)"
+        sudo env HAB_LICENSE="${HAB_LICENSE}" \
+             "${bio_binary:?}" pkg install "${bio_ident}" \
+             --auth="${HAB_AUTH_TOKEN}" \
+             --url="${HAB_BLDR_URL}"
+        sudo env HAB_LICENSE="${HAB_LICENSE}" \
+             "${bio_binary:?}" pkg install "$(get_studio_ident $pkg_target)" \
+             --auth="${HAB_AUTH_TOKEN}" \
+             --url="${HAB_BLDR_URL}"
         bio_binary="/hab/pkgs/${bio_ident}/bin/bio"
         declare -g new_studio=1
     else
@@ -127,30 +137,28 @@ set_bio_binary() {
     echo "--- :habicat: Using $(${bio_binary} --version)"
 }
 
-
 # Use the install.sh script which lives in this repository to download the latest version of Biome
 install_bio_binary() {
     local target install_path
-    
+
     target="$1"
     install_path="$2"
 
     (
       bt_uri="https://api.bintray.com/content/biome/stable/linux/x86_64/bio-%24latest-$target.tar.gz?bt_package=bio-$target"
-      
+
       tmpdir="$(mktemp -d bio-install.XXXXXXXX)"
       cd "$tmpdir"
       wget "$bt_uri" -O "bio-$target-latest.tar.gz"
-      tar xvf "bio-$target-latest.tar.gz" --strip-components=1 
+      tar xvf "bio-$target-latest.tar.gz" --strip-components=1
       sudo mkdir -p "$install_path"
       sudo mv --force "bio" "$install_path/bio-$target"
       sudo chmod +x "$install_path/bio-$target"
     )
 }
 
-
 # The following get/set functions abstract the meta-data key
-# names to provide consistant access, taking into account the 
+# names to provide consistant access, taking into account the
 # target, where appropriate.
 
 get_bio_ident() {
