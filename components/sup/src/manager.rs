@@ -129,7 +129,7 @@ use winapi::{shared::minwindef::PDWORD,
 const MEMBER_ID_FILE: &str = "MEMBER_ID";
 pub const PROC_LOCK_FILE: &str = "LOCK";
 
-static LOGKEY: &'static str = "MR";
+static LOGKEY: &str = "MR";
 
 lazy_static! {
     static ref RUN_LOOP_DURATION: HistogramVec =
@@ -183,27 +183,15 @@ pub struct ShutdownConfig {
 }
 
 impl ShutdownConfig {
-    fn new(shutdown_input: &ShutdownInput, service: &Service) -> Self {
-        let mut config = Self::new_from_service(service);
-        if let Some(timeout) = shutdown_input.timeout {
-            config.timeout = timeout;
-        }
-        config
-    }
-
-    #[cfg(not(windows))]
-    fn new_from_service(service: &Service) -> Self {
-        let timeout = service.shutdown_timeout
-                             .unwrap_or_else(|| service.pkg.shutdown_timeout);
-        Self { signal: service.pkg.shutdown_signal,
-               timeout }
-    }
-
-    #[cfg(windows)]
-    fn new_from_service(service: &Service) -> Self {
-        let timeout = service.shutdown_timeout
-                             .unwrap_or_else(|| service.pkg.shutdown_timeout);
-        Self { timeout }
+    fn new(shutdown_input: Option<&ShutdownInput>, service: &Service) -> Self {
+        let timeout = shutdown_input.and_then(|si| si.timeout).unwrap_or_else(|| {
+                                                                  service.shutdown_timeout
+                                                               .unwrap_or(service.pkg
+                                                                                 .shutdown_timeout)
+                                                              });
+        Self { timeout,
+               #[cfg(not(windows))]
+               signal: service.pkg.shutdown_signal }
     }
 }
 
@@ -263,24 +251,23 @@ pub struct TLSConfig {
 }
 
 impl ManagerConfig {
-    pub fn sup_root(&self) -> PathBuf {
+    fn sup_root(&self) -> PathBuf {
         biome_sup_protocol::sup_root(self.custom_state_path.as_ref())
     }
 
-    // TODO (CM): this may be able to be private after some
-    // refactorings in commands.rs
-    pub fn spec_path_for(&self, spec: &ServiceSpec) -> PathBuf {
-        self.sup_root().join("specs").join(spec.file_name())
+    fn spec_path_for(&self, ident: &PackageIdent) -> PathBuf {
+        self.sup_root()
+            .join("specs")
+            .join(ServiceSpec::ident_file(ident))
     }
 
     pub fn save_spec_for(&self, spec: &ServiceSpec) -> Result<()> {
-        spec.to_file(self.spec_path_for(spec))
+        spec.to_file(self.spec_path_for(&spec.ident))
     }
 
     /// Given a `PackageIdent`, return current spec if it exists.
     pub fn spec_for_ident(&self, ident: &PackageIdent) -> Option<ServiceSpec> {
-        let default_spec = ServiceSpec::default_for(ident.clone());
-        let spec_file = self.spec_path_for(&default_spec);
+        let spec_file = self.spec_path_for(ident);
 
         // JC: This mimics the logic from when we had composites.  But
         // should we check for Err ?
@@ -417,6 +404,9 @@ pub struct Manager {
     services_need_reconciliation: ReconciliationFlag,
 
     feature_flags: FeatureFlag,
+    /// The runtime for spawning various `Manager` futures. Eventually, `Manager` could become a
+    /// future itself. This would allow us to remove this runtime and simply use `tokio::spawn`.
+    runtime: Runtime,
 }
 
 impl Manager {
@@ -425,9 +415,8 @@ impl Manager {
     /// The returned Manager will be pre-populated with any cached data from disk from a previous
     /// run if available.
     ///
-    /// # Locking
-    /// * `MemberList::intitial_entries` (write) This method must not be called while any
-    ///   MemberList::intitial_entries lock is held.
+    /// # Locking (see locking.md)
+    /// * `MemberList::initial_members` (write)
     pub fn load_imlw(cfg: ManagerConfig, launcher: LauncherCli) -> Result<Manager> {
         let state_path = cfg.sup_root();
         let fs_cfg = FsCfg::new(state_path);
@@ -457,11 +446,15 @@ impl Manager {
         }
     }
 
-    /// # Locking
-    /// * `MemberList::intitial_entries` (write) This method must not be called while any
-    ///   MemberList::intitial_entries lock is held.
+    /// # Locking (see locking.md)
+    /// * `MemberList::initial_members` (write)
     fn new_imlw(cfg: ManagerConfig, fs_cfg: FsCfg, launcher: LauncherCli) -> Result<Manager> {
         debug!("new(cfg: {:?}, fs_cfg: {:?}", cfg, fs_cfg);
+        let mut runtime =
+            RuntimeBuilder::new().name_prefix("tokio-")
+                                 .core_threads(TokioThreadCount::configured_value().into())
+                                 .build()
+                                 .expect("Couldn't build Tokio Runtime!");
         let current = PackageIdent::from_str(&format!("{}/{}", SUP_PKG_IDENT, VERSION)).unwrap();
         outputln!("{} ({})", SUP_PKG_IDENT, current);
         let cfg_static = cfg.clone();
@@ -529,7 +522,7 @@ impl Manager {
             let ec = EventCore::new(&es_config, &sys, fqdn);
             // unwrap won't fail here; if there were an issue, from_env()
             // would have already propagated an error up the stack.
-            event::init_stream(es_config, ec)?;
+            event::init_stream(es_config, ec, &mut runtime)?;
         }
 
         Ok(Manager { state: Arc::new(ManagerState { cfg: cfg_static,
@@ -552,7 +545,8 @@ impl Manager {
                      http_disable: cfg.http_disable,
                      busy_services: Arc::new(Mutex::new(HashSet::new())),
                      services_need_reconciliation: ReconciliationFlag::new(false),
-                     feature_flags: cfg.feature_flags })
+                     feature_flags: cfg.feature_flags,
+                     runtime })
     }
 
     /// Load the initial Butterly Member which is used in initializing the Butterfly server. This
@@ -633,27 +627,25 @@ impl Manager {
         Ok(())
     }
 
-    /// # Locking
-    /// * `MemberList::entries` (write) This method must not be called while any MemberList::entries
-    ///   lock is held.
-    fn add_service_mlw(&mut self, spec: &ServiceSpec) {
-        // JW TODO: This clone sucks, but our data structures are a bit messy here. What we really
-        // want is the service to hold the spec and, on failure, return an error with the spec
-        // back to us. Since we consume and deconstruct the spec in `Service::new()` which
-        // `Service::load()` eventually delegates to we just can't have that. We should clean
-        // this up in the future.
-        let service = match Service::load(self.sys.clone(),
-                                          spec.clone(),
-                                          self.fs_cfg.clone(),
-                                          self.organization.as_ref().map(|org| &**org),
-                                          self.state.gateway_state.clone())
+    /// # Locking (see locking.md)
+    /// * `RumorStore::list` (write)
+    /// * `MemberList::entries` (write)
+    fn add_service_rsw_mlw(&mut self, spec: ServiceSpec) {
+        let ident = spec.ident.clone();
+        let service = match Service::new(self.sys.clone(),
+                                         spec,
+                                         self.fs_cfg.clone(),
+                                         self.organization.as_ref().map(String::as_str),
+                                         self.state.gateway_state.clone())
         {
             Ok(service) => {
-                outputln!("Starting {} ({})", &spec.ident, service.pkg.ident);
+                outputln!("Starting {} ({})", ident, service.pkg.ident);
                 service
             }
             Err(err) => {
-                outputln!("Unable to start {}, {}", &spec.ident, err);
+                outputln!("Unable to start {}, {}", ident, err);
+                // Remove the spec file so it does not look like this service is loaded.
+                self.remove_spec_file(&ident).ok();
                 return;
             }
         };
@@ -666,7 +658,7 @@ impl Manager {
                 &package,
                 Path::new(&*FS_ROOT_PATH),
             ) {
-                outputln!("Failed to run install hook for {}, {}", &spec.ident, err);
+                outputln!("Failed to run install hook for {}, {}", ident, err);
                 return;
             }
         }
@@ -678,13 +670,14 @@ impl Manager {
             outputln!("If this service is running as non-root, you'll need to create {} and give \
                        the current user write access to it",
                       service.pkg.svc_path.display());
-            outputln!("{} failed to start", &spec.ident);
+            outputln!("{} failed to start", ident);
             return;
         }
 
-        self.gossip_latest_service_rumor_mlw(&service);
+        self.gossip_latest_service_rumor_rsw_mlw(&service);
         if service.topology == Topology::Leader {
-            self.butterfly.start_election_mlr(&service.service_group, 0);
+            self.butterfly
+                .start_election_rsw_mlr(&service.service_group, 0);
         }
 
         if let Err(e) = self.user_config_watcher
@@ -716,23 +709,18 @@ impl Manager {
     // simplify the redundant aspects and remove this allow(clippy::cognitive_complexity),
     // but changing it in the absence of other necessity seems like too much risk for the
     // expected reward.
-    /// # Locking
-    /// * `MemberList::entries` (write) This method must not be called while any MemberList::entries
-    ///   lock is held.
-    /// * `MemberList::intitial_entries` (write) This method must not be called while any
-    ///   MemberList::intitial_entries lock is held.
+    /// # Locking (see locking.md)
+    /// * `RumorStore::list` (write)
+    /// * `MemberList::initial_members` (write)
+    /// * `MemberList::entries` (write)
     #[allow(clippy::cognitive_complexity)]
-    pub fn run_mlw_imlw(mut self, svc: Option<biome_sup_protocol::ctl::SvcLoad>) -> Result<()> {
+    pub fn run_rsw_imlw_mlw(mut self,
+                            svc: Option<biome_sup_protocol::ctl::SvcLoad>)
+                            -> Result<()> {
         let main_hist = RUN_LOOP_DURATION.with_label_values(&["sup"]);
         let service_hist = RUN_LOOP_DURATION.with_label_values(&["service"]);
         let mut next_cpu_measurement = SteadyTime::now();
         let mut cpu_start = ProcessTime::now();
-
-        let mut runtime =
-            RuntimeBuilder::new().name_prefix("tokio-")
-                                 .core_threads(TokioThreadCount::configured_value().into())
-                                 .build()
-                                 .expect("Couldn't build Tokio Runtime!");
 
         // TODO (CM): consider bundling up these disparate channel
         // ends into a single struct that handles the communication
@@ -751,21 +739,21 @@ impl Manager {
                                                              executor::spawn(handler);
                                                              Ok(())
                                                          });
-        runtime.spawn(ctl_handler);
+        self.runtime.spawn(ctl_handler);
 
         if let Some(svc_load) = svc {
-            commands::service_load(&self.state, &mut CtlRequest::default(), &svc_load)?;
+            commands::service_load(&self.state, &mut CtlRequest::default(), svc_load)?;
         }
 
         // This serves to start up any services that need starting
         // (which will be all of them at this point!)
-        self.maybe_spawn_service_futures_mlw(&mut runtime);
+        self.maybe_spawn_service_futures_rsw_mlw();
 
         outputln!("Starting gossip-listener on {}",
                   self.butterfly.gossip_addr());
-        self.butterfly.start_mlw(&Timing::default())?;
+        self.butterfly.start_rsw_mlw(&Timing::default())?;
         debug!("gossip-listener started");
-        self.persist_state_mlr();
+        self.persist_state_rsr_mlr();
         let http_listen_addr = self.sys.http_listen();
         let ctl_listen_addr = self.sys.ctl_listen();
         let ctl_secret_key = ctl_gateway::readgen_secret_key(&self.fs_cfg.sup_root)?;
@@ -931,44 +919,12 @@ impl Manager {
                             warn!("Tried to stop '{}', but couldn't update the spec: {:?}",
                                   service_spec.ident, err);
                         }
-                        if let Some(future) =
-                            self.remove_service_from_state(&service_spec)
-                                .map(|service| {
-                                    let shutdown_config =
-                                        ShutdownConfig::new(&shutdown_input, &service);
-                                    self.stop_with_config(service, shutdown_config)
-                                })
-                        {
-                            runtime.spawn(future);
-                        } else {
-                            warn!("Tried to stop '{}', but couldn't find it in our list of \
-                                   running services!",
-                                  service_spec.ident);
-                        }
+                        self.stop_service(&service_spec.ident, &shutdown_input);
                     }
                     SupervisorAction::UnloadService { service_spec,
                                                       shutdown_input, } => {
-                        let file = self.state.cfg.spec_path_for(&service_spec);
-                        if let Err(err) = fs::remove_file(&file) {
-                            warn!("Tried to unload '{}', but couldn't remove the file '{}': {:?}",
-                                  service_spec.ident,
-                                  file.display(),
-                                  err);
-                        };
-                        if let Some(future) =
-                            self.remove_service_from_state(&service_spec)
-                                .map(|service| {
-                                    let shutdown_config =
-                                        ShutdownConfig::new(&shutdown_input, &service);
-                                    self.stop_with_config(service, shutdown_config)
-                                })
-                        {
-                            runtime.spawn(future);
-                        } else {
-                            warn!("Tried to unload '{}', but couldn't find it in our list of \
-                                   running services!",
-                                  service_spec.ident);
-                        }
+                        self.remove_spec_file(&service_spec.ident).ok();
+                        self.stop_service(&service_spec.ident, &shutdown_input);
                     }
                 }
             }
@@ -995,32 +951,32 @@ impl Manager {
                 // event in the specs directory is registered, or
                 // another service finishes shutting down).
                 self.services_need_reconciliation.toggle_if_set();
-                self.maybe_spawn_service_futures_mlw(&mut runtime);
+                self.maybe_spawn_service_futures_rsw_mlw();
             }
 
             self.update_peers_from_watch_file_mlr_imlw()?;
             self.update_running_services_from_user_config_watcher();
 
-            for f in self.stop_services_with_updates_mlr() {
-                runtime.spawn(f);
+            for f in self.stop_services_with_updates_rsw_mlr() {
+                self.runtime.spawn(f);
             }
 
-            self.restart_elections_mlr(self.feature_flags);
+            self.restart_elections_rsw_mlr(self.feature_flags);
             self.census_ring
-                .update_from_rumors_mlr(&self.state.cfg.cache_key_path,
-                                        &self.butterfly.service_store,
-                                        &self.butterfly.election_store,
-                                        &self.butterfly.update_store,
-                                        &self.butterfly.member_list,
-                                        &self.butterfly.service_config_store,
-                                        &self.butterfly.service_file_store);
+                .update_from_rumors_rsr_mlr(&self.state.cfg.cache_key_path,
+                                            &self.butterfly.service_store,
+                                            &self.butterfly.election_store,
+                                            &self.butterfly.update_store,
+                                            &self.butterfly.member_list,
+                                            &self.butterfly.service_config_store,
+                                            &self.butterfly.service_file_store);
 
             if self.check_for_changed_services() {
-                self.persist_state_mlr();
+                self.persist_state_rsr_mlr();
             }
 
             if self.census_ring.changed() {
-                self.persist_state_mlr();
+                self.persist_state_rsr_mlr();
             }
 
             for service in self.state
@@ -1033,8 +989,8 @@ impl Manager {
                 // this var goes out of scope
                 #[allow(unused_variables)]
                 let service_timer = service_hist.start_timer();
-                if service.tick(&self.census_ring, &self.launcher, &runtime.executor()) {
-                    self.gossip_latest_service_rumor_mlw(&service);
+                if service.tick(&self.census_ring, &self.launcher, &self.runtime.executor()) {
+                    self.gossip_latest_service_rumor_rsw_mlw(&service);
                 }
             }
 
@@ -1093,18 +1049,20 @@ impl Manager {
                                    .expect("Services lock is poisoned!");
 
                 for (_ident, svc) in svcs.drain() {
-                    runtime.spawn(self.stop(svc));
+                    self.runtime.spawn(self.stop_service_future(svc, None));
                 }
             }
         }
 
         // Allow all existing futures to run to completion.
-        runtime.shutdown_on_idle()
-               .wait()
-               .expect("Error waiting on Tokio runtime to shutdown");
+        event::stop_stream();
+        self.runtime
+            .shutdown_on_idle()
+            .wait()
+            .expect("Error waiting on Tokio runtime to shutdown");
 
         release_process_lock(&self.fs_cfg);
-        self.butterfly.persist_data_mlr();
+        self.butterfly.persist_data_rsr_mlr();
 
         match shutdown_mode {
             ShutdownMode::Normal | ShutdownMode::Restarting => Ok(()),
@@ -1123,10 +1081,11 @@ impl Manager {
     /// Builder. These are removed from the internal `services` vec
     /// for further transformation into futures.
     ///
-    /// # Locking
-    /// * `MemberList::entries` (read) This method must not be called while any MemberList::entries
-    ///   lock is held.
-    fn take_services_with_updates_mlr(&mut self) -> Vec<Service> {
+    /// # Locking (see locking.md)
+    /// * `RumorStore::list` (write)
+    /// * `MemberList::entries` (read)
+    #[rustfmt::skip]
+    fn take_services_with_updates_rsw_mlr(&mut self) -> Vec<Service> {
         let mut updater = self.updater.lock().expect("Updater lock poisoned");
 
         let mut state_services = self.state
@@ -1134,9 +1093,11 @@ impl Manager {
                                      .write()
                                      .expect("Services lock is poisoned!");
         let idents_to_restart: Vec<_> = state_services.iter()
-                                                      .filter_map(|(current_ident, service)| {
-                                                          if let Some(new_ident) =
-                    updater.check_for_updated_package_mlr(&service, &self.census_ring)
+            .filter_map(|(current_ident, service)| {
+                if service.needs_restart {
+                    Some(current_ident.clone())
+                } else if let Some(new_ident) =
+                    updater.check_for_updated_package_rsw_mlr(&service, &self.census_ring)
                 {
                     outputln!("Updating from {} to {}", current_ident, new_ident);
                     event::service_update_started(&service, &new_ident);
@@ -1145,8 +1106,8 @@ impl Manager {
                     trace!("No update found for {}", current_ident);
                     None
                 }
-                                                      })
-                                                      .collect();
+            })
+            .collect();
 
         let mut services_to_restart = Vec::with_capacity(idents_to_restart.len());
         for current_ident in idents_to_restart {
@@ -1160,9 +1121,9 @@ impl Manager {
     /// Returns a Vec of futures for shutting down those services that
     /// need to be updated.
     ///
-    /// # Locking
-    /// * `MemberList::entries` (read) This method must not be called while any MemberList::entries
-    ///   lock is held.
+    /// # Locking (see locking.md)
+    /// * `RumorStore::list` (write)
+    /// * `MemberList::entries` (read)
     // TODO (CM): In the future, when service start up is
     // future-based, we'll want to have an actual "restart"
     // future, that queues up the start future after the stop
@@ -1172,33 +1133,27 @@ impl Manager {
     // our specfile reconciliation logic to catch the fact that
     // the service needs to be restarted. At that point, this function
     // can be renamed; right now, it says exactly what it's doing.
-    fn stop_services_with_updates_mlr(&mut self) -> Vec<impl Future<Item = (), Error = ()>> {
-        self.take_services_with_updates_mlr()
+    fn stop_services_with_updates_rsw_mlr(&mut self) -> Vec<impl Future<Item = (), Error = ()>> {
+        self.take_services_with_updates_rsw_mlr()
             .into_iter()
-            .map(|service| self.stop(service))
+            .map(|service| self.stop_service_future(service, None))
             .collect()
     }
 
     // Creates a rumor for the specified service.
-    /// # Locking
-    /// * `MemberList::entries` (write) This method must not be called while any MemberList::entries
-    ///   lock is held.
-    fn gossip_latest_service_rumor_mlw(&self, service: &Service) {
-        let incarnation = if let Some(rumor) = self.butterfly
-                                                   .service_store
-                                                   .list
-                                                   .read()
-                                                   .expect("Rumor store lock poisoned")
-                                                   .get(&*service.service_group)
-                                                   .and_then(|r| r.get(&self.sys.member_id))
-        {
-            rumor.clone().incarnation + 1
-        } else {
-            1
-        };
+    /// # Locking (see locking.md)
+    /// * `RumorStore::list` (write)
+    /// * `MemberList::entries` (write)
+    fn gossip_latest_service_rumor_rsw_mlw(&self, service: &Service) {
+        let incarnation = self.butterfly
+                              .service_store
+                              .lock_rsr()
+                              .service_group(&service.service_group)
+                              .map_rumor(&self.sys.member_id, |rumor| rumor.incarnation + 1)
+                              .unwrap_or(1);
 
         self.butterfly
-            .insert_service_mlw(service.to_rumor(incarnation));
+            .insert_service_rsw_mlw(service.to_rumor(incarnation));
     }
 
     fn check_for_departure(&self) -> bool { self.butterfly.is_departed() }
@@ -1232,14 +1187,14 @@ impl Manager {
         }
     }
 
-    /// # Locking
-    /// * `MemberList::entries` (read) This method must not be called while any MemberList::entries
-    ///   lock is held.
-    fn persist_state_mlr(&self) {
+    /// # Locking (see locking.md)
+    /// * `RumorStore::list` (read)
+    /// * `MemberList::entries` (read)
+    fn persist_state_rsr_mlr(&self) {
         debug!("Updating census state");
         self.persist_census_state();
         debug!("Updating butterfly state");
-        self.persist_butterfly_state_mlr();
+        self.persist_butterfly_state_rsr_mlr();
         debug!("Updating services state");
         self.persist_services_state();
     }
@@ -1254,10 +1209,10 @@ impl Manager {
             .census_data = json;
     }
 
-    /// # Locking
-    /// * `MemberList::entries` (read) This method must not be called while any MemberList::entries
-    ///   lock is held.
-    fn persist_butterfly_state_mlr(&self) {
+    /// # Locking (see locking.md)
+    /// * `RumorStore::list` (read)
+    /// * `MemberList::entries` (read)
+    fn persist_butterfly_state_rsr_mlr(&self) {
         let bs = ServerProxy::new(&self.butterfly);
         let json = serde_json::to_string(&bs).unwrap();
         self.state
@@ -1287,14 +1242,22 @@ impl Manager {
         let watched_services: Vec<Service> =
             self.spec_dir
                 .specs()
-                .iter()
-                .filter(|spec| !existing_idents.contains(&spec.ident))
-                .flat_map(|spec| {
-                    Service::load(self.sys.clone(),
-                                  spec.clone(),
-                                  self.fs_cfg.clone(),
-                                  self.organization.as_ref().map(|org| &**org),
-                                  self.state.gateway_state.clone()).into_iter()
+                .into_iter()
+                .filter_map(|spec| {
+                    if existing_idents.contains(&spec.ident) {
+                        None
+                    } else {
+                        let ident = spec.ident.clone();
+                        let result = Service::new(self.sys.clone(),
+                                                  spec,
+                                                  self.fs_cfg.clone(),
+                                                  self.organization.as_ref().map(String::as_str),
+                                                  self.state.gateway_state.clone());
+                        if let Err(ref e) = result {
+                            warn!("Failed to create service '{}' from spec: {:?}", ident, e);
+                        }
+                        result.ok()
+                    }
                 })
                 .collect();
         let watched_service_proxies: Vec<ServiceProxy<'_>> =
@@ -1317,39 +1280,37 @@ impl Manager {
     }
 
     /// Check if any elections need restarting.
-    fn restart_elections_mlr(&mut self, feature_flags: FeatureFlag) {
-        self.butterfly.restart_elections_mlr(feature_flags);
+    ///
+    /// # Locking (see locking.md)
+    /// * `MemberList::entries` (read)
+    /// * `RumorStore::list` (write)
+    fn restart_elections_rsw_mlr(&mut self, feature_flags: FeatureFlag) {
+        self.butterfly.restart_elections_rsw_mlr(feature_flags);
     }
 
-    /// Create a future for stopping a Service. The Service is assumed
-    /// to have been removed from the internal list of active services
-    /// already (see, e.g., take_services_with_updates and
-    /// remove_service_from_state).
-    fn stop_with_config(&self,
-                        service: Service,
-                        shutdown_config: ShutdownConfig)
-                        -> impl Future<Item = (), Error = ()> {
-        Self::service_stop_future(service,
-                                  shutdown_config,
-                                  Arc::clone(&self.user_config_watcher),
-                                  Arc::clone(&self.updater),
-                                  Arc::clone(&self.busy_services),
-                                  self.services_need_reconciliation.clone())
+    fn stop_service(&mut self, ident: &PackageIdent, shutdown_input: &ShutdownInput) {
+        if let Some(service) = self.remove_service_from_state(&ident) {
+            let future = self.stop_service_future(service, Some(shutdown_input));
+            self.runtime.spawn(future);
+        } else {
+            warn!("Tried to stop '{}', but couldn't find it in our list of running services!",
+                  ident);
+        }
     }
 
-    fn stop(&self, service: Service) -> impl Future<Item = (), Error = ()> {
-        let shutdown_config = ShutdownConfig::new_from_service(&service);
-        self.stop_with_config(service, shutdown_config)
-    }
-
-    /// Remove the given service from the manager.
-    fn service_stop_future(mut service: Service,
-                           shutdown_config: ShutdownConfig,
-                           user_config_watcher: Arc<RwLock<UserConfigWatcher>>,
-                           updater: Arc<Mutex<ServiceUpdater>>,
-                           busy_services: Arc<Mutex<HashSet<PackageIdent>>>,
-                           services_need_reconciliation: ReconciliationFlag)
+    /// Create a future for stopping a Service removing it from the manager. The Service is assumed
+    /// to have been removed from the internal list of active services already (see, e.g.,
+    /// take_services_with_updates and remove_service_from_state).
+    fn stop_service_future(&self,
+                           mut service: Service,
+                           shutdown_input: Option<&ShutdownInput>)
                            -> impl Future<Item = (), Error = ()> {
+        let user_config_watcher = Arc::clone(&self.user_config_watcher);
+        let updater = Arc::clone(&self.updater);
+        let busy_services = Arc::clone(&self.busy_services);
+        let services_need_reconciliation = self.services_need_reconciliation.clone();
+        let shutdown_config = ShutdownConfig::new(shutdown_input, &service);
+
         // JW TODO: Update service rumor to remove service from
         // cluster
         // TODO (CM): But only if we're not going down for a restart.
@@ -1369,6 +1330,18 @@ impl Manager {
                                            busy_services,
                                            services_need_reconciliation,
                                            stop_it)
+    }
+
+    fn remove_spec_file(&self, ident: &PackageIdent) -> std::io::Result<()> {
+        let file = self.state.cfg.spec_path_for(ident);
+        let result = fs::remove_file(&file);
+        if let Err(ref err) = result {
+            warn!("Tried to remove spec file '{}' for '{}': {:?}",
+                  file.display(),
+                  ident,
+                  err);
+        };
+        result
     }
 
     /// Wrap a future that starts, stops, or restarts a service with
@@ -1424,22 +1397,22 @@ impl Manager {
     /// operations will be performed directly as a consequence of
     /// calling this method.
     ///
-    /// # Locking
-    /// * `MemberList::entries` (write) This method must not be called while any MemberList::entries
-    ///   lock is held.
-    fn maybe_spawn_service_futures_mlw(&mut self, runtime: &mut Runtime) {
+    /// # Locking (see locking.md)
+    /// * `RumorStore::list` (write)
+    /// * `MemberList::entries` (write)
+    fn maybe_spawn_service_futures_rsw_mlw(&mut self) {
         let ops = self.compute_service_operations();
-        for f in self.operations_into_futures_mlw(ops) {
-            runtime.spawn(f);
+        for f in self.operations_into_futures_rsw_mlw(ops) {
+            self.runtime.spawn(f);
         }
     }
 
-    fn remove_service_from_state(&mut self, spec: &ServiceSpec) -> Option<Service> {
+    fn remove_service_from_state(&mut self, ident: &PackageIdent) -> Option<Service> {
         self.state
             .services
             .write()
             .expect("Services lock is poisoned")
-            .remove(&spec.ident)
+            .remove(&ident)
     }
 
     /// Start, stop, or restart services to bring what's running in
@@ -1451,10 +1424,12 @@ impl Manager {
     /// operations; starts are performed synchronously, while
     /// shutdowns and restarts are turned into futures.
     ///
-    /// # Locking
-    /// * `MemberList::entries` (write) This method must not be called while any MemberList::entries
-    ///   lock is held.
-    fn operations_into_futures_mlw<O>(&mut self, ops: O) -> Vec<impl Future<Item = (), Error = ()>>
+    /// # Locking (see locking.md)
+    /// * `RumorStore::list` (write)
+    /// * `MemberList::entries` (write)
+    fn operations_into_futures_rsw_mlw<O>(&mut self,
+                                          ops: O)
+                                          -> Vec<impl Future<Item = (), Error = ()>>
         where O: IntoIterator<Item = ServiceOperation>
     {
         ops.into_iter()
@@ -1472,8 +1447,8 @@ impl Manager {
                        // future; then we could just chain that future
                        // onto the end of the stop one for a *real*
                        // restart future.
-                       let f = self.remove_service_from_state(&spec)
-                                   .map(|service| self.stop(service));
+                       let f = self.remove_service_from_state(&spec.ident)
+                                   .map(|service| self.stop_service_future(service, None));
                        if f.is_none() {
                            // We really don't expect this to happen....
                            outputln!("Tried to remove service for {} but could not find it \
@@ -1483,7 +1458,7 @@ impl Manager {
                        f
                    }
                    ServiceOperation::Start(spec) => {
-                       self.add_service_mlw(&spec);
+                       self.add_service_rsw_mlw(spec);
                        None // No future to return (currently synchronous!)
                    }
                }
@@ -1599,11 +1574,9 @@ impl Manager {
                   .collect()
     }
 
-    /// # Locking
-    /// * `MemberList::entries` (read) This method must not be called while any MemberList::entries
-    ///   lock is held.
-    /// * `MemberList::intitial_entries` (write) This method must not be called while any
-    ///   MemberList::intitial_entries lock is held.
+    /// # Locking (see locking.md)
+    /// * `MemberList::entries` (read)
+    /// * `MemberList::initial_members` (write)
     fn update_peers_from_watch_file_mlr_imlw(&mut self) -> Result<()> {
         if !self.butterfly.need_peer_seeding_mlr() {
             return Ok(());
@@ -1802,19 +1775,38 @@ fn track_memory_stats() {
     // We'd like to track some memory stats, but these stats are cached and only refreshed
     // when the epoch is advanced. We manually advance it here to ensure our stats are
     // fresh.
-    jemalloc_ctl::epoch().unwrap();
+    jemalloc_ctl::epoch::mib().unwrap().advance().unwrap();
+
     MEMORY_STATS.with_label_values(&["active"])
-                .set(jemalloc_ctl::stats::active().unwrap().to_i64());
+                .set(jemalloc_ctl::stats::active::mib().unwrap()
+                                                       .read()
+                                                       .unwrap()
+                                                       .to_i64());
     MEMORY_STATS.with_label_values(&["allocated"])
-                .set(jemalloc_ctl::stats::allocated().unwrap().to_i64());
+                .set(jemalloc_ctl::stats::allocated::mib().unwrap()
+                                                          .read()
+                                                          .unwrap()
+                                                          .to_i64());
     MEMORY_STATS.with_label_values(&["mapped"])
-                .set(jemalloc_ctl::stats::mapped().unwrap().to_i64());
+                .set(jemalloc_ctl::stats::mapped::mib().unwrap()
+                                                       .read()
+                                                       .unwrap()
+                                                       .to_i64());
     MEMORY_STATS.with_label_values(&["metadata"])
-                .set(jemalloc_ctl::stats::metadata().unwrap().to_i64());
+                .set(jemalloc_ctl::stats::metadata::mib().unwrap()
+                                                         .read()
+                                                         .unwrap()
+                                                         .to_i64());
     MEMORY_STATS.with_label_values(&["resident"])
-                .set(jemalloc_ctl::stats::resident().unwrap().to_i64());
+                .set(jemalloc_ctl::stats::resident::mib().unwrap()
+                                                         .read()
+                                                         .unwrap()
+                                                         .to_i64());
     MEMORY_STATS.with_label_values(&["retained"])
-                .set(jemalloc_ctl::stats::retained().unwrap().to_i64());
+                .set(jemalloc_ctl::stats::retained::mib().unwrap()
+                                                         .read()
+                                                         .unwrap()
+                                                         .to_i64());
 }
 
 // This is a no-op on purpose because windows doesn't support jemalloc
@@ -1916,7 +1908,6 @@ mod test {
             tc.set("128");
             assert_eq!(TokioThreadCount::configured_value().0, 128);
         }
-
     }
 
     mod specs_to_operations {
@@ -1929,8 +1920,7 @@ mod test {
         /// Helper function for generating a basic spec from an
         /// identifier string
         fn new_spec(ident: &str) -> ServiceSpec {
-            ServiceSpec::default_for(PackageIdent::from_str(ident).expect("couldn't parse ident \
-                                                                           str"))
+            ServiceSpec::new(PackageIdent::from_str(ident).expect("couldn't parse ident str"))
         }
 
         #[test]

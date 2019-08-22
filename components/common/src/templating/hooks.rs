@@ -29,7 +29,7 @@ use std::{ffi::OsStr,
 
 #[cfg(not(windows))]
 pub const HOOK_PERMISSIONS: u32 = 0o755;
-static LOGKEY: &'static str = "HK";
+static LOGKEY: &str = "HK";
 
 pub fn stdout_log_path<T>(package_name: &str) -> PathBuf
     where T: Hook
@@ -43,7 +43,7 @@ pub fn stderr_log_path<T>(package_name: &str) -> PathBuf
     fs::svc_logs_path(package_name).join(format!("{}.stderr.log", T::file_name()))
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ExitCode(pub i32);
 
 impl Default for ExitCode {
@@ -81,6 +81,11 @@ pub trait Hook: fmt::Debug + Sized + Send {
 
         let has_template = template.exists();
         let has_deprecated_template = deprecated_template.as_ref().map_or(false, |t| t.exists());
+
+        if has_template && file_name == "reload" {
+            outputln!(preamble package_name, "The '{}' hook has been deprecated. You should use the 'reconfigure' hook instead.",
+                file_name);
+        }
 
         let template_to_use = if has_template {
             if has_deprecated_template {
@@ -284,6 +289,9 @@ pub trait Hook: fmt::Debug + Sized + Send {
                        output: &'a HookOutput,
                        status: ExitStatus)
                        -> Self::ExitValue;
+
+    /// Return true if this hook should be retried provided the exit value of the previous run.
+    fn should_retry(_exit_value: &Self::ExitValue) -> bool { false }
 
     fn path(&self) -> &Path;
 

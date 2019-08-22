@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use super::get_name_with_rev;
 use crate::{api_client::{self,
                          Client},
             common::{command::package::install::{RETRIES,
@@ -7,18 +8,16 @@ use crate::{api_client::{self,
                      ui::{Status,
                           UIWriter,
                           UI}},
-            hcore::{crypto::{keys::parse_name_with_rev,
-                             PUBLIC_SIG_KEY_VERSION,
-                             SECRET_SIG_KEY_VERSION},
-                    util::wait_for}};
-use hyper::status::StatusCode;
-use retry::retry;
-
-use super::get_name_with_rev;
-use crate::{error::{Error,
+            error::{Error,
                     Result},
+            hcore::crypto::{keys::parse_name_with_rev,
+                            PUBLIC_SIG_KEY_VERSION,
+                            SECRET_SIG_KEY_VERSION},
             PRODUCT,
             VERSION};
+use reqwest::StatusCode;
+use retry::{delay,
+            retry};
 
 pub fn start(ui: &mut UI,
              bldr_url: &str,
@@ -37,7 +36,7 @@ pub fn start(ui: &mut UI,
             ui.status(Status::Uploading, public_keyfile.display())?;
             match api_client.put_origin_key(&name, &rev, public_keyfile, token, ui.progress()) {
                 Ok(()) => ui.status(Status::Uploaded, &name_with_rev)?,
-                Err(api_client::Error::APIError(StatusCode::Conflict, _)) => {
+                Err(api_client::Error::APIError(StatusCode::CONFLICT, _)) => {
                     ui.status(Status::Using,
                               format!("public key revision {} which already exists in the depot",
                                       &name_with_rev))?;
@@ -47,12 +46,12 @@ pub fn start(ui: &mut UI,
             Ok(())
         };
 
-        if retry(wait_for(RETRY_WAIT, RETRIES), upload_fn).is_err() {
-            return Err(Error::from(api_client::Error::UploadFailed(format!(
-                "We tried {} times but could not upload {}/{} public origin key. Giving up.",
-                RETRIES, &name, &rev
-            ))));
-        }
+        retry(delay::Fixed::from(RETRY_WAIT).take(RETRIES), upload_fn).map_err(|_| {
+            Error::from(api_client::Error::UploadFailed(format!("We tried {} times but could \
+                                                                 not upload {}/{} public origin \
+                                                                 key. Giving up.",
+                                                                RETRIES, &name, &rev)))
+        })?;
     }
 
     ui.end(format!("Upload of public origin key {} complete.", &name_with_rev))?;
@@ -78,12 +77,12 @@ pub fn start(ui: &mut UI,
             }
         };
 
-        if retry(wait_for(RETRY_WAIT, RETRIES), upload_fn).is_err() {
-            return Err(Error::from(api_client::Error::UploadFailed(format!(
-                "We tried {} times but could not upload {}/{} secret origin key. Giving up.",
-                RETRIES, &name, &rev
-            ))));
-        }
+        retry(delay::Fixed::from(RETRY_WAIT).take(RETRIES), upload_fn).map_err(|_| {
+            Error::from(api_client::Error::UploadFailed(format!("We tried {} times but could \
+                                                                 not upload {}/{} secret origin \
+                                                                 key. Giving up.",
+                                                                RETRIES, &name, &rev)))
+        })?;
     }
     Ok(())
 }

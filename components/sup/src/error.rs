@@ -80,8 +80,6 @@ pub enum Error {
     PackageNotFound(package::PackageIdent),
     PackageNotRunnable(package::PackageIdent),
     Permissions(String),
-    PidFileCorrupt(PathBuf),
-    PidFileIO(PathBuf, io::Error),
     ProcessLockCorrupt,
     ProcessLocked(Pid),
     ProcessLockIO(PathBuf, io::Error),
@@ -199,12 +197,6 @@ impl fmt::Display for Error {
                 }
             }
             Error::PackageNotRunnable(ref pkg) => format!("Package is not runnable: {}", pkg),
-            Error::PidFileCorrupt(ref path) => {
-                format!("Unable to decode contents of PID file, {}", path.display())
-            }
-            Error::PidFileIO(ref path, ref err) => {
-                format!("Unable to read PID file, {}, {}", path.display(), err)
-            }
             Error::ProcessLockCorrupt => "Unable to decode contents of process lock".to_string(),
             Error::ProcessLocked(ref pid) => {
                 format!("Unable to start Biome Supervisor because another instance is already \
@@ -283,10 +275,15 @@ impl From<biome_api_client::Error> for Error {
     fn from(err: biome_api_client::Error) -> Error { Error::APIClient(err) }
 }
 
-// TODO (CM): not sure if this works or not
 impl From<Error> for biome_sup_protocol::net::NetErr {
     fn from(err: Error) -> biome_sup_protocol::net::NetErr {
-        biome_sup_protocol::net::err(biome_sup_protocol::net::ErrCode::Internal, err)
+        match err {
+            Error::MissingRequiredBind(_) | Error::InvalidBinds(_) => {
+                biome_sup_protocol::net::err(biome_sup_protocol::net::ErrCode::InvalidPayload,
+                                               err)
+            }
+            _ => biome_sup_protocol::net::err(biome_sup_protocol::net::ErrCode::Internal, err),
+        }
     }
 }
 

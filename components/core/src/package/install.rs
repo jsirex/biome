@@ -299,7 +299,7 @@ impl PackageInstall {
                         None => return Err(Error::MetaFileBadBind),
                     };
                     let binds: Result<Vec<BindMapping>> = match parts.next() {
-                        Some(binds) => binds.split(' ').map(str::parse).collect(),
+                        Some(binds) => binds.split_whitespace().map(str::parse).collect(),
                         None => Err(Error::MetaFileBadBind),
                     };
                     bind_map.insert(package, binds?);
@@ -365,7 +365,7 @@ impl PackageInstall {
     pub fn exposes(&self) -> Result<Vec<String>> {
         match self.read_metafile(MetaFile::Exposes) {
             Ok(body) => {
-                let v: Vec<String> = body.split(' ')
+                let v: Vec<String> = body.split_whitespace()
                                          .map(|x| String::from(x.trim_end_matches('\n')))
                                          .collect();
                 Ok(v)
@@ -503,8 +503,6 @@ impl PackageInstall {
         let mut paths = Vec::new();
         let mut seen = HashSet::new();
 
-        // Remove this once https://github.com/rust-lang/rust-clippy/issues/4133 is resolved
-        #[allow(clippy::identity_conversion)]
         for p in self.paths()? {
             if seen.contains(&p) {
                 continue;
@@ -517,8 +515,6 @@ impl PackageInstall {
                                .into_iter()
                                .chain(self.load_tdeps()?.into_iter());
         for pkg in ordered_pkgs {
-            // Remove this once https://github.com/rust-lang/rust-clippy/issues/4133 is resolved
-            #[allow(clippy::identity_conversion)]
             for p in pkg.paths()? {
                 if seen.contains(&p) {
                     continue;

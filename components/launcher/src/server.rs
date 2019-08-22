@@ -50,7 +50,7 @@ use std::{os::unix::process::ExitStatusExt,
 const IPC_CONNECT_TIMEOUT_SECS: &str = "HAB_LAUNCH_SUP_CONNECT_TIMEOUT_SECS";
 const DEFAULT_IPC_CONNECT_TIMEOUT_SECS: u64 = 5;
 const SUP_CMD_ENVVAR: &str = "HAB_SUP_BINARY";
-static LOGKEY: &'static str = "SV";
+static LOGKEY: &str = "SV";
 
 const SUP_VERSION_CHECK_DISABLE: &str = "HAB_LAUNCH_NO_SUP_VERSION_CHECK";
 // Version 0.56 is somewhat arbitrary. This functionality is for when we make
@@ -526,10 +526,10 @@ fn setup_connection(server: IpcOneShotServer<Vec<u8>>) -> Result<(Receiver, Send
 /// bio-sup 0.62.0-dev
 fn is_supported_supervisor_version(version_output: &str) -> bool {
     if let Some(version_str) = version_output
-        .split(' ') //                      ["bio-sup", <version-number>]
-        .last() //                          drop "bio-sup", keep <version-number>
-        .unwrap() //                        split() always returns an 1+ element iterator
-        .split(|c| c == '/' || c == '-') // strip "-dev" or "/build"
+        .split_whitespace()                 // ["bio-sup", <version-number>]
+        .last()                             // drop "bio-sup", keep <version-number>
+        .unwrap()                           // split() always returns an 1+ element iterator
+        .split(|c| c == '/' || c == '-')    // strip "-dev" or "/build"
         .next()
     {
         debug!("Checking Supervisor version '{}' against requirement '{}'",

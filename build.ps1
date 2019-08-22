@@ -32,14 +32,14 @@ param (
     [string]$Toolchain
 )
 $ErrorActionPreference="stop"
-. $PSScriptRoot\support\ci\shared.ps1
+. $PSScriptRoot\.expeditor\scripts\verify\shared.ps1
 
 if (!$Toolchain) {
     $Toolchain = Get-Toolchain
 }
 
 if($Command -eq "Fmt") {
-    $toolchain = "$(Get-Content $PSScriptRoot/RUSTFMT_VERSION)"
+    $toolchain = Get-RustfmtToolchain
     Write-Host "Forcing the use of $toolchain toolchain for rustfmt"
 }
 

@@ -51,11 +51,11 @@ use crate::{api_client::{self,
                               PackageIdent,
                               PackageInstall,
                               PackageTarget},
-                    util::wait_for,
                     ChannelIdent}};
 use glob;
-use hyper::status::StatusCode;
-use retry::retry;
+use reqwest::StatusCode;
+use retry::{delay,
+            retry};
 
 use crate::{error::{Error,
                     Result},
@@ -539,7 +539,7 @@ impl<'a> InstallTask<'a> {
                               &ident, self.channel))?;
             let latest_remote = match self.fetch_latest_pkg_ident_for((&ident, target), token) {
                 Ok(latest_ident) => Some(latest_ident),
-                Err(Error::APIClient(APIError(StatusCode::NotFound, _))) => None,
+                Err(Error::APIClient(APIError(StatusCode::NOT_FOUND, _))) => None,
                 Err(e) => {
                     debug!("error fetching ident: {:?}", e);
                     return Err(e);
@@ -672,7 +672,7 @@ impl<'a> InstallTask<'a> {
                    ident);
         } else if self.is_offline() {
             return Err(Error::OfflineArtifactNotFound(ident.as_ref().clone()));
-        } else if retry(wait_for(RETRY_WAIT, RETRIES), fetch_artifact).is_err() {
+        } else if retry(delay::Fixed::from(RETRY_WAIT).take(RETRIES), fetch_artifact).is_err() {
             return Err(Error::DownloadFailed(format!("We tried {} times but \
                                                       could not download {}. \
                                                       Giving up.",
@@ -854,7 +854,7 @@ impl<'a> InstallTask<'a> {
                                             ui.progress())
         {
             Ok(_) => Ok(()),
-            Err(api_client::Error::APIError(StatusCode::NotImplemented, _)) => {
+            Err(api_client::Error::APIError(StatusCode::NOT_IMPLEMENTED, _)) => {
                 println!("Host platform or architecture not supported by the targeted depot; \
                           skipping.");
                 Ok(())

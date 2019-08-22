@@ -7,7 +7,18 @@ pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 pkg_deps=()
 pkg_build_deps=()
 
-pkg_version=$(cat "$PLAN_CONTEXT/../../../../VERSION")
+pkg_version() {
+  if [[ -n "${DO_FAKE_RELEASE:-}" ]]; then
+    cat "$SRC_PATH/../../VERSION_FAKE"
+  else
+    cat "$SRC_PATH/../../VERSION"
+  fi
+}
+ 
+do_before() {
+  do_default_before
+  update_pkg_version
+}
 
 do_begin() {
   # Set the real bio component directory as the "root" of this plan.
