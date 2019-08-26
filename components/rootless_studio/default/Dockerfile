@@ -1,4 +1,5 @@
-FROM biomesh/bio:0.83.0 as bio
+ARG BIO_VERSION=0.85.0
+FROM biomesh/bio:$BIO_VERSION as bio
 ENV PATH=${PATH}:/hab/bin
 ARG BLDR_CHANNEL=stable
 # ARG HAB_LICENSE=no-accept
