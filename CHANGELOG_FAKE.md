@@ -1,11 +1,76 @@
 # Biome CHANGELOG
 
-<!-- latest_release 0.84.39 -->
+<!-- latest_release 0.84.51 -->
+## [fake-0.84.51](https://github.com/biome-sh/biome/tree/fake-0.84.51) (2019-09-04)
+
+#### Merged Pull Requests
+- Removes artifactory module from cli [#6931](https://github.com/habitat-sh/habitat/pull/6931) ([eeyun](https://github.com/eeyun))
+<!-- latest_release -->
+
+## [fake-0.84.50](https://github.com/biome-sh/biome/tree/fake-0.84.50) (2019-09-04)
+
+#### Merged Pull Requests
+- Fix config gossip [#6910](https://github.com/habitat-sh/habitat/pull/6910) ([davidMcneil](https://github.com/davidMcneil))
+
+## [fake-0.84.49](https://github.com/biome-sh/biome/tree/fake-0.84.49) (2019-09-04)
+
+#### Merged Pull Requests
+- Always build the Launcher and Windows Service packages [#6916](https://github.com/habitat-sh/habitat/pull/6916) ([christophermaier](https://github.com/christophermaier))
+
+## [fake-0.84.48](https://github.com/biome-sh/biome/tree/fake-0.84.48) (2019-09-04)
+
+#### Merged Pull Requests
+- Remove unused locks and consolidate test helpers. [#6928](https://github.com/habitat-sh/habitat/pull/6928) ([raskchanky](https://github.com/raskchanky))
+
+## [fake-0.84.47](https://github.com/biome-sh/biome/tree/fake-0.84.47) (2019-09-04)
+
+#### Merged Pull Requests
+- Redo departial PR [#6925](https://github.com/habitat-sh/habitat/pull/6925) ([kagarmoe](https://github.com/kagarmoe))
+
+## [fake-0.84.46](https://github.com/biome-sh/biome/tree/fake-0.84.46) (2019-08-30)
+
+#### Merged Pull Requests
+- Correct Cargo.lock for new zmq branch [#6919](https://github.com/habitat-sh/habitat/pull/6919) ([raskchanky](https://github.com/raskchanky))
+
+## [fake-0.84.45](https://github.com/biome-sh/biome/tree/fake-0.84.45) (2019-08-30)
+
+#### New Features & Enhancements
+- Adds channel-to-channel promotion to bldr subcommand [#6911](https://github.com/habitat-sh/habitat/pull/6911) ([eeyun](https://github.com/eeyun))
+
+## [fake-0.84.44](https://github.com/biome-sh/biome/tree/fake-0.84.44) (2019-08-28)
+
+#### Merged Pull Requests
+- Add one-off release tool [#6885](https://github.com/habitat-sh/habitat/pull/6885) ([davidMcneil](https://github.com/davidMcneil))
+
+## [fake-0.84.44](https://github.com/biome-sh/biome/tree/fake-0.84.44) (2019-08-28)
+
+#### Merged Pull Requests
+- Remove PID file error message [#6915](https://github.com/habitat-sh/habitat/pull/6915) ([davidMcneil](https://github.com/davidMcneil))
+
+## [fake-0.84.43](https://github.com/biome-sh/biome/tree/fake-0.84.43) (2019-08-28)
+
+#### Merged Pull Requests
+- mention earlier there&#39;s a debug option for PS plans [#6912](https://github.com/habitat-sh/habitat/pull/6912) ([robbkidd](https://github.com/robbkidd))
+
+## [fake-0.84.42](https://github.com/biome-sh/biome/tree/fake-0.84.42) (2019-08-27)
+
+#### Merged Pull Requests
+- Propperly root SetupEnvironment variables with file system paths at run time [#6850](https://github.com/habitat-sh/habitat/pull/6850) ([mwrock](https://github.com/mwrock))
+
+## [fake-0.84.41](https://github.com/biome-sh/biome/tree/fake-0.84.41) (2019-08-27)
+
+#### Merged Pull Requests
+- fixes supervisor connection failure test [#6860](https://github.com/habitat-sh/habitat/pull/6860) ([nellshamrell](https://github.com/nellshamrell))
+
+## [fake-0.84.40](https://github.com/biome-sh/biome/tree/fake-0.84.40) (2019-08-26)
+
+#### Merged Pull Requests
+- removes feature request from issue template in favor of the one in ha… [#6892](https://github.com/habitat-sh/habitat/pull/6892) ([nellshamrell](https://github.com/nellshamrell))
+
 ## [fake-0.84.39](https://github.com/biome-sh/biome/tree/fake-0.84.39) (2019-08-23)
 
 #### Merged Pull Requests
 - Copy SSL certs into Windows studio [#6844](https://github.com/habitat-sh/habitat/pull/6844) ([chefsalim](https://github.com/chefsalim))
-<!-- latest_release -->
 
 ## [fake-0.84.39](https://github.com/biome-sh/biome/tree/fake-0.84.39) (2019-08-23)
 

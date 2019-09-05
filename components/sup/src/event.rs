@@ -41,10 +41,10 @@ use std::{net::SocketAddr,
           time::Duration};
 use tokio::runtime::Runtime;
 
-const SERVICE_STARTED_SUBJECT: &str = "biome.event.service_started";
-const SERVICE_STOPPED_SUBJECT: &str = "biome.event.service_stopped";
-const SERVICE_UPDATE_STARTED_SUBJECT: &str = "biome.event.service_update_started";
-const HEALTHCHECK_SUBJECT: &str = "biome.event.healthcheck";
+const SERVICE_STARTED_SUBJECT: &str = "habitat.event.service_started";
+const SERVICE_STOPPED_SUBJECT: &str = "habitat.event.service_stopped";
+const SERVICE_UPDATE_STARTED_SUBJECT: &str = "habitat.event.service_update_started";
+const HEALTHCHECK_SUBJECT: &str = "habitat.event.healthcheck";
 
 static INIT: Once = Once::new();
 lazy_static! {
