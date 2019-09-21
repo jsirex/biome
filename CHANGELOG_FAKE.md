@@ -1,11 +1,51 @@
 # Biome CHANGELOG
 
-<!-- latest_release 0.84.51 -->
+<!-- latest_release 0.84.58 -->
+## [fake-0.84.58](https://github.com/biome-sh/biome/tree/fake-0.84.58) (2019-09-09)
+
+#### Merged Pull Requests
+- Audit GatewayState locking [#6937](https://github.com/habitat-sh/habitat/pull/6937) ([baumanj](https://github.com/baumanj))
+<!-- latest_release -->
+
+## [fake-0.84.57](https://github.com/biome-sh/biome/tree/fake-0.84.57) (2019-09-09)
+
+#### Merged Pull Requests
+- Remove a few more trace-related bits [#6938](https://github.com/habitat-sh/habitat/pull/6938) ([christophermaier](https://github.com/christophermaier))
+
+## [fake-0.84.56](https://github.com/biome-sh/biome/tree/fake-0.84.56) (2019-09-09)
+
+#### Merged Pull Requests
+- Add healthcheck results to event stream [#6905](https://github.com/habitat-sh/habitat/pull/6905) ([davidMcneil](https://github.com/davidMcneil))
+
+## [fake-0.84.55](https://github.com/biome-sh/biome/tree/fake-0.84.55) (2019-09-09)
+
+#### Merged Pull Requests
+- Fix typo in &#39;type&#39; parameter for command &#39;bio origin key export&#39; [#6934](https://github.com/habitat-sh/habitat/pull/6934) ([sirajrauff](https://github.com/sirajrauff))
+
+## [fake-0.84.54](https://github.com/biome-sh/biome/tree/fake-0.84.54) (2019-09-06)
+
+#### Merged Pull Requests
+- Copy SSL_CERT_FILE to studio internal and persist env var [#6909](https://github.com/habitat-sh/habitat/pull/6909) ([smacfarlane](https://github.com/smacfarlane))
+
+## [fake-0.84.54](https://github.com/biome-sh/biome/tree/fake-0.84.54) (2019-09-06)
+
+#### Merged Pull Requests
+- Add e2e test to ensure studio auto-installs [#6781](https://github.com/habitat-sh/habitat/pull/6781) ([smacfarlane](https://github.com/smacfarlane))
+
+## [fake-0.84.53](https://github.com/biome-sh/biome/tree/fake-0.84.53) (2019-09-06)
+
+#### Merged Pull Requests
+- Remove the trace_it! macro and associated functionality. [#6936](https://github.com/habitat-sh/habitat/pull/6936) ([raskchanky](https://github.com/raskchanky))
+
+## [fake-0.84.52](https://github.com/biome-sh/biome/tree/fake-0.84.52) (2019-09-05)
+
+#### Merged Pull Requests
+- Remove myself from www as a code owner [#6935](https://github.com/habitat-sh/habitat/pull/6935) ([raskchanky](https://github.com/raskchanky))
+
 ## [fake-0.84.51](https://github.com/biome-sh/biome/tree/fake-0.84.51) (2019-09-04)
 
 #### Merged Pull Requests
 - Removes artifactory module from cli [#6931](https://github.com/habitat-sh/habitat/pull/6931) ([eeyun](https://github.com/eeyun))
-<!-- latest_release -->
 
 ## [fake-0.84.50](https://github.com/biome-sh/biome/tree/fake-0.84.50) (2019-09-04)
 

@@ -1,7 +1,6 @@
+use crate::btest;
 use biome_butterfly::member::Health;
 use biome_core::crypto::keys::sym_key::SymKey;
-
-use crate::btest;
 
 #[test]
 fn symmetric_encryption_of_wire_payloads() {
