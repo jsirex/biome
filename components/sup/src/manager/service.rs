@@ -22,8 +22,11 @@ use self::{context::RenderContext,
            hooks::{HookCompileTable,
                    HookTable},
            supervisor::Supervisor};
-pub use self::{health::HealthCheckResult,
-               hooks::HealthCheckHook,
+pub use self::{health::{HealthCheckHookStatus,
+                        HealthCheckResult},
+               hooks::{HealthCheckHook,
+                       ProcessOutput,
+                       StandardStreams},
                spec::{DesiredState,
                       ServiceSpec}};
 use crate::{census::{CensusGroup,
@@ -32,8 +35,8 @@ use crate::{census::{CensusGroup,
                      ServiceFile},
             error::{Error,
                     Result},
-            manager::{FsCfg,
-                      GatewayState,
+            manager::{sync::GatewayState,
+                      FsCfg,
                       ShutdownConfig,
                       Sys},
             sup_futures};
@@ -81,8 +84,7 @@ use std::{self,
                  PathBuf},
           result,
           sync::{Arc,
-                 Mutex,
-                 RwLock}};
+                 Mutex}};
 use time::Timespec;
 use tokio::runtime::TaskExecutor;
 
@@ -219,7 +221,7 @@ pub struct Service {
     svc_encrypted_password: Option<String>,
     health_check_interval: HealthCheckInterval,
 
-    gateway_state: Arc<RwLock<GatewayState>>,
+    gateway_state: Arc<GatewayState>,
 
     /// A "handle" to the never-ending future that periodically runs
     /// health checks on this service. This is the means by which we
@@ -234,7 +236,7 @@ impl Service {
                     spec: ServiceSpec,
                     manager_fs_cfg: Arc<FsCfg>,
                     organization: Option<&str>,
-                    gateway_state: Arc<RwLock<GatewayState>>)
+                    gateway_state: Arc<GatewayState>)
                     -> Result<Service> {
         spec.validate(&package)?;
         let all_pkg_binds = package.all_binds()?;
@@ -252,7 +254,7 @@ impl Service {
                      bldr_url: spec.bldr_url,
                      channel: spec.channel,
                      desired_state: spec.desired_state,
-                     health_check_result: Default::default(),
+                     health_check_result: Arc::new(Mutex::new(HealthCheckResult::Unknown)),
                      hooks: HookTable::load(&pkg.name,
                                             &hooks_root,
                                             svc_hooks_path(&service_group.service())),
@@ -299,7 +301,7 @@ impl Service {
                spec: ServiceSpec,
                manager_fs_cfg: Arc<FsCfg>,
                organization: Option<&str>,
-               gateway_state: Arc<RwLock<GatewayState>>)
+               gateway_state: Arc<GatewayState>)
                -> Result<Service> {
         // The package for a spec should already be installed.
         let fs_root_path = Path::new(&*FS_ROOT_PATH);
@@ -357,7 +359,8 @@ impl Service {
     /// checks for the service
     fn start_health_checks(&mut self, executor: &TaskExecutor) {
         debug!("Starting health checks for {}", self.pkg.ident);
-        let (handle, f) = sup_futures::cancelable_future(self.health_state().check_repeatedly());
+        let (handle, f) =
+            sup_futures::cancelable_future(self.health_state().check_repeatedly_gsw());
 
         self.health_check_handle = Some(handle);
 
@@ -427,9 +430,11 @@ impl Service {
 
     /// Return a future that will shut down a service, performing any
     /// necessary cleanup, and run its post-stop hook, if any.
-    pub fn stop(&mut self,
-                shutdown_config: ShutdownConfig)
-                -> impl Future<Item = (), Error = Error> {
+    /// # Locking for the returned Future (see locking.md)
+    /// * `GatewayState::inner` (write)
+    pub fn stop_gsw(&mut self,
+                    shutdown_config: ShutdownConfig)
+                    -> impl Future<Item = (), Error = Error> {
         debug!("Stopping service {}", self.pkg.ident);
         self.detach();
 
@@ -441,10 +446,7 @@ impl Service {
                     .expect("Couldn't lock supervisor")
                     .stop(shutdown_config)
                     .and_then(move |_| {
-                        gs.write()
-                          .expect("GatewayState lock is poisoned")
-                          .health_check_data
-                          .remove(&service_group);
+                        gs.lock_gsw().remove(&service_group);
                         Ok(())
                     });
 
@@ -802,6 +804,7 @@ impl Service {
             self.initialized = hook.run(&self.service_group,
                                         &self.pkg,
                                         self.svc_encrypted_password.as_ref())
+                                   .unwrap_or(false);
         }
     }
 
@@ -812,13 +815,15 @@ impl Service {
         if let Some(ref hook) = self.hooks.reload {
             hook.run(&self.service_group,
                      &self.pkg,
-                     self.svc_encrypted_password.as_ref());
+                     self.svc_encrypted_password.as_ref())
+                .ok();
         }
 
         if let Some(ref hook) = self.hooks.reconfigure {
             hook.run(&self.service_group,
                      &self.pkg,
-                     self.svc_encrypted_password.as_ref());
+                     self.svc_encrypted_password.as_ref())
+                .ok();
             // The intention here is to do a health check soon after a service's configuration
             // changes, as a way to (among other things) detect potential impacts when bound
             // services change exported configuration.
@@ -862,11 +867,16 @@ impl Service {
             return None;
         }
 
-        self.hooks.suitability.as_ref().and_then(|hook| {
-                                           hook.run(&self.service_group,
-                                                    &self.pkg,
-                                                    self.svc_encrypted_password.as_ref())
-                                       })
+        self.hooks
+            .suitability
+            .as_ref()
+            .and_then(|hook| {
+                hook.run(&self.service_group,
+                         &self.pkg,
+                         self.svc_encrypted_password.as_ref())
+                    .ok()
+            })
+            .unwrap_or(None)
     }
 
     /// Helper for compiling configuration templates into configuration files.
@@ -987,7 +997,8 @@ impl Service {
             if let Some(ref hook) = self.hooks.file_updated {
                 return hook.run(&self.service_group,
                                 &self.pkg,
-                                self.svc_encrypted_password.as_ref());
+                                self.svc_encrypted_password.as_ref())
+                           .unwrap_or(false);
             }
         }
 
@@ -1236,7 +1247,7 @@ mod tests {
         let fscfg = FsCfg::new("/tmp");
         let afs = Arc::new(fscfg);
 
-        let gs = Arc::new(RwLock::new(GatewayState::default()));
+        let gs = Arc::default();
         Service::with_package(asys, &install, spec, afs, Some("haha"), gs).expect("I wanted a \
                                                                                    service to \
                                                                                    load, but it \
