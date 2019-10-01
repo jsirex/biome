@@ -16,6 +16,7 @@ use crate::{error::{Error,
             DisplayProgress,
             OriginKeyIdent,
             OriginSecret,
+            Package,
             ReverseDependencies,
             SchedulerResponse};
 use broadcast::BroadcastWriter;
@@ -81,17 +82,6 @@ pub struct OriginPrivateSigningKey {
 }
 
 mod json {
-    #[derive(Clone, Deserialize)]
-    pub struct Package {
-        pub ident:    PackageIdent,
-        pub checksum: String,
-        pub manifest: String,
-        pub deps:     Vec<PackageIdent>,
-        pub tdeps:    Vec<PackageIdent>,
-        pub exposes:  Vec<u32>,
-        pub config:   String,
-    }
-
     #[derive(Clone, Deserialize)]
     pub struct PackageIdent {
         pub origin:  String,
@@ -169,7 +159,7 @@ impl BuilderAPIClient {
                 -> Result<PathBuf> {
         debug!("Downloading file to path: {}", dst_path.display());
         let mut resp = self.maybe_add_authz(rb, token).send()?;
-        resp.ok_if(StatusCode::OK)?;
+        resp.ok_if(&[StatusCode::OK])?;
 
         fs::create_dir_all(&dst_path)?;
         let file_name = resp.get_header(X_FILENAME)?;
@@ -260,7 +250,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
         };
 
         let mut resp = self.0.get_with_custom_url(&path, custom).send()?;
-        resp.ok_if(StatusCode::OK)?;
+        resp.ok_if(&[StatusCode::OK])?;
 
         Ok(resp.json()?)
     }
@@ -282,7 +272,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
         };
 
         let mut resp = self.0.get_with_custom_url(&path, custom).send()?;
-        resp.ok_if(StatusCode::OK)?;
+        resp.ok_if(&[StatusCode::OK])?;
 
         Ok(resp.json()?)
     }
@@ -337,7 +327,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
                                u.set_query(Some(&format!("target={}", &target.to_string())))
                            })
                            .send()?;
-        resp.ok_if(StatusCode::OK)?;
+        resp.ok_if(&[StatusCode::OK])?;
 
         let mut encoded = String::new();
         resp.read_to_string(&mut encoded).map_err(Error::IO)?;
@@ -377,7 +367,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .bearer_auth(token)
             .json(&body)
             .send()?
-            .ok_if(StatusCode::NO_CONTENT)
+            .ok_if(&[StatusCode::NO_CONTENT])
     }
 
     /// Cancel a job group
@@ -394,7 +384,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .post(&url)
             .bearer_auth(token)
             .send()?
-            .ok_if(StatusCode::NO_CONTENT)
+            .ok_if(&[StatusCode::NO_CONTENT])
     }
 
     /// Download a public encryption key from a remote Builder to the given filepath.
@@ -433,7 +423,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .bearer_auth(token)
             .json(&body)
             .send()?
-            .ok_if(StatusCode::CREATED)
+            .ok_if(&[StatusCode::CREATED])
     }
 
     /// Create secret for an origin
@@ -460,7 +450,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .bearer_auth(token)
             .json(&body)
             .send()?
-            .ok_if(StatusCode::CREATED)
+            .ok_if(&[StatusCode::CREATED])
     }
 
     /// Delete a secret for an origin
@@ -478,7 +468,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .delete(&path)
             .bearer_auth(token)
             .send()?
-            .ok_if(StatusCode::NO_CONTENT)
+            .ok_if(&[StatusCode::NO_CONTENT])
     }
 
     /// Delete an origin
@@ -497,7 +487,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .delete(&path)
             .bearer_auth(token)
             .send()?
-            .ok_if(StatusCode::NO_CONTENT)
+            .ok_if(&[StatusCode::NO_CONTENT])
     }
 
     /// List all secrets keys for an origin
@@ -510,7 +500,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
 
         let path = format!("depot/origins/{}/secret", origin);
         let mut resp = self.0.get(&path).bearer_auth(token).send()?;
-        resp.ok_if(StatusCode::OK)?;
+        resp.ok_if(&[StatusCode::OK])?;
 
         let mut encoded = String::new();
         resp.read_to_string(&mut encoded)
@@ -567,7 +557,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
         debug!("Showing origin keys: {}", origin);
 
         let mut resp = self.0.get(&origin_keys_path(origin)).send()?;
-        resp.ok_if(StatusCode::OK)?;
+        resp.ok_if(&[StatusCode::OK])?;
 
         let mut encoded = String::new();
         resp.read_to_string(&mut encoded)
@@ -602,7 +592,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
 
         let mut resp = self.maybe_add_authz(self.0.get_with_custom_url(&path, custom), token)
                            .send()?;
-        resp.ok_if(StatusCode::OK)?;
+        resp.ok_if(&[StatusCode::OK])?;
 
         let mut encoded = String::new();
         resp.read_to_string(&mut encoded)
@@ -647,7 +637,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             Body::sized(file, file_size)
         };
         let mut resp = self.0.post(&path).bearer_auth(token).body(body).send()?;
-        resp.ok_if(StatusCode::OK)
+        resp.ok_if(&[StatusCode::OK, StatusCode::CREATED])
     }
 
     /// Upload a secret origin key to a remote Builder.
@@ -684,7 +674,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             Body::sized(file, file_size)
         };
         let mut resp = self.0.post(&path).bearer_auth(token).body(body).send()?;
-        resp.ok_if(StatusCode::OK)
+        resp.ok_if(&[StatusCode::OK])
     }
 
     /// Download the latest release of a package.
@@ -748,10 +738,10 @@ impl BuilderAPIProvider for BuilderAPIClient {
                                    }),
                              token)
             .send()?
-            .ok_if(StatusCode::OK)
+            .ok_if(&[StatusCode::OK])
     }
 
-    /// Returns a package struct for the latest package.
+    /// Returns a package ident struct for the latest package. Arguably should be renamed
     ///
     /// An optional version can be specified which will scope the release returned to the latest
     /// release of that package.
@@ -765,6 +755,27 @@ impl BuilderAPIProvider for BuilderAPIClient {
                     channel: &ChannelIdent,
                     token: Option<&str>)
                     -> Result<PackageIdent> {
+        debug!("Retrieving package ident for {}, target {}",
+               package, target);
+
+        let package = self.show_package_metadata((package, target), channel, token)?;
+        Ok(package.ident)
+    }
+
+    /// Returns a package struct for the latest package.
+    ///
+    /// An optional version can be specified which will scope the release returned to the latest
+    /// release of that package.
+    ///
+    /// # Failures
+    ///
+    /// * Package cannot be found
+    /// * Remote Builder is not available
+    fn show_package_metadata(&self,
+                             (package, target): (&PackageIdent, PackageTarget),
+                             channel: &ChannelIdent,
+                             token: Option<&str>)
+                             -> Result<Package> {
         debug!("Retrieving package metadata for {}, target {}",
                package, target);
 
@@ -780,15 +791,15 @@ impl BuilderAPIProvider for BuilderAPIClient {
                                                 }),
                                             token)
                            .send()?;
-        resp.ok_if(StatusCode::OK)?;
+        resp.ok_if(&[StatusCode::OK])?;
 
         let mut encoded = String::new();
         resp.read_to_string(&mut encoded)
             .map_err(Error::BadResponseBody)?;
         trace!(target: "biome_http_client::api_client::show_package", "{:?}", encoded);
 
-        let package: json::Package = serde_json::from_str::<json::Package>(&encoded)?;
-        Ok(package.ident.into())
+        let package: Package = serde_json::from_str::<Package>(&encoded)?;
+        Ok(package)
     }
 
     /// Upload a package to a remote Builder.
@@ -850,7 +861,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
                            .body(body)
                            .send()?;
 
-        resp.ok_if(StatusCode::OK)
+        resp.ok_if(&[StatusCode::OK, StatusCode::CREATED])
     }
 
     fn x_put_package(&self, pa: &mut PackageArchive, token: &str) -> Result<()> {
@@ -879,7 +890,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .bearer_auth(token)
             .body(body)
             .send()?
-            .ok_if(StatusCode::OK)
+            .ok_if(&[StatusCode::OK])
     }
 
     /// Delete a package from Builder
@@ -906,7 +917,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .delete_with_custom_url(&path, custom)
             .bearer_auth(token)
             .send()?
-            .ok_if(StatusCode::NO_CONTENT)
+            .ok_if(&[StatusCode::NO_CONTENT])
     }
 
     /// Promote a package to a given channel
@@ -941,7 +952,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .put_with_custom_url(&path, custom)
             .bearer_auth(token)
             .send()?
-            .ok_if(StatusCode::OK)
+            .ok_if(&[StatusCode::OK])
     }
 
     /// Demote a package from a given channel
@@ -976,7 +987,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .put_with_custom_url(&path, custom)
             .bearer_auth(token)
             .send()?
-            .ok_if(StatusCode::OK)
+            .ok_if(&[StatusCode::OK])
     }
 
     /// Create a custom channel
@@ -992,7 +1003,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .post(&path)
             .bearer_auth(token)
             .send()?
-            .ok_if(StatusCode::CREATED)
+            .ok_if(&[StatusCode::CREATED])
     }
 
     /// Delete a custom channel
@@ -1008,7 +1019,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .delete(&path)
             .bearer_auth(token)
             .send()?
-            .ok_if(StatusCode::CREATED)
+            .ok_if(&[StatusCode::OK])
     }
 
     /// Promote all packages in channel
@@ -1034,7 +1045,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             })
             .bearer_auth(token)
             .send()?
-            .ok_if(StatusCode::OK)
+            .ok_if(&[StatusCode::OK])
     }
 
     /// Demote all packages from channel
@@ -1060,7 +1071,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
             })
             .bearer_auth(token)
             .send()?
-            .ok_if(StatusCode::OK)
+            .ok_if(&[StatusCode::OK])
     }
 
     /// Returns a vector of PackageIdent structs

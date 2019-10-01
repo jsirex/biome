@@ -23,7 +23,8 @@ use std::{net::{IpAddr,
                 DerefMut,
                 Range},
           str::FromStr,
-          sync::Mutex,
+          sync::{Arc,
+                 Mutex},
           thread,
           time::Duration};
 use time::SteadyTime;
@@ -35,10 +36,13 @@ lazy_static::lazy_static! {
 #[derive(Debug)]
 struct NSuitability(u64);
 impl Suitability for NSuitability {
-    fn get(&self, _service_group: &str) -> u64 { self.0 }
+    fn suitability_for_msr(&self, _service_group: &str) -> u64 { self.0 }
 }
 
-pub fn start_server(name: &str, ring_key: Option<SymKey>, suitability: u64) -> Server {
+/// # Locking (see locking.md)
+/// * `Server::member` (write)
+/// * `RumorHeat::inner` (write)
+pub fn start_server_smw_rhw(name: &str, ring_key: Option<SymKey>, suitability: u64) -> Server {
     let swim_port;
     let gossip_port;
     {
@@ -59,17 +63,16 @@ pub fn start_server(name: &str, ring_key: Option<SymKey>, suitability: u64) -> S
                                  ring_key,
                                  Some(String::from(name)),
                                  None,
-                                 Box::new(NSuitability(suitability))).unwrap();
-    server.start_rsw_mlw(&Timing::default())
+                                 Arc::new(NSuitability(suitability))).unwrap();
+    server.start_rsw_mlw_smw_rhw_msr(&Timing::default())
           .expect("Cannot start server");
     server
 }
 
-pub fn member_from_server(server: &Server) -> Member {
-    let mut member = server.member
-                           .read()
-                           .expect("Member lock is poisoned")
-                           .as_member();
+/// # Locking (see locking.md)
+/// * `Server::member` (read)
+pub fn member_from_server_smr(server: &Server) -> Member {
+    let mut member = server.myself().lock_smr().to_member();
     // AAAAAAARGH... we currently have to do this because otherwise we
     // have no notion of where we're coming from... in "real life",
     // other Supervisors would discover this from the networking stack
@@ -97,46 +100,59 @@ impl DerefMut for SwimNet {
 }
 
 impl SwimNet {
-    pub fn new_with_suitability(suitabilities: Vec<u64>) -> SwimNet {
+    /// # Locking (see locking.md)
+    /// * `RumorHeat::inner` (write)
+    pub fn new_with_suitability_rhw(suitabilities: Vec<u64>) -> SwimNet {
         SwimNet { members: suitabilities.into_iter()
                                         .enumerate()
                                         .map(|(x, suitability)| {
-                                            start_server(&format!("{}", x), None, suitability)
+                                            start_server_smw_rhw(&format!("{}", x),
+                                                                 None,
+                                                                 suitability)
                                         })
                                         .collect(), }
     }
 
-    pub fn new(count: usize) -> SwimNet {
+    /// # Locking (see locking.md)
+    /// * `RumorHeat::inner` (write)
+    pub fn new_rhw(count: usize) -> SwimNet {
         let suitabilities = vec![0; count];
-        SwimNet::new_with_suitability(suitabilities)
+        SwimNet::new_with_suitability_rhw(suitabilities)
     }
 
-    pub fn new_ring_encryption(count: usize, ring_key: &SymKey) -> SwimNet {
+    /// # Locking (see locking.md)
+    /// * `RumorHeat::inner` (write)
+    pub fn new_ring_encryption_rhw(count: usize, ring_key: &SymKey) -> SwimNet {
         let mut members = Vec::with_capacity(count);
         for x in 0..count {
             let rk = ring_key.clone();
-            members.push(start_server(&format!("{}", x), Some(rk), 0));
+            members.push(start_server_smw_rhw(&format!("{}", x), Some(rk), 0));
         }
         SwimNet { members }
     }
 
-    pub fn connect(&mut self, from_entry: usize, to_entry: usize) {
-        let to = member_from_server(&self.members[to_entry]);
-        self.members[from_entry].insert_member_mlw(to, Health::Alive);
+    /// # Locking (see locking.md)
+    /// * `Server::member` (read)
+    pub fn connect_smr(&mut self, from_entry: usize, to_entry: usize) {
+        let to = member_from_server_smr(&self.members[to_entry]);
+        self.members[from_entry].insert_member_mlw_rhw(to, Health::Alive);
     }
 
-    // Fully mesh the network
-    pub fn mesh(&mut self) {
+    /// Fully mesh the network
+    ///
+    /// # Locking (see locking.md)
+    /// * `Server::member` (read)
+    pub fn mesh_mlw_smr(&mut self) {
         for pos in 0..self.members.len() {
             let mut to_mesh: Vec<Member> = Vec::new();
             for x_pos in 0..self.members.len() {
                 if pos == x_pos {
                     continue;
                 }
-                to_mesh.push(member_from_server(&self.members[x_pos]))
+                to_mesh.push(member_from_server_smr(&self.members[x_pos]))
             }
             for server_b in to_mesh.into_iter() {
-                self.members[pos].insert_member_mlw(server_b, Health::Alive);
+                self.members[pos].insert_member_mlw_rhw(server_b, Health::Alive);
             }
         }
     }
@@ -148,7 +164,7 @@ impl SwimNet {
         let to = self.members
                      .get(to_entry)
                      .expect("Asked for a network member who is out of bounds");
-        from.add_to_block_list(String::from(to.member_id()));
+        from.add_to_block_list_sblw(String::from(to.member_id()));
     }
 
     pub fn unblock(&self, from_entry: usize, to_entry: usize) {
@@ -158,7 +174,7 @@ impl SwimNet {
         let to = self.members
                      .get(to_entry)
                      .expect("Asked for a network member who is out of bounds");
-        from.remove_from_block_list(to.member_id());
+        from.remove_from_block_list_sblw(to.member_id());
     }
 
     /// # Locking (see locking.md)
@@ -419,7 +435,7 @@ impl SwimNet {
                              sg,
                              SysInfo::default(),
                              None);
-        self[member].insert_service_rsw_mlw(s);
+        self[member].insert_service_rsw_mlw_rhw(s);
     }
 
     pub fn add_service_config(&mut self, member: usize, service: &str, config: &str) {
@@ -427,7 +443,7 @@ impl SwimNet {
         let s = ServiceConfig::new(self[member].member_id(),
                                    ServiceGroup::new(None, service, "prod", None).unwrap(),
                                    config_bytes);
-        self[member].insert_service_config_rsw(s);
+        self[member].insert_service_config_rsw_rhw(s);
     }
 
     pub fn add_service_file(&mut self, member: usize, service: &str, filename: &str, body: &str) {
@@ -436,17 +452,18 @@ impl SwimNet {
                                  ServiceGroup::new(None, service, "prod", None).unwrap(),
                                  filename,
                                  body_bytes);
-        self[member].insert_service_file_rsw(s);
+        self[member].insert_service_file_rsw_rhw(s);
     }
 
     pub fn add_departure(&mut self, member: usize) {
         let d = Departure::new(self[member].member_id());
-        self[member].insert_departure_rsw_mlw(d);
+        self[member].insert_departure_rsw_mlw_rhw(d);
     }
 
     pub fn add_election(&mut self, member: usize, service: &str) {
-        self[member].start_election_rsw_mlr(&ServiceGroup::new(None, service, "prod", None).unwrap(),
-                                        0);
+        self[member].start_election_rsw_mlr_rhw_msr(&ServiceGroup::new(None, service, "prod",
+                                                                       None).unwrap(),
+                                                    0);
     }
 }
 

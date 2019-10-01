@@ -120,33 +120,35 @@ impl DatFileReader {
     /// # Locking (see locking.md)
     /// * `RumorStore::list` (write)
     /// * `MemberList::entries` (write)
-    pub fn read_into_rsw_mlw(&mut self, server: &Server) -> Result<()> {
+    /// * `RumorHeat::inner` (write)
+    /// * `ManagerServices::inner` (read)
+    pub fn read_into_rsw_mlw_rhw_msr(&mut self, server: &Server) -> Result<()> {
         for Membership { member, health } in self.read_members()? {
-            server.insert_member_mlw(member, health);
+            server.insert_member_mlw_rhw(member, health);
         }
 
         for service in self.read_rumors::<Service>()? {
-            server.insert_service_rsw_mlw(service);
+            server.insert_service_rsw_mlw_rhw(service);
         }
 
         for service_config in self.read_rumors::<ServiceConfig>()? {
-            server.insert_service_config_rsw(service_config);
+            server.insert_service_config_rsw_rhw(service_config);
         }
 
         for service_file in self.read_rumors::<ServiceFile>()? {
-            server.insert_service_file_rsw(service_file);
+            server.insert_service_file_rsw_rhw(service_file);
         }
 
         for election in self.read_rumors::<Election>()? {
-            server.insert_election_rsw_mlr(election);
+            server.insert_election_rsw_mlr_rhw_msr(election);
         }
 
         for update_election in self.read_rumors::<ElectionUpdate>()? {
-            server.insert_update_election_rsw_mlr(update_election);
+            server.insert_update_election_rsw_mlr_rhw(update_election);
         }
 
         for departure in self.read_rumors::<Departure>()? {
-            server.insert_departure_rsw_mlw(departure);
+            server.insert_departure_rsw_mlw_rhw(departure);
         }
 
         Ok(())
@@ -541,7 +543,7 @@ mod tests {
                                                            &RumorStore::default(),
                                                            &RumorStore::default());
 
-        assert!(result.is_ok(), "{}", result.unwrap_err());
+        assert!(result.is_ok(), "{:?}", result);
         assert!(file_path.is_file());
         let dat_file_length = fs::metadata(file_path).map(|md| md.len());
         assert_ne!(dat_file_length.unwrap(), 0);

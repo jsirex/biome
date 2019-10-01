@@ -20,6 +20,7 @@ lazy_static::lazy_static! {
     static ref RE: Regex = Regex::new(r"\*\s(?P<ident>.*) \((?P<target>.*)\)").expect("valid regex");
 }
 
+#[allow(dead_code)]
 const ACCEPTANCE_URL: &str = "https://bldr.acceptance.biome.sh";
 const PACKAGES_ENDPOINT: &str = "v1/depot/pkgs/";
 const DOWNLOAD_ENDPOINT: &str = "download";
@@ -32,9 +33,7 @@ impl StringError {
     fn new(error: String) -> Self { Self(error) }
 }
 
-impl error::Error for StringError {
-    fn description(&self) -> &str { &self.0 }
-}
+impl error::Error for StringError {}
 
 impl fmt::Display for StringError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self.0) }
@@ -134,7 +133,7 @@ struct Opt {
     auth: String,
 
     /// The builder acceptance url
-    #[structopt(raw(default_value = "ACCEPTANCE_URL"), long)]
+    #[structopt(default_value = ACCEPTANCE_URL, long)]
     acceptance_url: String,
 
     /// The channel to tag packages with when promoting to live
@@ -153,7 +152,7 @@ struct Opt {
     #[structopt(default_value = "info",
                 short,
                 long,
-                raw(possible_values = r#"&["trace", "debug", "info", "warn", "error"]"#))]
+                possible_values(&["trace", "debug", "info", "warn", "error"]))]
     log_level: LevelFilter,
 }
 

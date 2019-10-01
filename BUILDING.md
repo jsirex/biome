@@ -47,7 +47,7 @@ cargo --version
 
 Next, use our installation script to install rustfmt
 ```
-./support/ci/rustfmt.sh
+./.expeditor/scripts/verify/rustfmt.sh
 ```
 
 At any time, you can find the version of rustfmt we are using by running this command at the root level
@@ -73,7 +73,7 @@ You would run:
 cargo +nightly-2019-05-10 fmt
 ```
 
-You may also be able to configure your editor to automatically run rustfmt every time you save.
+You may also be able to configure your editor to automatically run rustfmt every time you save. The [./support/rustfmt_nightly.sh](./support/rustfmt_nightly.sh) script may be helpful. 
 
 # Compiling biome binaries
 
@@ -95,6 +95,28 @@ Or from the biome directory:
 cargo run -p bio plan --help
 cargo run -p bio sup --help
 ```
+
+## Compiling with symbols for unsupported targets
+
+The [`biome_core`](components/core/Cargo.toml) crate defines a [feature](https://doc.rust-lang.org/cargo/reference/manifest.html#the-features-section) for each potential target. `biome_core` also defines a `supported_targets` feature that enables all supported targets. The supported targets are `x86_64-darwin`, `x86_64-linux`, `x86_64-linux-kernel2`, and `x86_64-windows`. All other targets are unsupported. Their target identifiers exist solely for experimentation.
+
+The `supported_targets` feature is enabled by default. No extra configuration is needed to produce a build aware of these targets. If you would like to produce a build that is aware of an unsupported target, you must set the desired feature flag in all crates that wrap the corresponding `biome_core` feature flag. Currently, [`bio`](components/bio/Cargo.toml) is the only example of such a crate. For example, to enable the `aarch64-linux` target, follow these steps:
+
+1. Verify that [`biome_core`](components/core/Cargo.toml) has a feature that corresponds to the `aarch64-linux` target.
+2. Determine all crates that use this feature flag. Search all crate's `Cargo.toml` for `biome_core/aarch64-linux`. We find that the only crate is [`bio`](components/bio/Cargo.toml). The `bio` feature is named the same, `aarch64-linux`, as the `biome_core` feature.
+3. Enable the `aarch64-linux` feature in the `bio` crate. Currently, workspaces can not use the `--features` flag. See [here](https://github.com/rust-lang/cargo/issues/5015). This prevents us from using `cargo build --features "bio/aarch64-linux"` in the workspace folder. This leaves manually editing the [`Cargo.toml`](components/bio/Cargo.toml) file as the best method to enable a feature. This can be accomplished by temporarily adding `aarch64-linux` to the `bio` crate's default feature list. Resulting in the line `default = ["supported_targets", "aarach64-linux"]`.
+4. Create a new build.
+
+### Adding a new unsupported target
+
+To add a new unsupported target, it is easiest to follow the changes of another unsupported target (e.g. `aarch64-linux`). The steps are roughly:
+
+1. Add the necessary information to the `package_targets` macro invocation in [components/core/src/package/target.rs](components/core/src/package/target.rs).
+2. Add a new [feature](https://doc.rust-lang.org/cargo/reference/manifest.html#the-features-section) to the [`biome_core`](components/core/Cargo.toml) crate with the same name as the target.
+3. Determine all crates that need to use the new feature as a configuration predicate (e.g. `#[cfg(feature = <new_target>)]`). Add a feature in that crate that wraps the `biome_core/<new_target>` feature.
+4. Add conditional logic using the configuration predicate.
+
+**Note**: Step 3 is required because you can not check if a crate's dependency has a feature set. See [here](https://stackoverflow.com/questions/57792943/can-you-test-if-the-feature-of-a-dependency-is-set-using-the-cfg-macro).
 
 ## Compiling launcher
 

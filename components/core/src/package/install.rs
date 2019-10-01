@@ -445,7 +445,7 @@ impl PackageInstall {
     }
 
     fn root_paths(&self, paths: &mut Vec<PathBuf>) -> Result<String> {
-        for path in &mut paths.into_iter() {
+        for path in &mut paths.iter_mut() {
             *path = fs::fs_rooted_path(&path, &self.fs_root_path);
         }
         env::join_paths(paths)?.into_string()
@@ -752,7 +752,7 @@ mod test {
     /// Returns a `PackageTarget` that does not match the active target of this system.
     fn wrong_package_target() -> &'static PackageTarget {
         let active = PackageTarget::active_target();
-        match PackageTarget::supported_targets().find(|&&target| target != active) {
+        match PackageTarget::targets().find(|&&target| target != active) {
             Some(wrong) => wrong,
             None => panic!("Should be able to find an unsupported package type"),
         }

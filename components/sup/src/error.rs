@@ -64,7 +64,6 @@ pub enum Error {
     InvalidTopology(String),
     InvalidUpdateStrategy(String),
     Io(io::Error),
-    IPFailed,
     Launcher(biome_launcher_client::Error),
     MissingRequiredBind(Vec<String>),
     MissingRequiredIdent,
@@ -175,7 +174,6 @@ impl fmt::Display for Error {
             Error::InvalidTopology(ref t) => format!("Invalid topology: {}", t),
             Error::InvalidUpdateStrategy(ref s) => format!("Invalid update strategy: {}", s),
             Error::Io(ref err) => err.to_string(),
-            Error::IPFailed => "Failed to discover this hosts outbound IP address".to_string(),
             Error::Launcher(ref err) => err.to_string(),
             Error::MissingRequiredBind(ref e) => {
                 format!("Missing required bind(s), {}", e.join(", "))
@@ -185,7 +183,9 @@ impl fmt::Display for Error {
             }
             Error::NameLookup(ref e) => format!("Error resolving a name or IP address: {}", e),
             Error::NetErr(ref err) => err.to_string(),
-            Error::NetParseError(ref e) => format!("Can't parse ip:port: {}", e),
+            Error::NetParseError(ref e) => {
+                format!("Can't parse IP address or socket address: {}", e)
+            }
             Error::NoActiveMembers(ref g) => format!("No active members in service group {}", g),
             Error::NoLauncher => "Supervisor must be run from `bio-launch`".to_string(),
             Error::NoSuchBind(ref b) => format!("No such bind: {}", b),

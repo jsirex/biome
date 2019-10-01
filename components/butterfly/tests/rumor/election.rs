@@ -7,8 +7,8 @@ use biome_common::FeatureFlag;
 
 #[test]
 fn three_members_run_election() {
-    let mut net = btest::SwimNet::new(3);
-    net.mesh();
+    let mut net = btest::SwimNet::new_rhw(3);
+    net.mesh_mlw_smr();
     net.add_service(0, "core/witcher/1.2.3/20161208121212");
     net.add_service(1, "core/witcher/1.2.3/20161208121212");
     net.add_service(2, "core/witcher/1.2.3/20161208121212");
@@ -23,8 +23,8 @@ fn three_members_run_election() {
 
 #[test]
 fn three_members_run_election_from_one_starting_rumor() {
-    let mut net = btest::SwimNet::new(3);
-    net.mesh();
+    let mut net = btest::SwimNet::new_rhw(3);
+    net.mesh_mlw_smr();
     net.add_service(0, "core/witcher/1.2.3/20161208121212");
     net.add_service(1, "core/witcher/1.2.3/20161208121212");
     net.add_service(2, "core/witcher/1.2.3/20161208121212");
@@ -35,8 +35,8 @@ fn three_members_run_election_from_one_starting_rumor() {
 
 #[test]
 fn five_members_elect_a_new_leader_when_the_old_one_dies() {
-    let mut net = btest::SwimNet::new(5);
-    net.mesh();
+    let mut net = btest::SwimNet::new_rhw(5);
+    net.mesh_mlw_smr();
     net.add_service(0, "core/witcher/1.2.3/20161208121212");
     net.add_service(1, "core/witcher/1.2.3/20161208121212");
     net.add_service(2, "core/witcher/1.2.3/20161208121212");
@@ -63,9 +63,9 @@ fn five_members_elect_a_new_leader_when_the_old_one_dies() {
     let paused_id = net[paused].member_id();
     assert_wait_for_health_of_mlr!(net, paused, Health::Confirmed);
     if paused == 0 {
-        net[1].restart_elections_rsw_mlr(FeatureFlag::empty());
+        net[1].restart_elections_rsw_mlr_rhw_msr(FeatureFlag::empty());
     } else {
-        net[0].restart_elections_rsw_mlr(FeatureFlag::empty());
+        net[0].restart_elections_rsw_mlr_rhw_msr(FeatureFlag::empty());
     }
 
     for i in 0..5 {
@@ -92,25 +92,19 @@ fn five_members_elect_a_new_leader_when_the_old_one_dies() {
 #[test]
 #[allow(clippy::cognitive_complexity)]
 fn five_members_elect_a_new_leader_when_they_are_quorum_partitioned() {
-    let mut net = btest::SwimNet::new_with_suitability(vec![1, 0, 0, 0, 0]);
-    net[0].member
-          .write()
-          .expect("Member lock is poisoned")
-          .set_persistent();
-    net[4].member
-          .write()
-          .expect("Member lock is poisoned")
-          .set_persistent();
+    let mut net = btest::SwimNet::new_with_suitability_rhw(vec![1, 0, 0, 0, 0]);
+    net[0].myself().lock_smw().set_persistent();
+    net[4].myself().lock_smw().set_persistent();
     net.add_service(0, "core/witcher/1.2.3/20161208121212");
     net.add_service(1, "core/witcher/1.2.3/20161208121212");
     net.add_service(2, "core/witcher/1.2.3/20161208121212");
     net.add_service(3, "core/witcher/1.2.3/20161208121212");
     net.add_service(4, "core/witcher/1.2.3/20161208121212");
     net.add_election(0, "witcher");
-    net.connect(0, 1);
-    net.connect(1, 2);
-    net.connect(2, 3);
-    net.connect(3, 4);
+    net.connect_smr(0, 1);
+    net.connect_smr(1, 2);
+    net.connect_smr(2, 3);
+    net.connect_smr(3, 4);
     assert_wait_for_health_of_mlr!(net, [0..5, 0..5], Health::Alive);
     assert_wait_for_election_status!(net, [0..5], "witcher.prod", ElectionStatus::Finished);
     assert_wait_for_equal_election!(net, [0..5, 0..5], "witcher.prod");
@@ -135,8 +129,8 @@ fn five_members_elect_a_new_leader_when_they_are_quorum_partitioned() {
     let new_leader_id;
     net.partition(0..2, 2..5);
     assert_wait_for_health_of_mlr!(net, [0..2, 2..5], Health::Confirmed);
-    net[0].restart_elections_rsw_mlr(FeatureFlag::empty());
-    net[4].restart_elections_rsw_mlr(FeatureFlag::empty());
+    net[0].restart_elections_rsw_mlr_rhw_msr(FeatureFlag::empty());
+    net[4].restart_elections_rsw_mlr_rhw_msr(FeatureFlag::empty());
     assert_wait_for_election_status!(net, 0, "witcher.prod", ElectionStatus::NoQuorum);
     assert_wait_for_election_status!(net, 1, "witcher.prod", ElectionStatus::NoQuorum);
     assert_wait_for_election_status!(net, 2, "witcher.prod", ElectionStatus::Finished);

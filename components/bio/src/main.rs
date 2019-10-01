@@ -11,6 +11,7 @@ use clap::{ArgMatches,
            Shell};
 use env_logger;
 use futures::prelude::*;
+use glob::glob_with;
 use bio::{cli::{self,
                 parse_optional_arg},
           command::{self,
@@ -44,6 +45,7 @@ use biome_common::{self as common,
                      FeatureFlag};
 #[cfg(windows)]
 use biome_core::crypto::dpapi::encrypt;
+
 use biome_core::{crypto::{init,
                             keys::PairType,
                             BoxKeyPair,
@@ -239,6 +241,7 @@ fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                 ("channels", Some(m)) => sub_pkg_channels(ui, m)?,
                 ("config", Some(m)) => sub_pkg_config(m)?,
                 ("dependencies", Some(m)) => sub_pkg_dependencies(m)?,
+                ("download", Some(m)) => sub_pkg_download(ui, m, feature_flags)?,
                 ("env", Some(m)) => sub_pkg_env(m)?,
                 ("exec", Some(m)) => sub_pkg_exec(m, &remaining_args)?,
                 ("export", Some(m)) => sub_pkg_export(ui, m)?,
@@ -251,6 +254,7 @@ fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                 ("sign", Some(m)) => sub_pkg_sign(ui, m)?,
                 ("uninstall", Some(m)) => sub_pkg_uninstall(ui, m)?,
                 ("upload", Some(m)) => sub_pkg_upload(ui, m)?,
+                ("bulkupload", Some(m)) => sub_pkg_bulkupload(ui, m)?,
                 ("delete", Some(m)) => sub_pkg_delete(ui, m)?,
                 ("verify", Some(m)) => sub_pkg_verify(ui, m)?,
                 ("header", Some(m)) => sub_pkg_header(ui, m)?,
@@ -532,6 +536,34 @@ fn sub_pkg_dependencies(m: &ArgMatches<'_>) -> Result<()> {
         command::pkg::DependencyRelation::Requires
     };
     command::pkg::dependencies::start(&ident, scope, direction, &*FS_ROOT)
+}
+
+fn sub_pkg_download(ui: &mut UI, m: &ArgMatches<'_>, _feature_flags: FeatureFlag) -> Result<()> {
+    let token = maybe_auth_token(&m);
+    let url = bldr_url_from_matches(&m)?;
+    let download_dir = download_dir_from_matches(m);
+    let channel = channel_from_matches_or_default(m);
+
+    let mut install_sources = idents_from_matches(m)?;
+    let mut install_sources_from_file = idents_from_file_matches(m)?;
+    install_sources_from_file.append(&mut install_sources);
+
+    let target = target_from_matches(m)?;
+    let verify = verify_from_matches(m);
+
+    init();
+
+    command::pkg::download::start(ui,
+                                  &url,
+                                  &channel,
+                                  PRODUCT,
+                                  VERSION,
+                                  install_sources_from_file,
+                                  target,
+                                  download_dir.as_ref(),
+                                  token.as_ref().map(String::as_str),
+                                  verify)?;
+    Ok(())
 }
 
 fn sub_pkg_env(m: &ArgMatches<'_>) -> Result<()> {
@@ -839,6 +871,50 @@ fn sub_pkg_sign(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
                                                Some(&PairType::Secret))?;
 
     command::pkg::sign::start(ui, &pair, &src, &dst)
+}
+
+fn sub_pkg_bulkupload(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
+    let upload_dir = bulkupload_dir_from_matches(m);
+    let artifact_path = upload_dir.join("artifacts");
+    let key_path = upload_dir.join("keys");
+    let url = bldr_url_from_matches(m)?;
+    let additional_release_channel = channel_from_matches(m);
+    let force_upload = m.is_present("FORCE");
+    let auto_build = if m.is_present("AUTO_BUILD") {
+        BuildOnUpload::PackageDefault
+    } else {
+        BuildOnUpload::Disable
+    };
+    let token = auth_token_param_or_env(m)?;
+    const OPTIONS: glob::MatchOptions = glob::MatchOptions { case_sensitive:              true,
+                                                             require_literal_separator:   true,
+                                                             require_literal_leading_dot: true, };
+    let artifact_paths =
+        vec_from_glob_with(&artifact_path.join("*.hart").display().to_string(), OPTIONS);
+
+    ui.begin(format!("Preparing to upload artifacts to the '{}' channel on {}",
+                     additional_release_channel.clone()
+                                               .unwrap_or_else(ChannelIdent::unstable),
+                     url))?;
+    ui.status(Status::Using,
+              format!("{} for artifacts and {} for signing keys.",
+                      &artifact_path.display(),
+                      key_path.display()))?;
+    ui.status(Status::Found,
+              format!("{} artifacts for upload.", artifact_paths.len()))?;
+
+    for artifact_path in artifact_paths {
+        command::pkg::upload::start(ui,
+                                    &url,
+                                    &additional_release_channel,
+                                    &token,
+                                    &artifact_path,
+                                    force_upload,
+                                    auto_build,
+                                    &key_path)?;
+    }
+
+    Ok(())
 }
 
 fn sub_pkg_upload(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
@@ -1415,8 +1491,13 @@ fn auth_token_param_or_env(m: &ArgMatches<'_>) -> Result<String> {
             match henv::var(AUTH_TOKEN_ENVVAR) {
                 Ok(v) => Ok(v),
                 Err(_) => {
-                    config::load()?.auth_token
-                                   .ok_or(Error::ArgumentError("No auth token specified"))
+                    config::load()?.auth_token.ok_or_else(|| {
+                                                  Error::ArgumentError(
+                    "No auth token \
+                     specified"
+                        .into(),
+                )
+                                              })
                 }
             }
         }
@@ -1558,6 +1639,7 @@ fn binlink_dest_dir_from_matches(matches: &ArgMatches<'_>) -> Option<PathBuf> {
 /// to provide a better user experience (ie, for the 99% case)
 fn active_target() -> PackageTarget {
     match PackageTarget::active_target() {
+        #[cfg(feature = "supported_targets")]
         target::X86_64_DARWIN => target::X86_64_LINUX,
         t => t,
     }
@@ -1569,6 +1651,35 @@ fn install_sources_from_matches(matches: &ArgMatches<'_>) -> Result<Vec<InstallS
         .unwrap() // Required via clap
         .map(|t| t.parse().map_err(Error::from))
         .collect()
+}
+
+fn idents_from_matches(matches: &ArgMatches<'_>) -> Result<Vec<PackageIdent>> {
+    match matches.values_of("PKG_IDENT") {
+        Some(ident_strings) => {
+            ident_strings.map(|t| PackageIdent::from_str(t).map_err(Error::from))
+                         .collect()
+        }
+        _ => Ok(Vec::new()), // It's not an error to have no idents on command line
+    }
+}
+
+fn idents_from_file_matches(matches: &ArgMatches<'_>) -> Result<Vec<PackageIdent>> {
+    let mut sources: Vec<PackageIdent> = Vec::new();
+
+    if let Some(files) = matches.values_of("PKG_IDENT_FILE") {
+        for filename in files {
+            let mut packages_from_file =
+                biome_common::cli::file_into_idents(&filename.to_string())?;
+            sources.append(&mut packages_from_file);
+        }
+    }
+    Ok(sources)
+}
+
+fn verify_from_matches(matches: &ArgMatches<'_>) -> bool { matches.is_present("VERIFY") }
+
+fn download_dir_from_matches(matches: &ArgMatches<'_>) -> Option<PathBuf> {
+    matches.value_of("DOWNLOAD_DIRECTORY").map(PathBuf::from)
 }
 
 fn excludes_from_matches(matches: &ArgMatches<'_>) -> Vec<PackageIdent> {
@@ -1702,9 +1813,8 @@ fn supervisor_services() -> Result<Vec<PackageIdent>> {
                                                          conn.call(msg).for_each(|reply| {
                           match reply.message_id() {
                               "ServiceStatus" => {
-                                  let m =
-                                      reply.parse::<sup_proto::types::ServiceStatus>()
-                                           .map_err(SrvClientError::Decode)?;
+                                  let m = reply.parse::<sup_proto::types::ServiceStatus>()
+                                               .map_err(SrvClientError::Decode)?;
                                   out.push(m.ident.into());
                                   Ok(())
                               }
@@ -1723,6 +1833,18 @@ fn supervisor_services() -> Result<Vec<PackageIdent>> {
                                                      })
                                                      .wait()?;
     Ok(out)
+}
+
+fn bulkupload_dir_from_matches(matches: &ArgMatches<'_>) -> PathBuf {
+    matches.value_of("UPLOAD_DIRECTORY")
+           .map(PathBuf::from)
+           .expect("CLAP-validated upload dir")
+}
+
+fn vec_from_glob_with(pattern: &str, options: glob::MatchOptions) -> Vec<PathBuf> {
+    glob_with(pattern, options).unwrap()
+                               .map(std::result::Result::unwrap)
+                               .collect()
 }
 
 /// A Builder URL, but *only* if the user specified it via CLI args or

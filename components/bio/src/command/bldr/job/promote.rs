@@ -1,28 +1,21 @@
-use crate::hcore::package::PackageIdent;
-use reqwest::StatusCode;
-use std::str::FromStr;
-
 use crate::{api_client,
             common::ui::{Status,
                          UIReader,
                          UIWriter,
                          UI},
-            hcore::ChannelIdent};
-
-use crate::{error::{Error,
+            error::{Error,
                     Result},
+            hcore::{package::PackageIdent,
+                    ChannelIdent},
             PRODUCT,
             VERSION};
+use reqwest::StatusCode;
+use std::str::FromStr;
 
 fn is_ident(s: &str) -> bool { PackageIdent::from_str(s).is_ok() }
 
 fn in_origin(ident: &str, origin: Option<&str>) -> bool {
-    if origin.is_some() {
-        let pi = PackageIdent::from_str(ident).unwrap(); // unwrap Ok
-        origin.unwrap() == pi.origin
-    } else {
-        true
-    }
+    origin.map_or(true, |o| PackageIdent::from_str(ident).unwrap().origin == o)
 }
 
 pub fn get_ident_list(ui: &mut UI,
@@ -111,9 +104,10 @@ pub fn start(ui: &mut UI,
         }
     }
 
-    let question = format!("{} {} package(s) to channel '{}'. Continue?",
+    let question = format!("{} {} package(s) {} channel '{}'. Continue?",
                            promoting_demoting,
                            idents.len(),
+                           to_from,
                            channel);
 
     if !ui.prompt_yes_no(&question, Some(true))? {
