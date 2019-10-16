@@ -1,9 +1,11 @@
 use crate::command::studio;
+
 use clap::{App,
            AppSettings,
            Arg,
            ArgMatches};
-use biome_common::{cli::{BINLINK_DIR_ENVVAR,
+use biome_common::{cli::{file_into_idents,
+                           BINLINK_DIR_ENVVAR,
                            DEFAULT_BINLINK_DIR,
                            PACKAGE_TARGET_ENVVAR,
                            RING_ENVVAR,
@@ -28,7 +30,8 @@ use biome_core::{crypto::{keys::PairType,
                              ServiceGroup},
                    ChannelIdent};
 use biome_sup_protocol;
-use std::{net::SocketAddr,
+use std::{net::{Ipv4Addr,
+                SocketAddr},
           path::Path,
           result,
           str::FromStr};
@@ -159,12 +162,12 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                     (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
                 )
                 (@subcommand demote =>
-                    (about: "Demote packages from a completed build job to a specified channel")
+                    (about: "Demote packages from a completed build job from a specified channel")
                     (aliases: &["d", "de", "dem", "demo", "demot"])
                     (@arg GROUP_ID: +required +takes_value
                         "The job id that was returned from \"bio bldr start\" \
                         (ex: 771100000000000000)")
-                    (@arg CHANNEL: +takes_value +required "The target channel name")
+                    (@arg CHANNEL: +takes_value +required "The name of the channel to demote from")
                     (@arg ORIGIN: -o --origin +takes_value {valid_origin}
                         "Limit the demotable packages to the specified origin")
                     (@arg INTERACTIVE: -i --interactive
@@ -435,14 +438,15 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@arg DEST_DIR: -d --dest +takes_value {non_empty} env(BINLINK_DIR_ENVVAR) default_value(DEFAULT_BINLINK_DIR)
                     "Sets the destination directory")
                 (@arg FORCE: -f --force "Overwrite existing binlinks")
-            )
+             )
+            (subcommand: sub_pkg_build())
             (@subcommand config =>
                 (about: "Displays the default configuration options for a service")
                 (aliases: &["conf", "cfg"])
                 (@arg PKG_IDENT: +required +takes_value {valid_ident}
                     "A package identifier (ex: core/redis, core/busybox-static/1.42.2)")
-            )
-            (subcommand: sub_pkg_build())
+             )
+            (subcommand: sub_pkg_download())
             (@subcommand env =>
                 (about: "Prints the runtime environment of a specific installed package")
                 (@arg PKG_IDENT: +required +takes_value {valid_ident}
@@ -544,6 +548,25 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                     "Identifier of one or more packages that should not be uninstalled. \
                     (ex: core/redis, core/busybox-static/1.42.2/21120102031201)")
                 (@arg NO_DEPS: --("no-deps") "Don't uninstall dependencies")
+            )
+            // alas no hyphens in subcommand names..
+            // https://github.com/clap-rs/clap/issues/1297
+            (@subcommand bulkupload =>
+                (about: "Bulk Uploads Biome Artifacts to a Depot from a local directory.")
+                (aliases: &["bul", "bulk"])
+                (@arg BLDR_URL: -u --url +takes_value {valid_url} "Specify an alternate Depot \
+                    endpoint. If not specified, the value will be taken from the HAB_BLDR_URL \
+                    environment variable if defined. (default: https://bldr.habitat.sh)")
+                (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
+                (@arg CHANNEL: --channel -c +takes_value
+                    "Optional additional release channel to upload package to. \
+                     Packages are always uploaded to `unstable`, regardless \
+                     of the value of this option.")
+                (@arg FORCE: --force "Skip checking availability of package and \
+                    force uploads, potentially overwriting a stored copy of a package.")
+                (@arg AUTO_BUILD: --("auto-build") "Enable auto-build for all packages in this upload. Only applicable to SaaS Builder.")
+                (@arg UPLOAD_DIRECTORY: +required {dir_exists}
+                    "Directory Path from which artifacts will be uploaded.")
             )
             (@subcommand upload =>
                 (about: "Uploads a local Biome Artifact to Builder")
@@ -905,6 +928,28 @@ fn sub_pkg_build() -> App<'static, 'static> {
     sub
 }
 
+fn sub_pkg_download() -> App<'static, 'static> {
+    let sub = clap_app!(@subcommand download =>
+    (about: "Download Biome artifacts (including dependencies and keys) from Builder")
+    (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
+    (@arg BLDR_URL: --url -u +takes_value {valid_url} default_value(biome_core::url::DEFAULT_BLDR_URL)
+        "Specify an alternate Builder endpoint. If not specified, the value will \
+         be taken from the HAB_BLDR_URL environment variable if defined.")
+    (@arg CHANNEL: --channel -c +takes_value default_value[stable] env(ChannelIdent::ENVVAR)
+        "Download from the specified release channel")
+    (@arg DOWNLOAD_DIRECTORY: --("download-directory") +takes_value "The path to store downloaded artifacts")
+    (@arg PKG_IDENT_FILE: --file +takes_value +multiple {valid_ident_file}
+        "File with newline separated package identifiers")
+    (@arg PKG_IDENT: +multiple {valid_ident}
+            "One or more Biome package identifiers (ex: acme/redis)")
+    (@arg PKG_TARGET: --target -t +takes_value {valid_target}
+            "Target architecture to fetch. E.g. x86_64-linux")
+    (@arg VERIFY: --verify
+            "Verify package integrity after download (Warning: this can be slow)")
+    );
+    sub
+}
+
 fn sub_pkg_install(feature_flags: FeatureFlag) -> App<'static, 'static> {
     let mut sub = clap_app!(@subcommand install =>
         (about: "Installs a Biome package from Builder or locally from a Biome Artifact")
@@ -1076,6 +1121,11 @@ pub fn sub_sup_run(feature_flags: FeatureFlag) -> App<'static, 'static> {
                                                             Implies NO_COLOR")
                             (@arg HEALTH_CHECK_INTERVAL: --("health-check-interval") -i +takes_value {valid_health_check_interval}
                              "The interval (seconds) on which to run health checks [default: 30]")
+                            (@arg SYS_IP_ADDRESS: --("sys-ip-address") +takes_value {valid_ipv4_address}
+                             "The IPv4 address to use as the `sys.ip` template variable. If this \
+                             argument is not set, the supervisor tries to dynamically determine \
+                             an IP address. If that fails, the supervisor defaults to using \
+                             `127.0.0.1`.")
     );
 
     let sub = if feature_flags.contains(FeatureFlag::EVENT_STREAM) {
@@ -1327,6 +1377,18 @@ fn file_exists_or_stdin(val: String) -> result::Result<(), String> {
 }
 
 #[allow(clippy::needless_pass_by_value)] // Signature required by CLAP
+fn valid_ipv4_address(val: String) -> result::Result<(), String> {
+    match Ipv4Addr::from_str(&val) {
+        Ok(_) => Ok(()),
+        Err(_) => {
+            Err(format!("'{}' is not a valid IPv4 address, eg: \
+                         '192.168.1.105'",
+                        val))
+        }
+    }
+}
+
+#[allow(clippy::needless_pass_by_value)] // Signature required by CLAP
 fn valid_socket_addr(val: String) -> result::Result<(), String> {
     match SocketAddr::from_str(&val) {
         Ok(_) => Ok(()),
@@ -1385,13 +1447,23 @@ fn valid_ident(val: String) -> result::Result<(), String> {
 }
 
 #[allow(clippy::needless_pass_by_value)] // Signature required by CLAP
+fn valid_ident_file(val: String) -> result::Result<(), String> {
+    file_into_idents(&val).map(|_| ())
+                          .map_err(|e| e.to_string())
+}
+
+#[allow(clippy::needless_pass_by_value)] // Signature required by CLAP
 fn valid_target(val: String) -> result::Result<(), String> {
     match PackageTarget::from_str(&val) {
         Ok(_) => Ok(()),
         Err(_) => {
-            Err(format!("'{}' is not valid. A valid target is in the form \
-                         architecture-platform (example: x86_64-linux)",
-                        &val))
+            let targets: Vec<_> = PackageTarget::targets().map(std::convert::AsRef::as_ref)
+                                                          .collect();
+            Err(format!("'{}' is not valid. Valid targets are in the form \
+                         architecture-platform (currently Biome allows \
+                         the following: {})",
+                        &val,
+                        targets.join(", ")))
         }
     }
 }

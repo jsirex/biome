@@ -18,6 +18,9 @@ use std::{fs,
           process::Command,
           str::FromStr};
 
+// This code makes heavy use of `#[cfg(unix)]` and `#[cfg(windows)]`. This should potentially be
+// changed to use the various target feature flags.
+
 /// The `Dockerfile` template.
 #[cfg(unix)]
 const DOCKERFILE: &str = include_str!("../defaults/Dockerfile.hbs");
@@ -85,7 +88,7 @@ impl<'a> DockerBuilder<'a> {
         debug!("Running: {:?}", &cmd);
         let exit_status = cmd.spawn()?.wait()?;
         if !exit_status.success() {
-            return Err(Error::BuildFailed(exit_status))?;
+            return Err(Error::BuildFailed(exit_status).into());
         }
 
         let id = match self.tags.first() {
@@ -108,7 +111,7 @@ impl<'a> DockerBuilder<'a> {
 
         match stdout.lines().next() {
             Some(id) => Ok(id.to_string()),
-            None => Err(Error::DockerImageIdNotFound(image_tag.to_string()))?,
+            None => Err(Error::DockerImageIdNotFound(image_tag.to_string()).into()),
         }
     }
 }
@@ -251,7 +254,7 @@ impl<'a> DockerImage {
         debug!("Running: {:?}", &cmd);
         let exit_status = cmd.spawn()?.wait()?;
         if !exit_status.success() {
-            return Err(Error::PushImageFailed(exit_status))?;
+            return Err(Error::PushImageFailed(exit_status).into());
         }
         ui.status(Status::Uploaded, format!("image '{}'", &image_tag))?;
 
@@ -269,7 +272,7 @@ impl<'a> DockerImage {
         debug!("Running: {:?}", &cmd);
         let exit_status = cmd.spawn()?.wait()?;
         if !exit_status.success() {
-            return Err(Error::RemoveImageFailed(exit_status))?;
+            return Err(Error::RemoveImageFailed(exit_status).into());
         }
 
         Ok(())
@@ -341,7 +344,7 @@ impl DockerBuildRoot {
         let result = cmd.output().expect("Docker command failed to spawn");
         let os = String::from_utf8_lossy(&result.stdout);
         if !os.contains("windows") {
-            return Err(Error::DockerNotInWindowsMode(os.to_string()))?;
+            return Err(Error::DockerNotInWindowsMode(os.to_string()).into());
         }
 
         self.build_docker_image(ui, naming, memory)

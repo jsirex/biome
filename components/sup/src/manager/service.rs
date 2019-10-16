@@ -12,6 +12,8 @@ mod context;
 mod health;
 mod hook_runner;
 mod hooks;
+#[cfg(windows)]
+mod pipe_hook_client;
 mod spawned_future;
 pub mod spec;
 mod supervisor;
@@ -1216,7 +1218,9 @@ mod tests {
                                 HttpListenAddr,
                                 ListenCtlAddr};
     use serde_json;
-    use std::str::FromStr;
+    use std::{net::{IpAddr,
+                    Ipv4Addr},
+              str::FromStr};
 
     fn initialize_test_service() -> Service {
         let listen_ctl_addr =
@@ -1224,7 +1228,8 @@ mod tests {
         let sys = Sys::new(false,
                            GossipListenAddr::default(),
                            listen_ctl_addr,
-                           HttpListenAddr::default());
+                           HttpListenAddr::default(),
+                           IpAddr::V4(Ipv4Addr::LOCALHOST));
 
         let ident = if cfg!(target_os = "linux") {
             PackageIdent::new("core", "tree", Some("1.7.0"), Some("20180609045201"))

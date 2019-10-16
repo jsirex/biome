@@ -20,6 +20,7 @@ dirs = "*"
 env_logger = "*"
 flate2 = "*"
 futures = "*"
+glob = "*"
 biome_api_client = { path = "../builder-api-client" }
 biome_common = { path = "../common" }
 biome_core = { path = "../core" }
@@ -65,5 +66,7 @@ winreg = "*"
 tempfile = "*"
 
 [features]
-default = []
+default = ["supported_targets"]
 functional = []
+supported_targets = ["biome_core/supported_targets"]
+aarch64-linux = ["biome_core/aarch64-linux"]

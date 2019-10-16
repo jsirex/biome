@@ -33,17 +33,7 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::BiomeCore(ref err) => err.description(),
-            Error::ReqwestError(ref err) => err.description(),
-            Error::IO(ref err) => err.description(),
-            Error::Json(ref err) => err.description(),
-            Error::UrlParseError(ref err) => err.description(),
-        }
-    }
-}
+impl error::Error for Error {}
 
 impl From<bio_core::Error> for Error {
     fn from(err: bio_core::Error) -> Error { Error::BiomeCore(err) }

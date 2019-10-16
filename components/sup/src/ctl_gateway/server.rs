@@ -77,16 +77,7 @@ pub enum HandlerError {
     SendError(mpsc::SendError<CtlCommand>),
 }
 
-impl error::Error for HandlerError {
-    fn description(&self) -> &str {
-        match *self {
-            HandlerError::Decode(ref err) => err.description(),
-            HandlerError::Io(ref err) => err.description(),
-            HandlerError::NetErr(ref err) => err.description(),
-            HandlerError::SendError(ref err) => err.description(),
-        }
-    }
-}
+impl error::Error for HandlerError {}
 
 impl fmt::Display for HandlerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -263,9 +254,10 @@ impl SrvHandler {
 
     /// # Locking (see locking.md)
     /// * `GatewayState::inner` (read)
-    fn command_from_message_gsr(msg: &SrvMessage,
-                                ctl_sender: CtlSender)
-                                -> std::result::Result<CtlCommand, HandlerError> {
+    /// * `ManagerServices::inner` (read)
+    fn command_from_message_gsr_msr(msg: &SrvMessage,
+                                    ctl_sender: CtlSender)
+                                    -> std::result::Result<CtlCommand, HandlerError> {
         match msg.message_id() {
             "SvcGetDefaultCfg" => {
                 let m = msg.parse::<protocol::ctl::SvcGetDefaultCfg>()
@@ -273,7 +265,7 @@ impl SrvHandler {
                 Ok(CtlCommand::new(ctl_sender,
                                    msg.transaction(),
                                    move |state, req, _action_sender| {
-                                       commands::service_cfg(state, req, m.clone())
+                                       commands::service_cfg_msr(state, req, m.clone())
                                    }))
             }
             "SvcFilePut" => {
@@ -396,8 +388,9 @@ impl Future for SrvHandler {
                             self.start_timer(&msg.message_id());
                             trace!("OnMessage, {}", msg.message_id());
 
-                            let cmd = match Self::command_from_message_gsr(&msg,
-                                                                           self.ctl_sender.clone())
+                            let cmd = match Self::command_from_message_gsr_msr(&msg,
+                                                                               self.ctl_sender
+                                                                                   .clone())
                             {
                                 Ok(cmd) => cmd,
                                 Err(_) => {

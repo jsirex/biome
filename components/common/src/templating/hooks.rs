@@ -440,7 +440,7 @@ pub struct HookOutput<'a> {
 }
 
 impl<'a> HookOutput<'a> {
-    fn new(stdout_log: &'a Path, stderr_log: &'a Path) -> Self {
+    pub fn new(stdout_log: &'a Path, stderr_log: &'a Path) -> Self {
         Self { stdout_log_file: stdout_log,
                stderr_log_file: stderr_log, }
     }
@@ -781,9 +781,6 @@ echo "The message is Hello"
 
     ////////////////////////////////////////////////////////////////////////
 
-    crate::locked_env_var!(HAB_HOOK_STANDARD_STREAM_BYTE_LIMIT,
-                           bio_hook_standard_stream_byte_limit);
-
     #[test]
     #[cfg(not(windows))]
     fn hook_output() {
@@ -791,6 +788,9 @@ echo "The message is Hello"
                   fs::DirBuilder,
                   process::{Command,
                             Stdio}};
+
+        crate::locked_env_var!(HAB_HOOK_STANDARD_STREAM_BYTE_LIMIT,
+                               bio_hook_standard_stream_byte_limit);
 
         let tmp_dir = TempDir::new().expect("create temp dir");
         let logs_dir = tmp_dir.path().join("logs");

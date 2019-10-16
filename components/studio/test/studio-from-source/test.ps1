@@ -2,8 +2,6 @@ $ErrorActionPreference = "Stop"
 
 $env:HAB_LICENSE = "accept-no-persist"
 
-$env:studio_command = "bin/bio-studio.ps1"
-
 bio pkg install core/powershell
 bio pkg install core/7zip
 bio pkg install biome/bio 
@@ -19,7 +17,7 @@ Copy-Item "$(bio pkg path core/7zip)/bin/*" "bin/7zip"
 Copy-Item "$(bio pkg path biome/bio-plan-build-ps1)/bin/*" "bin/"
 
 try {
-    & test/shared/test-all.ps1 -studio_command "bin/bio-studio.ps1"
+    & test/shared/test-all.ps1 -studio_command "bin/bio-studio.bat"
     $exit_code = $LASTEXITCODE
 } finally {
     # The tests can exit before the Studio or Await have closed all open 
@@ -29,6 +27,8 @@ try {
     Remove-Item "bin/7zip" -Recurse
     Remove-Item "bin/powershell" -Recurse
     Remove-Item "bin/bio" -Recurse
-    Remove-Item "bin/*"
+    Remove-Item "bin/environment.ps1"
+    Remove-Item "bin/shared.ps1"
+    Remove-Item "bin/bio-plan-build.ps1"
 }
 exit $exit_code

@@ -12,7 +12,8 @@ use winapi::{shared::minwindef::{DWORD,
                   processthreadsapi,
                   winnt::{HANDLE,
                           PROCESS_QUERY_LIMITED_INFORMATION,
-                          PROCESS_TERMINATE}}};
+                          PROCESS_TERMINATE,
+                          SYNCHRONIZE}}};
 
 const STILL_ACTIVE: u32 = 259;
 
@@ -28,12 +29,16 @@ pub fn current_pid() -> u32 { unsafe { processthreadsapi::GetCurrentProcessId() 
 pub fn handle_from_pid(pid: Pid) -> Option<HANDLE> {
     unsafe {
         let proc_handle = processthreadsapi::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION
-                                                         | PROCESS_TERMINATE,
+                                                         | PROCESS_TERMINATE
+                                                         | SYNCHRONIZE,
                                                          FALSE,
                                                          pid);
 
         // we expect this to happen if the process died
         // before OpenProcess completes
+        //
+        // This will also happen if pid is 0 (i.e., the system
+        // process)
         if proc_handle.is_null() {
             None
         } else {
@@ -42,7 +47,15 @@ pub fn handle_from_pid(pid: Pid) -> Option<HANDLE> {
     }
 }
 
-/// Determines if a process is running with the given process identifier.
+/// Determines if a process is running with the given process
+/// identifier.
+///
+/// Note that if pid is 0, this function will return `false`. That is
+/// currently desirable, though, because this function should never be
+/// called with a pid of 0 anyway.
+///
+/// See the Unix implementation in `src/os/process/unix.rs` for
+/// additional background.
 pub fn is_alive(pid: Pid) -> bool {
     match handle_from_pid(pid) {
         Some(handle) => {

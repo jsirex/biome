@@ -7,7 +7,7 @@ use crate::manager::service::{HealthCheckResult as DomainHealthCheckResult,
                               UpdateStrategy as DomainUpdateStrategy};
 use prost::Message;
 
-include!(concat!(env!("OUT_DIR"), "/chef.biome.supervisor.event.rs"));
+include!(concat!(env!("OUT_DIR"), "/chef.habitat.supervisor.event.rs"));
 
 // Note: `HealthCheckResult` here is the protobuf-generated type for
 // the event we're sending out; `DomainHealthCheckResult` is the one we use

@@ -40,7 +40,8 @@ use biome_common::{cli::cache_key_path_from_matches,
                      FeatureFlag};
 #[cfg(windows)]
 use biome_core::crypto::dpapi::encrypt;
-use biome_core::{crypto::{self,
+use biome_core::{self,
+                   crypto::{self,
                             SymKey},
                    os::process::ShutdownTimeout,
                    url::{bldr_url_from_env,
@@ -58,7 +59,9 @@ use biome_sup_protocol::{self as sup_proto,
 use std::{env,
           io::{self,
                Write},
-          net::{SocketAddr,
+          net::{IpAddr,
+                Ipv4Addr,
+                SocketAddr,
                 ToSocketAddrs},
           path::{Path,
                  PathBuf},
@@ -79,7 +82,7 @@ fn main() {
     logger::init();
     let mut ui = UI::default_with_env();
     let flags = FeatureFlag::from_env(&mut ui);
-    let result = start_rsr_imlw_mlw_gsw(flags);
+    let result = start_rsr_imlw_mlw_gsw_smw_rhw_msw(flags);
     let exit_code = match result {
         Ok(_) => 0,
         Err(ref err) => {
@@ -115,7 +118,10 @@ fn boot() -> Option<LauncherCli> {
 /// * `MemberList::initial_members` (write)
 /// * `MemberList::entries` (write)
 /// * `GatewayState::inner` (write)
-fn start_rsr_imlw_mlw_gsw(feature_flags: FeatureFlag) -> Result<()> {
+/// * `Server::member` (write)
+/// * `RumorHeat::inner` (write)
+/// * `ManagerServices::inner` (write)
+fn start_rsr_imlw_mlw_gsw_smw_rhw_msw(feature_flags: FeatureFlag) -> Result<()> {
     if feature_flags.contains(FeatureFlag::TEST_BOOT_FAIL) {
         outputln!("Simulating boot failure");
         return Err(Error::TestBootFail);
@@ -145,7 +151,7 @@ fn start_rsr_imlw_mlw_gsw(feature_flags: FeatureFlag) -> Result<()> {
         ("bash", Some(_)) => sub_bash(),
         ("run", Some(m)) => {
             let launcher = launcher.ok_or(Error::NoLauncher)?;
-            sub_run_rsr_imlw_mlw_gsw(m, launcher, feature_flags)
+            sub_run_rsr_imlw_mlw_gsw_smw_rhw_msw(m, launcher, feature_flags)
         }
         ("sh", Some(_)) => sub_sh(),
         ("term", Some(_)) => sub_term(),
@@ -160,14 +166,30 @@ fn sub_bash() -> Result<()> { command::shell::bash() }
 /// * `MemberList::initial_members` (write)
 /// * `MemberList::entries` (write)
 /// * `GatewayState::inner` (write)
-fn sub_run_rsr_imlw_mlw_gsw(m: &ArgMatches,
-                            launcher: LauncherCli,
-                            feature_flags: FeatureFlag)
-                            -> Result<()> {
+/// * `Server::member` (write)
+/// * `RumorHeat::inner` (write)
+/// * `ManagerServices::inner` (write)
+fn sub_run_rsr_imlw_mlw_gsw_smw_rhw_msw(m: &ArgMatches,
+                                        launcher: LauncherCli,
+                                        feature_flags: FeatureFlag)
+                                        -> Result<()> {
     set_supervisor_logging_options(m);
 
     let cfg = mgrcfg_from_sup_run_matches(m, feature_flags)?;
-    let manager = Manager::load_imlw(cfg, launcher)?;
+
+    let sys_ip = m.value_of("SYS_IP_ADDRESS")
+                  .and_then(|s| IpAddr::from_str(s).ok())
+                  .or_else(|| {
+                      let result_ip = biome_core::util::sys::ip();
+                      if let Err(e) = &result_ip {
+                          warn!("{}", e);
+                      }
+                      result_ip.ok()
+                  })
+                  .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+    info!("Using sys IP address {}", sys_ip);
+
+    let manager = Manager::load_imlw(cfg, launcher, sys_ip)?;
 
     // We need to determine if we have an initial service to start
     let svc = if let Some(pkg) = m.value_of("PKG_IDENT_OR_ARTIFACT") {
@@ -200,7 +222,8 @@ fn sub_run_rsr_imlw_mlw_gsw(m: &ArgMatches,
     } else {
         None
     };
-    manager.run_rsw_imlw_mlw_gsw(svc)
+
+    manager.run_rsw_imlw_mlw_gsw_smw_rhw_msw(svc)
 }
 
 fn sub_sh() -> Result<()> { command::shell::sh() }
