@@ -143,7 +143,7 @@ pub struct EventStreamConnectionInfo {
 
 impl EventStreamConnectionInfo {
     pub fn new(supervisor_id: &str, config: EventStreamConfig) -> Self {
-        EventStreamConnectionInfo { name:           format!("bio_client_{}", supervisor_id),
+        EventStreamConnectionInfo { name:           format!("hab_client_{}", supervisor_id),
                                     verbose:        true,
                                     cluster_uri:    config.url,
                                     auth_token:     config.token,
