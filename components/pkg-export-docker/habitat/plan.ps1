@@ -1,5 +1,5 @@
 $pkg_name = "bio-pkg-export-docker"
-$pkg_origin = "core"
+$pkg_origin = "biome"
 $pkg_maintainer = "The Biome Maintainers <humans@biome.sh>"
 $pkg_license = @("Apache-2.0")
 $pkg_bin_dirs = @("bin")

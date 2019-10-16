@@ -41,7 +41,7 @@
       },
       "s3": {
         "backend": "minio",
-        "bucket_name": "biome-builder-artifact-store.default",
+        "bucket_name": "habitat-builder-artifact-store.default",
         "endpoint": "http://localhost:9000",
         "key_id": "depot",
         "secret_key": "haha"
