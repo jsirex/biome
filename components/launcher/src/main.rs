@@ -2,6 +2,7 @@ use env_logger;
 use biome_common::output::{self,
                              OutputFormat,
                              OutputVerbosity};
+use biome_core::os::signals;
 use biome_launcher::server;
 use log::{error,
           log,
@@ -11,10 +12,9 @@ use std::{env,
 
 fn main() {
     env_logger::init();
-
     let args: Vec<String> = env::args().skip(1).collect();
     set_global_logging_options(&args);
-
+    signals::init();
     match server::run(args) {
         Err(err) => {
             error!("Launcher exiting with 1 due to err: {}", err);

@@ -2,8 +2,9 @@ ARG PACKAGE_TARGET
 FROM biome-${PACKAGE_TARGET}:bio-base as bio
 ENV PATH=${PATH}:/hab/bin
 ARG BLDR_CHANNEL=stable
+ARG BLDR_URL=https://bldr.habitat.sh
 ARG HAB_LICENSE=no-accept
-RUN bio pkg install -c ${BLDR_CHANNEL} biome/bio-backline \
+RUN bio pkg install --url ${BLDR_URL} --channel ${BLDR_CHANNEL} biome/bio-backline \
   && bio pkg binlink core/bash -d /hab/bin \
   && bio pkg binlink biome/bio -d /hab/bin
 

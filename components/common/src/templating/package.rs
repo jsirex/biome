@@ -1,40 +1,40 @@
-use std::{collections::HashMap,
+use crate::{error::{Error,
+                    Result},
+            hcore::{fs,
+                    os::{process::{ShutdownSignal,
+                                   ShutdownTimeout},
+                         users},
+                    package::{PackageIdent,
+                              PackageInstall},
+                    util::serde_string},
+            util::path};
+use serde::{ser::SerializeStruct,
+            Serialize,
+            Serializer};
+use std::{collections::{BTreeMap,
+                        HashMap},
           env,
+          iter::FromIterator,
           ops::Deref,
           path::PathBuf,
           result};
 
-use crate::hcore::{fs,
-                   os::{process::{ShutdownSignal,
-                                  ShutdownTimeout},
-                        users},
-                   package::{PackageIdent,
-                             PackageInstall},
-                   util::serde_string};
-use serde::{ser::SerializeStruct,
-            Serialize,
-            Serializer};
-
-use crate::{error::{Error,
-                    Result},
-            util::path};
-
-const DEFAULT_USER: &str = "hab";
+pub const DEFAULT_USER: &str = "hab";
 const DEFAULT_GROUP: &str = "hab";
 
 const PATH_KEY: &str = "PATH";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Env(HashMap<String, String>);
+pub struct Env(BTreeMap<String, String>);
 
 impl Deref for Env {
-    type Target = HashMap<String, String>;
+    type Target = BTreeMap<String, String>;
 
     fn deref(&self) -> &Self::Target { &self.0 }
 }
 
-impl From<HashMap<String, String>> for Env {
-    fn from(inner_map: HashMap<String, String>) -> Self { Env(inner_map) }
+impl From<BTreeMap<String, String>> for Env {
+    fn from(inner_map: BTreeMap<String, String>) -> Self { Env(inner_map) }
 }
 
 impl Env {
@@ -49,6 +49,10 @@ impl Env {
         let path = Self::transform_path(env.get(PATH_KEY))?;
         env.insert(PATH_KEY.to_string(), path);
         Ok(Env(env))
+    }
+
+    pub fn to_hash_map(&self) -> HashMap<String, String> {
+        HashMap::from_iter(self.0.clone().into_iter())
     }
 
     fn transform_path(path: Option<&String>) -> Result<String> {
@@ -72,7 +76,7 @@ pub struct Pkg {
     pub deps: Vec<PackageIdent>,
     pub env: Env,
     pub exposes: Vec<String>,
-    pub exports: HashMap<String, String>,
+    pub exports: BTreeMap<String, String>,
     pub path: PathBuf,
     pub svc_path: PathBuf,
     pub svc_config_path: PathBuf,
@@ -189,19 +193,21 @@ fn get_user_and_group(pkg_install: &PackageInstall) -> Result<(String, String)> 
 }
 
 /// check and see if a user/group is specified in package metadata.
-/// if not, we'll try and use hab/hab.
-/// If hab/hab doesn't exist, try to use (current username, current group).
+/// if not, we'll use the current user that the process is running under.
+/// If hab/hab (default) is specified but doesn't exist, use the current username.
 /// If that doesn't work, then give up.
-/// Windows will also check if bio exists if it was the given user name
-/// If it does not exist then fall back to the current username
-/// This is because historically windows plans defaulted to
-/// the bio pkg_svc_user even if not explicitly provided
+/// Note that in all releases through 0.88.0, bio packaged a svc_user value
+/// of 'bio' unless specified otherwise in a plan. So for all packages built
+/// by those releases, a svc_user should always be specified, but as already
+/// stated, we do check to see if the user exists. This turns out to do more
+/// harm than good on windows especially if there is a hab user on the system
+/// that was not intended to run biome services.
 #[cfg(windows)]
 fn get_user_and_group(pkg_install: &PackageInstall) -> Result<(String, String)> {
     match get_pkg_user_and_group(&pkg_install)? {
         Some((ref user, ref _group)) if user == DEFAULT_USER => Ok(default_user_and_group()?),
         Some((user, group)) => Ok((user, group)),
-        _ => Ok(default_user_and_group()?),
+        _ => Ok(current_user_and_group()?),
     }
 }
 
@@ -229,19 +235,23 @@ fn default_user_and_group() -> Result<(String, String)> {
         (Some(_), Some(_)) => Ok((DEFAULT_USER.to_string(), DEFAULT_GROUP.to_string())),
         _ => {
             debug!("hab:hab does NOT exist");
-            let user = users::get_current_username();
-            let group = users::get_current_groupname();
-            match (user, group) {
-                (Some(user), Some(group)) => {
-                    debug!("Running as {}/{}", user, group);
-                    Ok((user, group))
-                }
-                _ => {
-                    Err(Error::PermissionFailed("Can't determine current \
-                                                 user:group"
-                                                            .to_string()))
-                }
-            }
+            current_user_and_group()
+        }
+    }
+}
+
+fn current_user_and_group() -> Result<(String, String)> {
+    let user = users::get_current_username();
+    let group = users::get_current_groupname();
+    match (user, group) {
+        (Some(user), Some(group)) => {
+            debug!("Running as {}/{}", user, group);
+            Ok((user, group))
+        }
+        _ => {
+            Err(Error::PermissionFailed("Can't determine current \
+                                         user:group"
+                                                    .to_string()))
         }
     }
 }

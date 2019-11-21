@@ -2,8 +2,10 @@ use crate::{error::{Error,
                     Result},
             generated};
 use prost::Message;
-use std::{collections::HashMap,
-          fmt};
+use std::{collections::{BTreeMap,
+                        HashMap},
+          fmt,
+          iter::FromIterator};
 
 pub trait LauncherMessage
     where Self: Clone + fmt::Debug
@@ -129,7 +131,7 @@ pub struct Spawn {
     pub svc_user:     Option<String>,
     pub svc_group:    Option<String>,
     pub svc_password: Option<String>,
-    pub env:          HashMap<String, String>,
+    pub env:          BTreeMap<String, String>,
     pub svc_user_id:  Option<u32>,
     pub svc_group_id: Option<u32>,
 }
@@ -145,7 +147,7 @@ impl LauncherMessage for Spawn {
                    svc_user:     proto.svc_user,
                    svc_group:    proto.svc_group,
                    svc_password: proto.svc_password,
-                   env:          proto.env,
+                   env:          BTreeMap::from_iter(proto.env.into_iter()),
                    svc_user_id:  proto.svc_user_id,
                    svc_group_id: proto.svc_group_id, })
     }
@@ -158,7 +160,7 @@ impl From<Spawn> for generated::Spawn {
                            svc_user:     value.svc_user,
                            svc_group:    value.svc_group,
                            svc_password: value.svc_password,
-                           env:          value.env,
+                           env:          HashMap::from_iter(value.env.into_iter()),
                            svc_user_id:  value.svc_user_id,
                            svc_group_id: value.svc_group_id, }
     }
@@ -273,4 +275,48 @@ impl LauncherMessage for Shutdown {
 
 impl From<Shutdown> for generated::Shutdown {
     fn from(_value: Shutdown) -> Self { generated::Shutdown {} }
+}
+
+#[derive(Clone, Debug)]
+pub struct PidOf {
+    pub service_name: String,
+}
+
+impl LauncherMessage for PidOf {
+    type Generated = generated::PidOf;
+
+    const MESSAGE_ID: &'static str = "PidOf";
+
+    fn from_proto(proto: generated::PidOf) -> Result<Self> {
+        Ok(PidOf { service_name: proto.service_name
+                                      .ok_or(Error::ProtocolMismatch("service_name"))?, })
+    }
+}
+
+impl From<PidOf> for generated::PidOf {
+    fn from(value: PidOf) -> Self { generated::PidOf { service_name: Some(value.service_name), } }
+}
+
+#[derive(Clone, Debug)]
+pub struct PidIs {
+    pub pid: Option<u32>,
+}
+
+impl LauncherMessage for PidIs {
+    type Generated = generated::PidIs;
+
+    const MESSAGE_ID: &'static str = "PidIs";
+
+    fn from_proto(proto: generated::PidIs) -> Result<Self> {
+        // TODO (CM): ensure that the Pid is never Some(0)
+        Ok(PidIs { pid: proto.pid })
+    }
+}
+
+impl From<PidIs> for generated::PidIs {
+    // TODO (CM): I would need to ensure that PidIs can never contain
+    // a non-zero u32
+    //
+    // Perhaps we truly do need a NonZero Pid type here
+    fn from(value: PidIs) -> Self { generated::PidIs { pid: value.pid } }
 }

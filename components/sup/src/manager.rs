@@ -60,14 +60,13 @@ use biome_common::{liveliness_checker,
 #[cfg(unix)]
 use biome_core::os::{process::{ShutdownSignal,
                                  Signal},
-                       signals::SignalEvent};
+                       signals};
 use biome_core::{crypto::SymKey,
                    env,
                    fs::FS_ROOT_PATH,
-                   os::{process::{self,
-                                  Pid,
-                                  ShutdownTimeout},
-                        signals},
+                   os::process::{self,
+                                 Pid,
+                                 ShutdownTimeout},
                    package::{Identifiable,
                              PackageIdent,
                              PackageInstall},
@@ -79,8 +78,6 @@ use biome_launcher_client::{LauncherCli,
                               LAUNCHER_PID_ENV};
 use biome_sup_protocol;
 use num_cpus;
-#[cfg(unix)]
-use palaver;
 use prometheus::{HistogramVec,
                  IntGauge,
                  IntGaugeVec};
@@ -146,6 +143,48 @@ lazy_static! {
     static ref CPU_TIME: IntGauge = register_int_gauge!("bio_sup_cpu_time_nanoseconds",
                                                         "CPU time of the supervisor process in \
                                                          nanoseconds").unwrap();
+}
+
+#[derive(Clone, Copy, Debug)]
+/// Determines whether the new pidfile-less behavior is enabled, or
+/// the old behavior is used.
+pub enum ServicePidSource {
+    /// The "old" behavior; find out a Service's PID by reading a pidfile.
+    Files,
+    /// The "new" behavior; query the Launcher directly to discover a
+    /// Service's PID.
+    Launcher,
+}
+
+impl ServicePidSource {
+    /// This check is to determine if the user has both opted-in to
+    /// the new "no pidfiles" feature AND is running a Launcher
+    /// that can support it. If either of those conditions are not
+    /// met, we will continue to use the old pidfile logic.
+    ///
+    /// You should call this function once early in the Supservisor's
+    /// lifecycle and cache the results. We only want to incur the
+    /// timeout hit when we check to see if the launcher can answer
+    /// our query once. Otherwise, if we were using an older launcher,
+    /// we would incur that hit each time we start a new service.
+    fn determine_source(feature_flags: FeatureFlag, launcher: &LauncherCli) -> Self {
+        if feature_flags.contains(FeatureFlag::PIDS_FROM_LAUNCHER) {
+            if launcher.pid_of("fake_service.just_to_see_if_the_launcher_can_handle_this_message")
+                       .is_err()
+            {
+                warn!("Opted in to PIDS_FROM_LAUNCHER feature, but you do not appear to be \
+                       running a compatible Launcher. Continuing to use pidfiles for services.");
+                ServicePidSource::Files
+            } else {
+                outputln!("PIDS_FROM_LAUNCHER feature enabled: Not using pidfiles for services!");
+                ServicePidSource::Launcher
+            }
+        } else {
+            // This is the pre-existing "normal" behavior; no reason
+            // to call attention to it with logging output.
+            ServicePidSource::Files
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -528,6 +567,7 @@ pub struct Manager {
     services_need_reconciliation: ReconciliationFlag,
 
     feature_flags: FeatureFlag,
+    pid_source: ServicePidSource,
     /// The runtime for spawning various `Manager` futures. Eventually, `Manager` could become a
     /// future itself. This would allow us to remove this runtime and simply use `tokio::spawn`.
     runtime: Runtime,
@@ -654,6 +694,8 @@ impl Manager {
             event::init_stream(es_config, ec, &mut runtime)?;
         }
 
+        let pid_source = ServicePidSource::determine_source(cfg.feature_flags, &launcher);
+
         Ok(Manager { state: Arc::new(ManagerState { cfg: cfg_static,
                                                     services,
                                                     gateway_state: Arc::default() }),
@@ -674,6 +716,7 @@ impl Manager {
                      busy_services: Arc::new(Mutex::new(HashSet::new())),
                      services_need_reconciliation: ReconciliationFlag::new(false),
                      feature_flags: cfg.feature_flags,
+                     pid_source,
                      runtime })
     }
 
@@ -766,7 +809,8 @@ impl Manager {
                                          spec,
                                          self.fs_cfg.clone(),
                                          self.organization.as_ref().map(String::as_str),
-                                         self.state.gateway_state.clone())
+                                         self.state.gateway_state.clone(),
+                                         self.pid_source)
         {
             Ok(service) => {
                 outputln!("Starting {} ({})", ident, service.pkg.ident);
@@ -956,17 +1000,6 @@ impl Manager {
             debug!("http-gateway started");
         }
 
-        // On Windows initializng the signal handler will create a ctrl+c handler for the
-        // process which will disable default windows ctrl+c behavior and allow us to
-        // handle via check_for_signal. However, if the supervsor is in a long running
-        // non-run hook, the below loop will not get to check_for_signal in a reasonable
-        // amount of time and the supervisor will not respond to ctrl+c. On Windows, we
-        // let the launcher catch ctrl+c and gracefully shut down services. ctrl+c should
-        // simply halt the supervisor
-        if !self.feature_flags.contains(FeatureFlag::IGNORE_SIGNALS) {
-            signals::init();
-        }
-
         // Enter the main Supervisor loop. When we break out, it'll be
         // because we've been instructed to shutdown. The value we
         // break out with governs exactly how we shut down.
@@ -1018,19 +1051,12 @@ impl Manager {
                 break ShutdownMode::Departed;
             }
 
-            // This formulation is gross, but it doesn't seem to compile on Windows otherwise.
-            #[allow(clippy::match_bool)]
-            #[allow(clippy::single_match)]
             #[cfg(unix)]
-            match self.feature_flags.contains(FeatureFlag::IGNORE_SIGNALS) {
-                false => {
-                    if let Some(SignalEvent::Passthrough(Signal::HUP)) = signals::check_for_signal()
-                    {
-                        outputln!("Supervisor shutting down for signal");
-                        break ShutdownMode::Restarting;
-                    }
+            {
+                if signals::pending_sighup() {
+                    outputln!("Supervisor shutting down for signal");
+                    break ShutdownMode::Restarting;
                 }
-                _ => {}
             }
 
             if let Some(package) = self.check_for_updated_supervisor() {
@@ -1361,7 +1387,8 @@ impl Manager {
                                                   spec,
                                                   self.fs_cfg.clone(),
                                                   self.organization.as_ref().map(String::as_str),
-                                                  self.state.gateway_state.clone());
+                                                  self.state.gateway_state.clone(),
+                                                  self.pid_source);
                         if let Err(ref e) = result {
                             warn!("Failed to create service '{}' from spec: {:?}", ident, e);
                         }
@@ -1867,10 +1894,14 @@ fn get_fd_count() -> std::io::Result<usize> {
     }
 }
 
+// Assume we have /proc/self/fd unless we know we don't
+#[cfg(not(any(target_os = "freebsd", target_os = "macos", target_os = "ios")))]
+const FD_DIR: &str = "/proc/self/fd";
+#[cfg(any(target_os = "freebsd", target_os = "macos", target_os = "ios"))]
+const FD_DIR: &str = "/dev/fd";
+
 #[cfg(unix)]
-fn get_fd_count() -> std::io::Result<usize> {
-    palaver::file::FdIter::new().map(palaver::file::FdIter::count)
-}
+fn get_fd_count() -> std::io::Result<usize> { Ok(fs::read_dir(FD_DIR)?.count()) }
 
 #[cfg(unix)]
 fn track_memory_stats() {

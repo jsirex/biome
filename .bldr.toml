@@ -12,9 +12,6 @@ paths = [
 [bio-backline]
 plan_path = "components/backline"
 
-[bio-bintray-publish]
-plan_path = "components/bintray-publish"
-
 [bio-launcher]
 plan_path = "components/launcher/habitat"
 paths = [
@@ -92,3 +89,6 @@ paths = [
 
 [bio-pkg-mesosize]
 plan_path = "components/pkg-mesosize"
+
+[simple-hooks]
+plan_path = "test/fixtures/plans/simple-hooks"
