@@ -1,5 +1,5 @@
 $version = '$version$'
-$url = "https://packages.chef.io/files/biome/$version/bio-x86_64-windows.zip"
+$url = "https://github/biome-sh/biome/releases/download/bio-$version/bio-x86_64-windows.zip"
 $unzipLocation = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
 $checksum = '$checksum$'
 
