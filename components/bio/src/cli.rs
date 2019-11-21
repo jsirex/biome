@@ -13,6 +13,7 @@ use biome_common::{cli::{file_into_idents,
                      types::{AutomateAuthToken,
                              EventStreamConnectMethod,
                              EventStreamMetadata,
+                             EventStreamServerCertificate,
                              GossipListenAddr,
                              HttpListenAddr,
                              ListenCtlAddr},
@@ -564,7 +565,10 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                      of the value of this option.")
                 (@arg FORCE: --force "Skip checking availability of package and \
                     force uploads, potentially overwriting a stored copy of a package.")
-                (@arg AUTO_BUILD: --("auto-build") "Enable auto-build for all packages in this upload. Only applicable to SaaS Builder.")
+                (@arg AUTO_BUILD: --("auto-build") "Enable auto-build for all packages in this upload. \
+                    Only applicable to SaaS Builder.")
+                (@arg AUTO_CREATE_ORIGINS: --("auto-create-origins") "Skip the confirmation prompt and \
+                    automatically create origins that do not exist in the target Builder.")
                 (@arg UPLOAD_DIRECTORY: +required {dir_exists}
                     "Directory Path from which artifacts will be uploaded.")
             )
@@ -932,7 +936,7 @@ fn sub_pkg_download() -> App<'static, 'static> {
     let sub = clap_app!(@subcommand download =>
     (about: "Download Biome artifacts (including dependencies and keys) from Builder")
     (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
-    (@arg BLDR_URL: --url -u +takes_value {valid_url} default_value(biome_core::url::DEFAULT_BLDR_URL)
+    (@arg BLDR_URL: --url -u +takes_value {valid_url}
         "Specify an alternate Builder endpoint. If not specified, the value will \
          be taken from the HAB_BLDR_URL environment variable if defined.")
     (@arg CHANNEL: --channel -c +takes_value default_value[stable] env(ChannelIdent::ENVVAR)
@@ -1320,6 +1324,14 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
                                                          .takes_value(true)
                                                          .multiple(true)
                                                          .validator(EventStreamMetadata::validate))
+       .arg(Arg::with_name("EVENT_STREAM_SERVER_CERTIFICATE").help("The path to the event stream \
+                                                                    server's certificate in PEM \
+                                                                    format used to establish a \
+                                                                    TLS connection")
+                                              .long("event-stream-server-certificate")
+                                              .required(false)
+                                              .takes_value(true)
+                                              .validator(EventStreamServerCertificate::validate))
 }
 
 // CLAP Validation Functions

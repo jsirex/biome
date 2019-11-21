@@ -471,6 +471,24 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .ok_if(&[StatusCode::NO_CONTENT])
     }
 
+    /// Check an origin exists
+    ///
+    ///  # Failures
+    ///
+    ///  * Origin is not found
+    ///  * Remote Builder is not available
+    fn check_origin(&self, origin: &str, token: &str) -> Result<()> {
+        debug!("Checking for existence of origin: {}", origin);
+
+        let path = format!("depot/origins/{}", origin);
+
+        self.0
+            .get(&path)
+            .bearer_auth(token)
+            .send()?
+            .ok_if(&[StatusCode::OK])
+    }
+
     /// Delete an origin
     ///
     ///  # Failures
@@ -796,7 +814,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
         let mut encoded = String::new();
         resp.read_to_string(&mut encoded)
             .map_err(Error::BadResponseBody)?;
-        trace!(target: "biome_http_client::api_client::show_package", "{:?}", encoded);
+        trace!(target: "biome_http_client::api_client::show_package_metadata", "{:?}", encoded);
 
         let package: Package = serde_json::from_str::<Package>(&encoded)?;
         Ok(package)
@@ -1260,7 +1278,7 @@ mod tests {
         let client = BuilderAPIClient::new("http://test.com", "", "", None).expect("valid client");
 
         let sample_data = vec!["one_a", "one_b", "one_c", "one_d", "one_e", "two_a", "two_b",
-                               "two_c", "two_d", "two_e"];
+                               "two_c", "two_d", "two_e",];
 
         let searcher = seach_generator(sample_data.as_slice(), 2);
         let r = client.search_package_impl("one", 10, None, searcher)

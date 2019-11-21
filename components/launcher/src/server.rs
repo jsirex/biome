@@ -20,9 +20,9 @@ use biome_common::{liveliness_checker::{self,
                                           ThreadUnregistered},
                      outputln};
 #[cfg(unix)]
-use biome_core::os::{process::{Pid,
-                                 Signal},
-                       signals::SignalEvent};
+use biome_core::os::process::{Pid,
+                                Signal};
+
 use ipc_channel::ipc::{IpcOneShotServer,
                        IpcReceiver,
                        IpcSender};
@@ -217,6 +217,11 @@ impl Server {
         // for a possible future where this isn't needed, and reaping
         // could theoretically just take place at the very end of this
         // shutdown process, rather than repeatedly.
+        //
+        // TODO (CM): need some kind of timeout here... if the
+        // Supervisor didn't get the signal, then we're just going to
+        // hang here forever. We should have a (customizable) timeout
+        // here, after which we kill *everything*.
         while let Ok(None) = self.supervisor.try_wait() {
             self.services.reap_services();
             thread::sleep(Duration::from_millis(5));
@@ -254,14 +259,14 @@ impl Server {
         // tracking still works on Windows.
         self.reap_services();
 
-        if signals::check_for_shutdown() {
+        if signals::pending_shutdown() {
             self.shutdown();
             return Ok(TickState::Exit(0));
         }
 
         #[cfg(unix)]
-        match signals::check_for_signal() {
-            Some(SignalEvent::WaitForChild) => {
+        {
+            if signals::pending_sigchld() {
                 // We only return Some if we ended up reaping our
                 // Supervisor; otherwise, we don't need to do anything
                 // special. If the supervisor exits but reap_zombie_orphans()
@@ -271,12 +276,11 @@ impl Server {
                     return result;
                 }
             }
-            Some(SignalEvent::Passthrough(signal)) => {
-                self.forward_signal(signal);
-            }
-            None => {}
-        }
 
+            if signals::pending_sighup() {
+                self.forward_signal(Signal::HUP);
+            }
+        }
         self.handle_message()
     }
 
@@ -380,6 +384,37 @@ impl ServiceTable {
 
     pub fn remove(&mut self, pid: u32) -> Option<Service> { self.0.remove(&pid) }
 
+    // Obviously this is not the most elegant implementation. However,
+    // in practice we don't have a whole lot of processes per
+    // Supervisor. A better-than-O(n) solution would also require more
+    // extensive refactoring of this data type, which is not something
+    // I particularly want to dive into *right now* (eventually,
+    // though).
+    //
+    // Note that this also implicitly relies on the fact that a single
+    // supervisor can't be running more than one service with a given
+    // name. That should always be the case, but *this* code doesn't
+    // enforce that.
+    //
+    // TODO (CM): Enforce that service_name is actually a full
+    // ServiceGroup name (and elsewhere)
+    /// Given the name of a service group (e.g. "redis.default"),
+    /// return the PID of the process we're currently running for that
+    /// service group, if it exists.
+    ///
+    /// This allows a restarting Supervisor to query the Launcher to
+    /// figure out if there are currently-running services to which it
+    /// needs to re-attach itself.
+    pub fn pid_of(&self, service_name: &str) -> Option<u32> {
+        self.0.iter().find_map(|(pid, service)| {
+                         if service_name == service.args().id {
+                             Some(*pid)
+                         } else {
+                             None
+                         }
+                     })
+    }
+
     fn kill_all(&mut self) {
         for service in self.0.values_mut() {
             outputln!(preamble service.name(), "Stopping...");
@@ -418,7 +453,6 @@ impl ServiceTable {
 
 pub fn run(args: Vec<String>) -> Result<i32> {
     let mut server = Server::new(args)?;
-    signals::init();
     liveliness_checker::spawn_thread_alive_checker();
     let loop_value: ThreadUnregistered<_, _> = loop {
         let checked_thread = liveliness_checker::mark_thread_alive();
@@ -463,8 +497,18 @@ fn dispatch(tx: &Sender, bytes: &[u8], services: &mut ServiceTable) {
         "Restart" => handlers::RestartHandler::run,
         "Spawn" => handlers::SpawnHandler::run,
         "Terminate" => handlers::TerminateHandler::run,
+        "PidOf" => handlers::PidHandler::run,
         unknown => {
-            warn!("Received unknown message from Supervisor, {}", unknown);
+            // This sucks a bit because it replicates some code from the
+            // Handler trait, but manipulating an unknown message
+            // doesn't really fit that pattern :(
+            let msg = format!("Received unknown message from Supervisor, {}", unknown);
+            warn!("{}", msg);
+            let reply = protocol::NetErr { code: protocol::ErrCode::UnknownMessage,
+                                           msg };
+            if let Err(err) = send(tx, &reply) {
+                error!("{}: replying, {}", unknown, err);
+            }
             return;
         }
     };

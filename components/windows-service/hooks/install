@@ -1,0 +1,7 @@
+. {{pkg.path}}\bin\biome.ps1
+
+if((Get-Service Biome -ErrorAction SilentlyContinue) -ne $null) {
+    UnInstall-HabService
+}
+
+Install-HabService

@@ -21,17 +21,9 @@ $pkg_build_deps = @(
 )
 
 function pkg_version {
-    # This looks a little funny but a non
-    # null value will be evaluated as true
-    if ($Env:DO_FAKE_RELEASE) {
-        Write-BuildLine "Doing a fake release"
-        Get-Content "$SRC_PATH/VERSION_FAKE"
-    } else {
-        Write-BuildLine "Doing a real release!"
-        Get-Content "$SRC_PATH/VERSION"
-    }
+    Get-Content "$SRC_PATH/VERSION"
 }
-  
+
 function Invoke-Before {
     Invoke-DefaultBefore
     Set-PkgVersion
@@ -86,4 +78,8 @@ function Invoke-Install {
     Copy-Item "$(Get-HabPackagePath "xz")/bin/*.dll" "$pkg_prefix/bin"
     Copy-Item "$(Get-HabPackagePath "zeromq")/bin/*.dll" "$pkg_prefix/bin"
     Copy-Item "$(Get-HabPackagePath "visual-cpp-redist-2015")/bin/*.dll" "$pkg_prefix/bin"
+}
+
+function Invoke-Clean {
+    if(!$env:HAB_SKIP_CLEAN) { Invoke-DefaultClean }
 }
