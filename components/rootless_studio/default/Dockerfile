@@ -1,5 +1,6 @@
 ARG BIO_VERSION=0.85.0
-FROM biomesh/bio:$BIO_VERSION as bio
+ARG BIO_TARGET=x86_64-linux
+FROM biomesh/bio-$BIO_TARGET:$BIO_VERSION as bio
 ENV PATH=${PATH}:/hab/bin
 ARG BLDR_CHANNEL=stable
 # ARG HAB_LICENSE=no-accept
