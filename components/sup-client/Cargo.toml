@@ -6,7 +6,7 @@ authors = ["The Biome Maintainers <humans@biome.sh>"]
 workspace = "../../"
 
 [dependencies]
-futures = "*"
+futures = "0.1"
 biome-sup-protocol = { path = "../sup-protocol", default-features = false }
 biome_common = { path = "../common" }
 log = "*"

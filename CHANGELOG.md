@@ -1,10 +1,10 @@
 # Habitat CHANGELOG
 
-<!-- latest_release 0.90.26 -->
-## [0.90.26](https://github.com/habitat-sh/habitat/tree/0.90.26) (2019-11-20)
+<!-- latest_release 0.90.47 -->
+## [0.90.47](https://github.com/habitat-sh/habitat/tree/0.90.47) (2019-12-11)
 
 #### Merged Pull Requests
-- Adds docs people to www [#7218](https://github.com/habitat-sh/habitat/pull/7218) ([kagarmoe](https://github.com/kagarmoe))
+- Update release documentation [#7263](https://github.com/habitat-sh/habitat/pull/7263) ([christophermaier](https://github.com/christophermaier))
 <!-- latest_release -->
 
 <!-- release_rollup since=0.90.6 -->
@@ -17,6 +17,30 @@
 - Fix lock when spawning windows processes [#7213](https://github.com/habitat-sh/habitat/pull/7213) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.19 -->
 
 #### Merged Pull Requests
+- Update release documentation [#7263](https://github.com/habitat-sh/habitat/pull/7263) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.47 -->
+- Unpin reqwest [#7277](https://github.com/habitat-sh/habitat/pull/7277) ([chefsalim](https://github.com/chefsalim)) <!-- 0.90.46 -->
+- mirror RUSTFMT_VERSION in RUST_NIGHTLY_VERSION [#7274](https://github.com/habitat-sh/habitat/pull/7274) ([jeremymv2](https://github.com/jeremymv2)) <!-- 0.90.45 -->
+- Retry installation of rustup in CI for Windows [#7262](https://github.com/habitat-sh/habitat/pull/7262) ([smacfarlane](https://github.com/smacfarlane)) <!-- 0.90.44 -->
+- auto bump rustfmt version post release [#7258](https://github.com/habitat-sh/habitat/pull/7258) ([jeremymv2](https://github.com/jeremymv2)) <!-- 0.90.43 -->
+- [web] Update links to point to packages.chef.io instead of Bintray [#7255](https://github.com/habitat-sh/habitat/pull/7255) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.42 -->
+- [chore] Remove some old TravisCI cruft [#7257](https://github.com/habitat-sh/habitat/pull/7257) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.41 -->
+- some minor windows service improvements [#7251](https://github.com/habitat-sh/habitat/pull/7251) ([mwrock](https://github.com/mwrock)) <!-- 0.90.40 -->
+- avoid ctl_gateway panic on peer_addr().expect() [#7244](https://github.com/habitat-sh/habitat/pull/7244) ([jeremymv2](https://github.com/jeremymv2)) <!-- 0.90.39 -->
+- [CI] Clean up some Expeditor cruft [#7249](https://github.com/habitat-sh/habitat/pull/7249) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.38 -->
+- [Chore] Update CODEOWNERS for new CI infrastructure [#7250](https://github.com/habitat-sh/habitat/pull/7250) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.38 -->
+- Remove me from codeowners :( [#7248](https://github.com/habitat-sh/habitat/pull/7248) ([scotthain](https://github.com/scotthain)) <!-- 0.90.37 -->
+- Use well known SIDs when looking up administrator and system accounts [#7224](https://github.com/habitat-sh/habitat/pull/7224) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.36 -->
+- [Chore] Clean up libbuild.rs [#7238](https://github.com/habitat-sh/habitat/pull/7238) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.35 -->
+- Use current commit to determine launcher version for Windows [#7235](https://github.com/habitat-sh/habitat/pull/7235) ([smacfarlane](https://github.com/smacfarlane)) <!-- 0.90.35 -->
+- Use current commit to determine launcher version [#7234](https://github.com/habitat-sh/habitat/pull/7234) ([smacfarlane](https://github.com/smacfarlane)) <!-- 0.90.34 -->
+- [CI] Fix failing macOS build [#7233](https://github.com/habitat-sh/habitat/pull/7233) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.33 -->
+- Bye Travis [#7232](https://github.com/habitat-sh/habitat/pull/7232) ([raskchanky](https://github.com/raskchanky)) <!-- 0.90.32 -->
+- Implement toml based file format [#7176](https://github.com/habitat-sh/habitat/pull/7176) ([markan](https://github.com/markan)) <!-- 0.90.31 -->
+- restores Swiftype [#7075](https://github.com/habitat-sh/habitat/pull/7075) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.30 -->
+- H2 anchors stay in view [#7212](https://github.com/habitat-sh/habitat/pull/7212) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.30 -->
+- Fixes formatting for hooks section [#7222](https://github.com/habitat-sh/habitat/pull/7222) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.29 -->
+- [CI] Fix PIDS_FROM_LAUNCHER e2e tests [#7220](https://github.com/habitat-sh/habitat/pull/7220) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.28 -->
+- Smaller  margins on code element [#7223](https://github.com/habitat-sh/habitat/pull/7223) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.27 -->
 - Adds docs people to www [#7218](https://github.com/habitat-sh/habitat/pull/7218) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.26 -->
 - Kg/frontmatter [#7171](https://github.com/habitat-sh/habitat/pull/7171) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.25 -->
 - Fix e2e_local scripts [#7221](https://github.com/habitat-sh/habitat/pull/7221) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.24 -->

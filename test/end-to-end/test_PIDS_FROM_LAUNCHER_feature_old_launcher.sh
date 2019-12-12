@@ -13,6 +13,7 @@ export HAB_FEAT_PIDS_FROM_LAUNCHER=1
 bio pkg install biome/bio-launcher/12605/20191112144831
 
 start_supervisor
+wait_for_control_gateway
 
 load_service "core/redis" "redis"
 
@@ -26,6 +27,7 @@ redis_pid="$(pgrep redis)"
 sup_pid="$(pgrep bio-sup)"
 
 restart_supervisor
+wait_for_control_gateway
 
 new_redis_pid="$(pgrep redis)"
 new_sup_pid="$(pgrep bio-sup)"

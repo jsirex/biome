@@ -47,7 +47,7 @@ cargo --version
 
 Next, use our installation script to install rustfmt
 ```
-./.expeditor/scripts/verify/rustfmt.sh
+./support/rustfmt_nightly.sh
 ```
 
 At any time, you can find the version of rustfmt we are using by running this command at the root level
@@ -73,7 +73,7 @@ You would run:
 cargo +nightly-2019-05-10 fmt
 ```
 
-You may also be able to configure your editor to automatically run rustfmt every time you save. The [./support/rustfmt_nightly.sh](./support/rustfmt_nightly.sh) script may be helpful. 
+You may also be able to configure your editor to automatically run rustfmt every time you save. The [./support/rustfmt_nightly.sh](./support/rustfmt_nightly.sh) script may be helpful.
 
 # Compiling biome binaries
 
@@ -140,6 +140,25 @@ export HAB_SUP_BINARY=/path/to/biome/target/debug/bio-sup
 or setting the value upon execution of the `bio` binary:
 ```
 env HAB_SUP_BINARY=/path/to/biome/target/debug/bio-sup bio sup status
+```
+
+## Running Unit Tests
+
+In order to exercise the project's unit tests you can either leverage one of the existing platform specific CI scripts or use `cargo test` on the CLI.
+
+Linux CI script
+```
+$ .expeditor/scripts/verify/run_cargo_test.sh
+```
+
+Windows CI script
+```
+$ .expeditor/scripts/verify/run_cargo_test.ps1
+```
+
+Using cargo
+```
+$ cargo +$(<RUST_NIGHTLY_VERSION) test
 ```
 
 ## Always test the biome package
