@@ -35,7 +35,8 @@ use biome_common::{cli::cache_key_path_from_matches,
                               OutputVerbosity},
                      outputln,
                      types::GossipListenAddr,
-                     ui::{NONINTERACTIVE_ENVVAR,
+                     ui::{UIWriter,
+                          NONINTERACTIVE_ENVVAR,
                           UI},
                      FeatureFlag};
 #[cfg(windows)]
@@ -52,8 +53,7 @@ use biome_launcher_client::{LauncherCli,
                               ERR_NO_RETRY_EXCODE};
 use biome_sup_protocol::{self as sup_proto,
                            ctl::ServiceBindList,
-                           types::{ApplicationEnvironment,
-                                   BindingMode,
+                           types::{BindingMode,
                                    ServiceBind,
                                    Topology,
                                    UpdateStrategy}};
@@ -178,6 +178,12 @@ fn sub_run_rsr_imlw_mlw_gsw_smw_rhw_msw(m: &ArgMatches,
                                         -> Result<()> {
     set_supervisor_logging_options(m);
 
+    // TODO (DM): This check can eventually be removed.
+    // See https://github.com/habitat-sh/habitat/issues/7339
+    if m.is_present("APPLICATION") || m.is_present("ENVIRONMENT") {
+        ui().warn("--application and --environment flags are deprecated and ignored.")?;
+    }
+
     let cfg = mgrcfg_from_sup_run_matches(m, feature_flags)?;
 
     let sys_ip = m.value_of("SYS_IP_ADDRESS")
@@ -253,7 +259,7 @@ fn mgrcfg_from_sup_run_matches(m: &ArgMatches,
                                -> Result<ManagerConfig> {
     let cache_key_path = cache_key_path_from_matches(m);
 
-    let event_stream_config = if feature_flags.contains(FeatureFlag::EVENT_STREAM) {
+    let event_stream_config = if m.value_of("EVENT_STREAM_URL").is_some() {
         Some(EventStreamConfig::from(m))
     } else {
         None
@@ -353,7 +359,7 @@ fn get_ring_key(m: &ArgMatches, cache_key_path: &Path) -> Result<Option<SymKey>>
 /// (failing those) a default value.
 fn bldr_url(m: &ArgMatches) -> String {
     match bldr_url_from_input(m) {
-        Some(url) => url.to_string(),
+        Some(url) => url,
         None => default_bldr_url(),
     }
 }
@@ -380,17 +386,6 @@ fn channel_from_input(m: &ArgMatches) -> Option<ChannelIdent> {
 
 fn get_group_from_input(m: &ArgMatches) -> Option<String> {
     m.value_of("GROUP").map(ToString::to_string)
-}
-
-/// If the user provides both --application and --environment options,
-/// parse and set the value on the spec.
-fn get_app_env_from_input(m: &ArgMatches) -> Result<Option<ApplicationEnvironment>> {
-    if let (Some(app), Some(env)) = (m.value_of("APPLICATION"), m.value_of("ENVIRONMENT")) {
-        Ok(Some(ApplicationEnvironment { application: app.to_string(),
-                                         environment: env.to_string(), }))
-    } else {
-        Ok(None)
-    }
 }
 
 fn get_topology_from_input(m: &ArgMatches) -> Option<Topology> {
@@ -428,7 +423,7 @@ fn get_config_from_input(m: &ArgMatches) -> Option<String> {
         warn!("WARNING: Setting '--config-from' should only be used in development, not \
                production!");
         warn!("");
-        Some(config_from.to_string())
+        Some((*config_from).to_string())
     } else {
         None
     }
@@ -481,7 +476,6 @@ fn svc_load_from_input(m: &ArgMatches) -> Result<sup_proto::ctl::SvcLoad> {
     let mut msg = sup_proto::ctl::SvcLoad::default();
     msg.bldr_url = Some(bldr_url(m));
     msg.bldr_channel = Some(channel(m).to_string());
-    msg.application_environment = get_app_env_from_input(m)?;
     msg.binds = get_binds_from_input(m)?;
     msg.config_from = get_config_from_input(m);
     if m.is_present("FORCE") {
@@ -500,10 +494,10 @@ fn svc_load_from_input(m: &ArgMatches) -> Result<sup_proto::ctl::SvcLoad> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use biome_common::{locked_env_var,
-                         types::{GossipListenAddr,
-                                 HttpListenAddr,
-                                 ListenCtlAddr}};
+    use biome_common::types::{GossipListenAddr,
+                                HttpListenAddr,
+                                ListenCtlAddr};
+    use biome_core::locked_env_var;
 
     fn no_feature_flags() -> FeatureFlag { FeatureFlag::empty() }
 

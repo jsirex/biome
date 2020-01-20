@@ -9,8 +9,6 @@ use crate::{error::{Error,
                     Result},
             manager::{ServicePidSource,
                       ShutdownConfig}};
-use futures::{future,
-              Future};
 use biome_common::{outputln,
                      templating::package::Pkg,
                      types::UserInfo};
@@ -41,11 +39,11 @@ pub struct Supervisor {
     // TODO (CM): make this private
     pub state_entered: Timespec,
     pid: Option<Pid>,
-    /// If the Supervisor is being run with the PIDS_FROM_LAUNCHER
-    /// feature enabled, this will be `None`, otherwise it will be
-    /// `Some(path)`. Client code should use the `Some`/`None` status
-    /// of this field as an indicator of which mode the Supervisor is
-    /// running in.
+    /// If the Supervisor is being run with an newer Launcher that
+    /// can provide service PIDs, this will be `None`, otherwise it
+    /// will be `Some(path)`. Client code should use the `Some`/`None`
+    /// status of this field as an indicator of which mode the
+    /// Supervisor is running in.
     pid_file: Option<PathBuf>,
 }
 
@@ -53,8 +51,9 @@ impl Supervisor {
     /// Create a new instance for `service_group`.
     ///
     /// The `pid_source` governs how we determine the PID of the
-    /// supervised process. Once the PIDS_FROM_LAUNCHER feature flag
-    /// goes away, this can be removed.
+    /// supervised process. Once the we decide to no longer support
+    /// the older Launchers that can't provide service PIDs, this can
+    /// be removed.
     pub fn new(service_group: &ServiceGroup, pid_source: ServicePidSource) -> Supervisor {
         let pid_file = match pid_source {
             ServicePidSource::Files => Some(fs::svc_pid_file(service_group.service())),
@@ -218,7 +217,7 @@ impl Supervisor {
     }
 
     /// Returns a future that stops a service asynchronously.
-    pub fn stop(&self, shutdown_config: ShutdownConfig) -> impl Future<Item = (), Error = Error> {
+    pub fn stop(&self, shutdown_config: ShutdownConfig) {
         let service_group = self.service_group.clone();
 
         if let Some(pid) = self.pid {
@@ -226,18 +225,19 @@ impl Supervisor {
             if pid == 0 {
                 warn!(target: "pidfile_tracing", "Cowardly refusing to stop {}, because we think it has a PID of 0, which makes no sense",
                       service_group);
-                return future::Either::B(future::ok(()));
+            } else {
+                tokio::spawn(async move {
+                    if terminator::terminate_service(pid, service_group.clone(),
+                        shutdown_config).await  .is_err()
+                    {
+                    error!(target: "pidfile_tracing", "Failed to to stop service {}", service_group);
+                    };
+                });
+                // Only delete the pidfile if we're actually using one.
+                if let Some(pid_file) = pid_file {
+                    Self::cleanup_pidfile(pid_file);
+                }
             }
-
-            future::Either::A(terminator::terminate_service(pid, service_group, shutdown_config).and_then(
-                |_shutdown_method| {
-                    // Only delete the pidfile if we're actually using one.
-                    if let Some(pid_file) = pid_file {
-                        Self::cleanup_pidfile(pid_file);
-                    }
-                    Ok(())
-                },
-            ))
         } else {
             // Not quite sure how we'd get down here without a PID...
 
@@ -246,7 +246,6 @@ impl Supervisor {
             // just to help with debugging. The overall logging
             // message can stay, however.
             warn!(target: "pidfile_tracing", "Cowardly refusing to stop {}, because we mysteriously have no PID!", service_group);
-            future::Either::B(future::ok(()))
         }
     }
 

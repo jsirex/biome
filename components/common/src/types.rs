@@ -67,7 +67,7 @@ impl EventStreamMetadata {
     fn split_raw(raw: &str) -> result::Result<(String, String), String> {
         match raw.split('=').collect::<Vec<_>>().as_slice() {
             [key, value] if !key.is_empty() && !value.is_empty() => {
-                Ok((key.to_string(), value.to_string()))
+                Ok(((*key).to_string(), (*value).to_string()))
             }
             _ => {
                 Err(format!("Invalid key-value pair given (must be \
@@ -371,7 +371,8 @@ mod tests {
     }
 
     mod env_config {
-        use biome_core::env::Config as EnvConfig;
+        use biome_core::{env::Config as EnvConfig,
+                           locked_env_var};
         use std::{env,
                   num::ParseIntError,
                   result,
@@ -393,7 +394,7 @@ mod tests {
             }
         }
 
-        crate::locked_env_var!(HAB_TESTING_THINGIE, lock_bio_testing_thingie);
+        locked_env_var!(HAB_TESTING_THINGIE, lock_bio_testing_thingie);
 
         impl EnvConfig for Thingie {
             const ENVVAR: &'static str = "HAB_TESTING_THINGIE";

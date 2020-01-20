@@ -103,14 +103,14 @@ impl Hook for HealthCheckHook {
         #[cfg(windows)]
         let path = pair.path.to_path_buf();
         HealthCheckHook { render_pair:                 pair,
-                          stdout_log_path:             out_path.clone(),
-                          stderr_log_path:             err_path.clone(),
                           #[cfg(windows)]
                           pipe_client:
                               PipeHookClient::new(Self::file_name().to_string(),
                                                   path,
-                                                  out_path,
-                                                  err_path), }
+                                                  out_path.clone(),
+                                                  err_path.clone()),
+                          stdout_log_path:             out_path,
+                          stderr_log_path:             err_path, }
     }
 
     #[cfg(windows)]
@@ -655,7 +655,6 @@ mod tests {
                                     service_file::ServiceFile as ServiceFileRumor,
                                     RumorStore}};
     use biome_common::{cli::FS_ROOT,
-                         locked_env_var,
                          templating::{config::Cfg,
                                       package::Pkg,
                                       test_helpers::*},
@@ -663,6 +662,7 @@ mod tests {
                                  HttpListenAddr,
                                  ListenCtlAddr}};
     use biome_core::{fs::cache_key_path,
+                       locked_env_var,
                        package::{PackageIdent,
                                  PackageInstall},
                        service::{ServiceBind,
@@ -709,8 +709,7 @@ mod tests {
     fn rendered_hooks_path() -> TempDir { TempDir::new().expect("create temp dir") }
 
     fn service_group() -> ServiceGroup {
-        ServiceGroup::new(None, "test_service", "test_group", None).expect("couldn't create \
-                                                                            ServiceGroup")
+        ServiceGroup::new("test_service", "test_group", None).expect("couldn't create ServiceGroup")
     }
 
     fn pkg(service_group: &ServiceGroup) -> Pkg {
@@ -718,7 +717,7 @@ mod tests {
                                       service_group.service(),
                                       Some("1.0.0"),
                                       Some("20170712000000"));
-        let pkg_install = PackageInstall::new_from_parts(pg_id.clone(),
+        let pkg_install = PackageInstall::new_from_parts(pg_id,
                                                          PathBuf::from("/tmp"),
                                                          PathBuf::from("/tmp"),
                                                          PathBuf::from("/tmp"));

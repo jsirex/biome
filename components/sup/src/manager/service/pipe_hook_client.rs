@@ -291,11 +291,11 @@ fn stream_output<T>(out: T, log_file: &PathBuf, preamble_str: &str)
 #[cfg(test)]
 mod test {
     use super::*;
-    use biome_common::{locked_env_var,
-                         templating::{package::Pkg,
-                                      test_helpers::{create_with_content,
-                                                     file_content}}};
-    use biome_core::{os::process,
+    use biome_common::templating::{package::Pkg,
+                                     test_helpers::{create_with_content,
+                                                    file_content}};
+    use biome_core::{locked_env_var,
+                       os::process,
                        package::{PackageIdent,
                                  PackageInstall},
                        service::ServiceGroup};
@@ -310,7 +310,7 @@ mod test {
     }
 
     fn pkg() -> Pkg {
-        let service_group = ServiceGroup::new(None, "test_service", "test_group", None).unwrap();
+        let service_group = ServiceGroup::new("test_service", "test_group", None).unwrap();
         let pg_id = PackageIdent::new("testing",
                                       &service_group.service(),
                                       Some("1.0.0"),

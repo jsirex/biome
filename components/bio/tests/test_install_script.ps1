@@ -20,4 +20,12 @@ Describe "Install biome using install.ps1" {
         $result = bio --version
         $result | Should -Match "bio 0.79.1/*"
     }
+
+    It "ignores release when installing from packages.chef.io" {
+        components/bio/install.ps1 -v "0.90.6/20191112141314"
+        $LASTEXITCODE | Should -Be 0
+
+        $result = bio --version
+        $result | Should -Match "bio 0.90.6/*"
+    }
 }

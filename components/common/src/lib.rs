@@ -28,7 +28,6 @@ pub mod cli;
 pub mod command;
 pub mod error;
 pub mod liveliness_checker;
-pub mod locked_env_var;
 pub mod output;
 pub mod package_graph;
 pub mod templating;
@@ -83,12 +82,7 @@ bitflags::bitflags! {
         const REDACT_HTTP          = 0b0000_0000_1000;
         const OFFLINE_INSTALL      = 0b0000_0100_0000;
         const IGNORE_LOCAL         = 0b0000_1000_0000;
-        const EVENT_STREAM         = 0b0001_0000_0000;
         const TRIGGER_ELECTION     = 0b0010_0000_0000;
-        /// Ask the Launcher for the PID of supervised services,
-        /// rather than reading it from a file on disk. It's easy for
-        /// file contents to become out-of-sync with reality.
-        const PIDS_FROM_LAUNCHER = 0b0100_0000_0000;
     }
 }
 
@@ -100,9 +94,8 @@ lazy_static! {
                            (FeatureFlag::REDACT_HTTP, "HAB_FEAT_REDACT_HTTP"),
                            (FeatureFlag::OFFLINE_INSTALL, "HAB_FEAT_OFFLINE_INSTALL"),
                            (FeatureFlag::IGNORE_LOCAL, "HAB_FEAT_IGNORE_LOCAL"),
-                           (FeatureFlag::EVENT_STREAM, "HAB_FEAT_EVENT_STREAM"),
-                           (FeatureFlag::TRIGGER_ELECTION, "HAB_FEAT_TRIGGER_ELECTION"),
-                           (FeatureFlag::PIDS_FROM_LAUNCHER, "HAB_FEAT_PIDS_FROM_LAUNCHER"),];
+                           (FeatureFlag::TRIGGER_ELECTION, "HAB_FEAT_TRIGGER_ELECTION"),];
+
         HashMap::from_iter(mapping)
     };
 }

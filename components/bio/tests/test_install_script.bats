@@ -101,4 +101,8 @@ installed_target() {
   [ "$(installed_version)" == "bio 0.79.1" ]
 }
 
-
+@test "Install ignores release when installing from packages.chef.io" {
+  run components/bio/install.sh -v "0.90.6/20191112141314"
+  [ "$status" -eq 0 ]
+  [ "$(installed_version)" == "bio 0.90.6" ]
+}

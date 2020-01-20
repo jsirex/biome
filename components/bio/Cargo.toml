@@ -19,7 +19,7 @@ chrono = {version = "*", features = ["serde"]}
 dirs = "*"
 env_logger = "*"
 flate2 = "*"
-futures = "0.1"
+futures = { version = "*" }
 glob = "*"
 biome_api_client = { path = "../builder-api-client" }
 biome_common = { path = "../common" }
@@ -32,6 +32,7 @@ lazy_static = "*"
 libc = "*"
 log = "*"
 pbr = "*"
+rants = "*"
 reqwest = "*"
 retry = "*"
 same-file = "*"
@@ -42,6 +43,7 @@ serde_yaml = "*"
 tabwriter = "*"
 tar = "*"
 termcolor = "*"
+tokio = { version = "*", features = ["full"] }
 toml = { version = "*", default-features = false }
 url = "*"
 walkdir = "*"

@@ -179,15 +179,12 @@ teardown() {
 }
 
 @test "bio svc load: application and environment are properly set in a spec" {
-    run ${bio} svc load --application=myapp --environment=prod core/redis
+    run ${bio} svc load core/redis
     assert_success
 
     wait_for_service_to_run redis
 
     assert_spec_value redis ident core/redis
-    assert_spec_value redis application_environment "myapp.prod"
-    # TODO (CM): Need a way to assert a missing value in a spec so I
-    # can add those above?
 }
 
 @test "bio svc load: spec idents can change when force-loading using a different ident" {

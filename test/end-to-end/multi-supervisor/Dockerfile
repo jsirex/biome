@@ -18,3 +18,6 @@ RUN bio pkg install biome/bio --binlink --force --channel="${CHANNEL}"
 # For tests where the testing container needs access to Docker to test
 # things. If that describes your test, remember to mount /var/run/docker.sock!
 RUN bio pkg install core/docker --binlink --force
+
+RUN bio pkg install core/powershell --binlink --force
+RUN bio pkg install core/pester
