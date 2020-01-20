@@ -131,7 +131,7 @@ impl FromProto<ProtoRumor> for Election {
             _ => panic!("from-bytes election"),
         };
         let from_id = rumor.from_id.ok_or(Error::ProtocolMismatch("from-id"))?;
-        Ok(Election { member_id:     from_id.clone(),
+        Ok(Election { member_id:     from_id,
                       service_group: payload.service_group
                                             .ok_or(Error::ProtocolMismatch("service-group"))?,
                       term:          payload.term.unwrap_or(0),
@@ -301,7 +301,7 @@ mod tests {
 
     fn create_election(member_id: &str, suitability: u64) -> Election {
         Election::new(member_id,
-                      &ServiceGroup::new(None, "tdep", "prod", None).unwrap(),
+                      &ServiceGroup::new("tdep", "prod", None).unwrap(),
                       Term::default(),
                       suitability,
                       true /* has_quorum */)
@@ -309,7 +309,7 @@ mod tests {
 
     fn create_election_update(member_id: &str, suitability: u64) -> ElectionUpdate {
         ElectionUpdate::new(member_id,
-                            &ServiceGroup::new(None, "tdep", "prod", None).unwrap(),
+                            &ServiceGroup::new("tdep", "prod", None).unwrap(),
                             Term::default(),
                             suitability,
                             true /* has_quorum */)

@@ -1,61 +1,66 @@
-#!/bin/bash
-
 # Test that SSL_CERT_FILE is persisted into the studio and 
 # set to the correct internal path. 
 $ErrorActionPreference="stop" 
 
-$studio_flags = ""
-if( $env:DOCKER_STUDIO_TEST -eq $true) {
-    studio_flags = "-D"
-}
-
 function Cleanup-CachedCertificate {
-  $bio_ssl_cache="$env:SYSTEM_DRIVE\hab\cache\ssl"
-  Remove-Item -Force "$bio_ssl_cache\*" -ErrorAction SilentlyContinue
+  $bio_ssl_cache="/hab/cache/ssl"
+  Remove-Item -Force "$bio_ssl_cache/*" -ErrorAction SilentlyContinue
 }
 
-function New-TemporaryDirectory {
-  $parent = [System.IO.Path]::GetTempPath()
-  [string] $name = [System.Guid]::NewGuid()
-  New-Item -ItemType Directory -Path (Join-Path $parent $name)
-}
-
-Write-Host "--- Generating a signing key"
 bio origin key generate "$env:HAB_ORIGIN"
-
-Write-Host "--- Generating self-signed ssl certificate"
 
 $tempdir = New-TemporaryDirectory
 $e2e_certname = "e2e-ssl.pem"
 bio pkg install core/openssl 
 bio pkg exec core/openssl openssl req -newkey rsa:2048 -batch -nodes -keyout key.pem -x509 -days 365 -out (Join-Path $tempdir $e2e_certname)
 
-Write-Host "--- Testing valid SSL_CERT_FILE in the studio"
+if($IsLinux) {
+    $sslCertFileCheck = "test -f `$SSL_CERT_FILE"
+    $sslCertFilePrint = "echo `$SSL_CERT_FILE"
+    $sslCacheCertFileCheck = "test -f '/hab/cache/ssl/$e2e_certname'"
+    $sslCertFileNotSetCheck = "test ! -v SSL_CERT_FILE"
+} else {
+    $sslCertFileCheck = "exit (!(Test-Path `$env:SSL_CERT_FILE))"
+    $sslCertFilePrint = "`$env:SSL_CERT_FILE.Replace('\','/')"
+    $sslCacheCertFileCheck = "exit (!(Test-Path '/hab/cache/ssl/$e2e_certname'))"
+    $sslCertFIleNotSetCheck = "exit `$(!!(`$env:SSL_CERT_FILE))"
+}
 
 Context "SSL_CERT_FILE is passed into the studio" {
     BeforeEach { 
-        $result = bio studio rm
+        bio studio rm
         Cleanup-CachedCertificate
     }
 
     Describe "SSL_CERT_FILE is a valid certificate" {
         $env:SSL_CERT_FILE = (Join-Path $tempdir $e2e_certname)
         It "Sets env:SSL_CERT_FILE in the studio"  {
-            $expected = "\hab\cache\ssl\$e2e_certname"
-            $result = bio studio run '(Get-ChildItem env:SSL_CERT_FILE).Value'
+            $expected = "/hab/cache/ssl/$e2e_certname"
+            $result = Invoke-StudioRun $sslCertFilePrint
             $result[-1] | Should -BeLike "*$expected"
         }
 
         It "Copies the certificate described by SSL_CERT_FILE into the studio" {
-            $result = bio studio run 'Write-Host $env:SSL_CERT_FILE'
-            $result
-            $result = bio studio run '(Test-Path $env:SSL_CERT_FILE).ToString()'
-            $result[-1] | Should -Be "True"
+            Invoke-StudioRun $sslCertFileCheck
+            $LASTEXITCODE | Should -Be 0
         }
 
         It "Can search builder for packages when SSL_CERT_FILE is set" {
-            $result = bio studio run "bio pkg search core/nginx"
+            $result = Invoke-StudioRun "bio pkg search core/nginx"
             $result | Should -Contain "core/nginx"
+        }
+    }
+
+    Describe "Custom SSL cert" {
+        if($IsLinux) {
+            sudo cp $(Join-Path $tempdir $e2e_certname) /hab/cache/ssl/
+        } else {
+            Copy-Item (Join-Path $tempdir $e2e_certname) /hab/cache/ssl/
+        }
+
+        It "is available in studio" {
+            Invoke-StudioRun $sslCacheCertFileCheck
+            $LASTEXITCODE | Should -Be 0
         }
     }
 
@@ -64,7 +69,20 @@ Context "SSL_CERT_FILE is passed into the studio" {
         Set-Content -Path $env:SSL_CERT_FILE -Value "I am not a certificate"
 
         It "Can still search packages on builder" {
-            $result = bio studio run "bio pkg search core/nginx"
+            $result = Invoke-StudioRun "bio pkg search core/nginx"
+            $result | Should -Contain "core/nginx"
+        }
+    }
+
+    Describe "SSL_CERT_FILE is an invalid cached certificate" {
+        if($IsLinux) {
+            sudo sh -c 'echo "I am not a certificate" > /hab/cache/ssl/invalid-ssl-cert.pem'
+        } else {
+            Set-Content -Path /hab/cache/ssl/invalid-ssl-cert.pem -Value "I am not a certificate"
+        }
+
+        It "Can still search packages on builder" {
+            $result = Invoke-StudioRun "bio pkg search core/nginx"
             $result | Should -Contain "core/nginx"
         }
     }
@@ -72,14 +90,24 @@ Context "SSL_CERT_FILE is passed into the studio" {
     Describe "SSL_CERT_FILE is a directory" {
         $env:SSL_CERT_FILE = (Join-Path $tempdir "cert-as-directory")
         New-Item -ItemType Directory -Force -Path $env:SSL_CERT_FILE
+        
+        It "Should not set SSL_CERT_FILE" {
+            Invoke-StudioRun $sslCertFileNotSetCheck
+            $LASTEXITCODE | Should -Be 0
+        }
 
         It "Should not copy the directory into the studio" {
-            $result = bio studio run '(Test-Path $env:SSL_CERT_FILE).ToString()'
-            $result[-1] | Should -Be "False"
+            if($isLinux) {
+              Invoke-StudioRun "test -e /hab/cache/ssl/cert-as-directory"
+            } else { 
+              Invoke-StudioRun $sslCertFileCheck
+            }
+            
+            $LASTEXITCODE | Should -Be 1
         }
 
         It "Can still search packages on builder" {
-            $result = bio studio run "bio pkg search core/nginx"
+            $result = Invoke-StudioRun "bio pkg search core/nginx"
             $result | Should -Contain "core/nginx"
         }
     }
@@ -91,13 +119,41 @@ Context "SSL_CERT_FILE is passed into the studio" {
         }
 
         It "Should not copy the file into the studio" {
-            $result = bio studio run '(Test-Path $env:SSL_CERT_FILE).ToString()'
-            $result[-1] | Should -Be "False"
+            if($isLinux) {
+              Invoke-StudioRun "test -e /hab/cache/ssl/non-existant-file"
+            } else { 
+              Invoke-StudioRun $sslCertFileCheck
+            }
+            $LASTEXITCODE | Should -Be 1
+        }
+
+        It "Should not set SSL_CERT_FILE" {
+            Invoke-StudioRun $sslCertFileNotSetCheck
+            $LASTEXITCODE | Should -Be 0
         }
 
         It "Can still search packages on builder" {
-            $result = bio studio run "bio pkg search core/nginx"
+            $result = Invoke-StudioRun "bio pkg search core/nginx"
             $result | Should -Contain "core/nginx"
+        }
+    }
+}
+
+Write-Host "--- Testing SSL_CERT_FILE is not set"
+
+Context "SSL_CERT_FILE isn't set" {
+    BeforeEach { 
+        Cleanup-CachedCertificate
+        # Ensure SSL_CERT_FILE isn't set
+        Remove-Item Env:\SSL_CERT_FILE
+        bio studio rm
+        bio pkg uninstall biome/bio-studio
+    }
+
+    Describe "Studio is auto-installed on first run" {
+        It "Should not set SSL_CERT_FILE in the studio" {
+            Invoke-StudioRun $sslCertFileNotSetCheck
+            $LASTEXITCODE | Should -Be 0
         }
     }
 }

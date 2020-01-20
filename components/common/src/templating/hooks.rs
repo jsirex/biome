@@ -566,8 +566,7 @@ mod tests {
     fn rendered_hooks_path() -> TempDir { TempDir::new().expect("create temp dir") }
 
     fn service_group() -> ServiceGroup {
-        ServiceGroup::new(None, "test_service", "test_group", None).expect("couldn't create \
-                                                                            ServiceGroup")
+        ServiceGroup::new("test_service", "test_group", None).expect("couldn't create ServiceGroup")
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -735,7 +734,7 @@ echo "The message is Hola Mundo"
                                       Some("1.0.0"),
                                       Some("20170712000000"));
 
-        let pkg_install = PackageInstall::new_from_parts(pg_id.clone(),
+        let pkg_install = PackageInstall::new_from_parts(pg_id,
                                                          PathBuf::from("/tmp"),
                                                          PathBuf::from("/tmp"),
                                                          PathBuf::from("/tmp"));
@@ -784,13 +783,14 @@ echo "The message is Hello"
     #[test]
     #[cfg(not(windows))]
     fn hook_output() {
+        use biome_core::locked_env_var;
         use std::{fs as stdfs,
                   fs::DirBuilder,
                   process::{Command,
                             Stdio}};
 
-        crate::locked_env_var!(HAB_HOOK_STANDARD_STREAM_BYTE_LIMIT,
-                               bio_hook_standard_stream_byte_limit);
+        locked_env_var!(HAB_HOOK_STANDARD_STREAM_BYTE_LIMIT,
+                        bio_hook_standard_stream_byte_limit);
 
         let tmp_dir = TempDir::new().expect("create temp dir");
         let logs_dir = tmp_dir.path().join("logs");
@@ -810,8 +810,7 @@ echo "The message is Hello"
                                 .join(format!("{}.stderr.log", InstallHook::file_name()));
         let mut hook_output = HookOutput::new(&stdout_log, &stderr_log);
         let service_group =
-            ServiceGroup::new(None, "dummy", "service", None).expect("couldn't create \
-                                                                      ServiceGroup");
+            ServiceGroup::new("dummy", "service", None).expect("couldn't create ServiceGroup");
 
         hook_output.output_standard_streams::<InstallHook>(&service_group, &mut child);
 

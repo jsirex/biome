@@ -196,15 +196,15 @@ pub(crate) mod sync {
                     rumor::{service::{Service,
                                       SysInfo},
                             RumorKey}};
-        use biome_common::locked_env_var;
-        use biome_core::{package::PackageIdent,
+        use biome_core::{locked_env_var,
+                           package::PackageIdent,
                            service::ServiceGroup};
 
         locked_env_var!(HAB_RUMOR_SHARE_LIMIT, lock_rumor_limit);
 
         fn test_service(member_id: &str) -> Service {
             let package: PackageIdent = "core/foo/1.0.0/20180701125610".parse().unwrap();
-            let sg = ServiceGroup::new(None, "foo", "default", None).unwrap();
+            let sg = ServiceGroup::new("foo", "default", None).unwrap();
             Service::new(member_id, &package, sg, SysInfo::default(), None)
         }
 
@@ -388,7 +388,7 @@ mod tests {
                 rumor::{Rumor,
                         RumorKey,
                         RumorType}};
-    use biome_common::locked_env_var;
+    use biome_core::locked_env_var;
     use uuid::Uuid;
 
     locked_env_var!(HAB_RUMOR_SHARE_LIMIT, lock_rumor_limit);
@@ -574,7 +574,7 @@ mod tests {
         // cold_rumor should be completely out, and the cooler
         // rumor sorts before the hotter one.
         let rumors = heat.lock_rhr().currently_hot_rumors(&member);
-        let expected_hot_rumors = &[warm_key.clone(), hot_key.clone()];
+        let expected_hot_rumors = &[warm_key, hot_key];
         assert_eq!(rumors, expected_hot_rumors);
     }
 }

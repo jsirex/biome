@@ -91,6 +91,11 @@ Function Get-PackagesChefioArchive($channel, $version) {
     if(!$version -Or $version -eq "latest") {
       $bio_url="$url/$channel/biome/latest/bio-x86_64-windows.zip"
     } else {
+      $version,$_release = $version -split "/",2,"SimpleMatch"
+      if($_release -ne $null) {
+        Write-Warning "packages.chef.io does not support 'version/release' format. Using $version for the version"
+      }
+
       $bio_url="$url/biome/${version}/bio-x86_64-windows.zip"
     }
     $sha_url="$bio_url.sha256sum"

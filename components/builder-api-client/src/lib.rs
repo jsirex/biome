@@ -254,7 +254,7 @@ pub trait BuilderAPIProvider: Sync + Send {
                     ident_and_target: (&PackageIdent, PackageTarget),
                     package_only: bool,
                     token: &str)
-                    -> Result<(String)>;
+                    -> Result<String>;
 
     fn fetch_rdeps(&self, ident_and_target: (&PackageIdent, PackageTarget)) -> Result<Vec<String>>;
 
@@ -289,6 +289,8 @@ pub trait BuilderAPIProvider: Sync + Send {
     fn check_origin(&self, origin: &str, token: &str) -> Result<()>;
 
     fn delete_origin(&self, origin: &str, token: &str) -> Result<()>;
+
+    fn transfer_origin_ownership(&self, origin: &str, token: &str, account: &str) -> Result<()>;
 
     fn list_origin_secrets(&self, origin: &str, token: &str) -> Result<Vec<String>>;
 

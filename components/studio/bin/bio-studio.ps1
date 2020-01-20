@@ -237,11 +237,42 @@ function New-Studio {
     $secret_keys = @()
     $public_keys = @()
     $env:HAB_ORIGIN_KEYS.Split(" ") | % {
-      $pk = & bio origin key export $_ --type=public | Out-String
       $sk = & bio origin key export $_ --type=secret | Out-String
-      # bio key import does not like carriage returns
-      $secret_keys += $sk.Replace("`r", "")
-      $public_keys += $pk.Replace("`r", "")
+      if($LASTEXITCODE -eq 0) {
+        # bio key import does not like carriage returns
+        $secret_keys += $sk.Replace("`r", "")
+      } else {
+        Write-Warning "Error exporting $_ key"
+        Write-Host "Biome was unable to export your secret signing key. Please"
+        Write-Host "verify that you have a signing key for $_ present in either"
+        Write-Host "$(Resolve-Path ~/.hab/cache/keys) (if running in a non-elevated console) or c:\hab\cache\keys"
+        Write-Host "(if running as an Administrator). You can test this by running:"
+        Write-Host ""
+        Write-Host "    bio origin key export --type secret $_"
+        Write-Host ""
+        Write-Host "This test will print your signing key to the console or error"
+        Write-Host "if it cannot find the key. To create a signing key, you can run: "
+        Write-Host ""
+        Write-Host "    bio origin key generate $_"
+        Write-Host ""
+        Write-Host "You'll also be prompted to create an origin signing key when "
+        Write-Host "you run 'bio setup'."
+        Write-Host ""
+        Write-Host "Note that if you run 'bio setup' in an elevated console as an"
+        Write-Host "administrator, the created signing key will only be used in a"
+        Write-Host "Studio launched in an elevated console. Likewise a signing key"
+        Write-Host "created during 'bio setup' in a non-elevated console is only"
+        Write-Host "accesible to a non-elevated Studio."
+        Write-Host ""
+        Write-Error "Aborting Studio"
+      }
+      $pk = & bio origin key export $_ --type=public | Out-String
+      if($LASTEXITCODE -eq 0) {
+        # bio key import does not like carriage returns
+        $public_keys += $pk.Replace("`r", "")
+      } else {
+        Write-Warning "Tried to import '$_' public origin key, but key was not found"
+      }
     }
 
     $env:FS_ROOT=$HAB_STUDIO_ROOT
@@ -250,8 +281,22 @@ function New-Studio {
     $secret_keys | % { $_ | & bio origin key import }
   }
   else {
+    Write-Warning "No secret keys imported! Did you mean to set `$env:HAB_ORIGIN?"
+    Write-Host "To specify a HAB_ORIGIN, either set the HAB_ORIGIN environment"
+    Write-Host "variable to your origin name or run 'bio setup' and specify a"
+    Write-Host "default origin."
+    Write-Host ""
+    Write-Host "Note that if you ran 'bio setup' in an elevated console as an"
+    Write-Host "administrator, the default origin specified will only be used in a"
+    Write-Host "Studio launched in an elevated console. Likewise a default origin"
+    Write-Host "specified during 'bio setup' in a non-elevated console is only"
+    Write-Host "accesible to a non-elevated Studio."
     $env:FS_ROOT=$HAB_STUDIO_ROOT
     $env:HAB_CACHE_KEY_PATH = Join-Path $env:FS_ROOT "hab\cache\keys"
+  }
+
+  if (!(Test-Path $env:HAB_CACHE_KEY_PATH)) {
+    mkdir $env:HAB_CACHE_KEY_PATH | Out-Null
   }
 
   $env:HAB_CACHE_SSL_PATH = Join-Path $env:FS_ROOT "hab\cache\ssl"
@@ -459,9 +504,15 @@ function Update-SslCertFile {
   if($env:SSL_CERT_FILE) {
     try {
       $cert_filename = (Get-Item $env:SSL_CERT_FILE).Name
-      $env:SSL_CERT_FILE = Join-Path $env:HAB_CACHE_SSL_PATH $cert_filename
+      $studio_ssl_cert_file = (Join-Path $env:HAB_CACHE_SSL_PATH $cert_filename)
+      if (Test-Path $studio_ssl_cert_file) {
+        $env:SSL_CERT_FILE = $studio_ssl_cert_file
+      } else {
+        $env:SSL_CERT_FILE = $null
+      }
     } catch {
       Write-HabInfo "Unable to set SSL_CERT_FILE from '$env:SSL_CERT_FILE'"
+      $env:SSL_CERT_FILE = $null
     }
   }
 }

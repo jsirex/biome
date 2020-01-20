@@ -2,24 +2,67 @@ Consider below original Chef Habitat Changelog
 
 # Upstream Habitat CHANGELOG
 
-<!-- latest_release 0.90.48 -->
-## [0.90.48](https://github.com/habitat-sh/habitat/tree/0.90.48) (2019-12-12)
+<!-- latest_release 0.90.74 -->
+## [0.90.74](https://github.com/habitat-sh/habitat/tree/0.90.74) (2020-01-17)
 
-#### New Features & Enhancements
-- bulkupload: discover origins from signing keys [#7279](https://github.com/habitat-sh/habitat/pull/7279) ([jeremymv2](https://github.com/jeremymv2))
+#### Merged Pull Requests
+- Fix a few end-to-end test failures [#7346](https://github.com/habitat-sh/habitat/pull/7346) ([christophermaier](https://github.com/christophermaier))
 <!-- latest_release -->
 
 <!-- release_rollup since=0.90.6 -->
 ### Changes since 0.90.6 release
 
+#### Behavioral Changes
+- Remove the `HAB_FEAT_EVENT_STREAM` feature flag. The event stream is now enabled with `--event-stream-url`. [#7335](https://github.com/habitat-sh/habitat/pull/7335) ([davidMcneil](https://github.com/davidMcneil))
+- Deprecate and ignore the `--application` and `--environment` flags from `hab svc load` and `hab sup run` commands. [#7335](https://github.com/habitat-sh/habitat/pull/7335) ([davidMcneil](https://github.com/davidMcneil))
+- The initial event stream connection attempt no longer blocks by default. Set --event-stream-connect-timeout if blocking is desired. [#7293](https://github.com/habitat-sh/habitat/pull/7293) ([davidMcneil](https://github.com/davidMcneil))
+
 #### New Features & Enhancements
+- origin ownership transfer subcommand [#7331](https://github.com/habitat-sh/habitat/pull/7331) ([jeremymv2](https://github.com/jeremymv2)) <!-- 0.90.69 -->
+- Event stream connection backoff strategy [#7293](https://github.com/habitat-sh/habitat/pull/7293) ([davidMcneil](https://github.com/davidMcneil))
 - bulkupload: discover origins from signing keys [#7279](https://github.com/habitat-sh/habitat/pull/7279) ([jeremymv2](https://github.com/jeremymv2)) <!-- 0.90.48 -->
 - Add PIDS_FROM_LAUNCHER feature to eliminate service PID files [#7214](https://github.com/habitat-sh/habitat/pull/7214) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.22 -->
 
 #### Bug Fixes
+- Fix rolling updates after the death of group members [#7167](https://github.com/habitat-sh/habitat/pull/7167) ([mwrock](https://github.com/mwrock)) <!-- 0.90.65 -->
+- The initial event stream connect attempt will not block the main thread when --event-stream-connect-timeout=0 [#7293](https://github.com/habitat-sh/habitat/pull/7293) ([davidMcneil](https://github.com/davidMcneil))
+- Event stream messages are always immediately processed (even when disconnected). This prevents a "thundering herd" of messages on reconnect. [#7293](https://github.com/habitat-sh/habitat/pull/7293) ([davidMcneil](https://github.com/davidMcneil))
+- do not attempt to set binlink path if not in an elevated console [#7319](https://github.com/habitat-sh/habitat/pull/7319) ([mwrock](https://github.com/mwrock)) <!-- 0.90.58 -->
 - Fix lock when spawning windows processes [#7213](https://github.com/habitat-sh/habitat/pull/7213) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.19 -->
 
 #### Merged Pull Requests
+- Fix a few end-to-end test failures [#7346](https://github.com/habitat-sh/habitat/pull/7346) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.74 -->
+- Fix broken studio e2e tests [#7343](https://github.com/habitat-sh/habitat/pull/7343) ([smacfarlane](https://github.com/smacfarlane)) <!-- 0.90.73 -->
+- Remove the event stream feature flag [#7335](https://github.com/habitat-sh/habitat/pull/7335) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.72 -->
+- Remove PIDS_FROM_LAUNCHER feature flag [#7341](https://github.com/habitat-sh/habitat/pull/7341) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.71 -->
+- Add a &quot;test-probe&quot; service [#7283](https://github.com/habitat-sh/habitat/pull/7283) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.70 -->
+- Update to 1.40.0 [#7325](https://github.com/habitat-sh/habitat/pull/7325) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.68 -->
+- Adds issue template for features that redirects to aha [#7062](https://github.com/habitat-sh/habitat/pull/7062) ([eeyun](https://github.com/eeyun)) <!-- 0.90.67 -->
+- Bump excon from 0.66.0 to 0.71.1 in /www [#7334](https://github.com/habitat-sh/habitat/pull/7334) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 0.90.66 -->
+- Fix setting SSL_CERT_FILE in studio when the cert isn&#39;t cached [#7259](https://github.com/habitat-sh/habitat/pull/7259) ([smacfarlane](https://github.com/smacfarlane)) <!-- 0.90.65 -->
+- Disable brew cleanup for mac builds [#7333](https://github.com/habitat-sh/habitat/pull/7333) ([smacfarlane](https://github.com/smacfarlane)) <!-- 0.90.64 -->
+- Ignore &#39;release&#39; component of version if downloading from packages.chef.io [#7299](https://github.com/habitat-sh/habitat/pull/7299) ([smacfarlane](https://github.com/smacfarlane)) <!-- 0.90.63 -->
+- Catch choco pack n publish errors [#7330](https://github.com/habitat-sh/habitat/pull/7330) ([mwrock](https://github.com/mwrock)) <!-- 0.90.62 -->
+- Update event stream to use rants client library [#7293](https://github.com/habitat-sh/habitat/pull/7293) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.61 -->
+- Deploy the web site with expeditor [#7273](https://github.com/habitat-sh/habitat/pull/7273) ([raskchanky](https://github.com/raskchanky)) <!-- 0.90.60 -->
+- ensure dep variables are properly scoped for scaffolding access [#7329](https://github.com/habitat-sh/habitat/pull/7329) ([mwrock](https://github.com/mwrock)) <!-- 0.90.59 -->
+- Update futures ecosystem [#7256](https://github.com/habitat-sh/habitat/pull/7256) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.58 -->
+- command with extension takes precedence over extensionless [#7322](https://github.com/habitat-sh/habitat/pull/7322) ([mwrock](https://github.com/mwrock)) <!-- 0.90.58 -->
+- fix erroneous client output when API response is HTTP 200 [#7321](https://github.com/habitat-sh/habitat/pull/7321) ([jeremymv2](https://github.com/jeremymv2)) <!-- 0.90.58 -->
+- fixes #6992 building windows plans with pkg_version function and environment setup [#7318](https://github.com/habitat-sh/habitat/pull/7318) ([mwrock](https://github.com/mwrock)) <!-- 0.90.58 -->
+- Migrates e2e bash tests to powershell [#7310](https://github.com/habitat-sh/habitat/pull/7310) ([mwrock](https://github.com/mwrock)) <!-- 0.90.58 -->
+- fix broken find_command unit test [#7323](https://github.com/habitat-sh/habitat/pull/7323) ([mwrock](https://github.com/mwrock)) <!-- 0.90.58 -->
+- Add some additional logging around update elections [#7288](https://github.com/habitat-sh/habitat/pull/7288) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.58 -->
+- Remove @raskchanky as code owner [#7326](https://github.com/habitat-sh/habitat/pull/7326) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.58 -->
+- emit helpful and actionable output when keys/origins are not found creating a studio [#7320](https://github.com/habitat-sh/habitat/pull/7320) ([mwrock](https://github.com/mwrock)) <!-- 0.90.57 -->
+- force msvc toolchain on windows to fix clippy [#7316](https://github.com/habitat-sh/habitat/pull/7316) ([mwrock](https://github.com/mwrock)) <!-- 0.90.56 -->
+- Revert &quot;Updated Foundation &amp; JQuery&quot; [#7315](https://github.com/habitat-sh/habitat/pull/7315) ([mwrock](https://github.com/mwrock)) <!-- 0.90.55 -->
+- Updated Foundation &amp; JQuery [#7302](https://github.com/habitat-sh/habitat/pull/7302) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.54 -->
+- Bump rack from 2.0.7 to 2.0.8 in /www [#7300](https://github.com/habitat-sh/habitat/pull/7300) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 0.90.53 -->
+- Add health check interval to event stream [#7266](https://github.com/habitat-sh/habitat/pull/7266) ([nellshamrell](https://github.com/nellshamrell)) <!-- 0.90.52 -->
+- Remove TOCs [#7292](https://github.com/habitat-sh/habitat/pull/7292) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.51 -->
+- TWO: Makes docs subdirs and moves pages [#7284](https://github.com/habitat-sh/habitat/pull/7284) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.50 -->
+- ONE: Normalize markdown [#7289](https://github.com/habitat-sh/habitat/pull/7289) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.49 -->
 - Update release documentation [#7263](https://github.com/habitat-sh/habitat/pull/7263) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.47 -->
 - Unpin reqwest [#7277](https://github.com/habitat-sh/habitat/pull/7277) ([chefsalim](https://github.com/chefsalim)) <!-- 0.90.46 -->
 - mirror RUSTFMT_VERSION in RUST_NIGHTLY_VERSION [#7274](https://github.com/habitat-sh/habitat/pull/7274) ([jeremymv2](https://github.com/jeremymv2)) <!-- 0.90.45 -->

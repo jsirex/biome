@@ -167,7 +167,7 @@ impl ServiceUpdater {
             Some(&mut UpdaterState::AtOnce(ref mut rx, ref mut kill_tx)) => {
                 match rx.try_recv() {
                     Ok(package) => {
-                        return Some(package.ident.clone());
+                        return Some(package.ident);
                     }
                     Err(TryRecvError::Empty) => return None,
                     Err(TryRecvError::Disconnected) => {
@@ -197,7 +197,26 @@ impl ServiceUpdater {
                                                                        0);
                                 *st = RollingState::InElection
                             }
-                            _ => return None,
+                            (Some(_), None) => {
+                                debug!("No leader present; rolling Update cannot proceed until \
+                                        the {} group election finishes",
+                                       &service.service_group);
+                                return None;
+                            }
+                            (None, _) => {
+                                // It looks like a Supervisor finds
+                                // out "who it is" by being told by
+                                // the rest of the network. While this
+                                // does have the advantage of unifying
+                                // code paths, it could result in some
+                                // counter-intuitive situations (like
+                                // census_group.me() returning None!)
+                                error!("Supervisor does not know its own identity; rolling \
+                                        update of {} cannot proceed! Please notify the Biome \
+                                        core team!",
+                                       service.service_group);
+                                return None;
+                            }
                         }
                     } else {
                         debug!("Rolling update, using default suitability");
@@ -221,8 +240,17 @@ impl ServiceUpdater {
                                 *st = RollingState::Follower(FollowerState::Waiting);
                             }
                         }
-                        (Some(_), None) => return None,
-                        _ => return None,
+                        (Some(_), None) => {
+                            debug!("No update leader for {} present yet",
+                                   &service.service_group);
+                            return None;
+                        }
+                        (None, _) => {
+                            error!("Supervisor does not know its own identity; rolling update of \
+                                    {} cannot proceed! Please notify the Biome core team!",
+                                   service.service_group);
+                            return None;
+                        }
                     }
                 }
             }
@@ -232,7 +260,7 @@ impl ServiceUpdater {
                         match rx.try_recv() {
                             Ok(package) => {
                                 debug!("Rolling Update, polling found a new package");
-                                ident = Some(package.ident.clone());
+                                ident = Some(package.ident);
                             }
                             Err(TryRecvError::Empty) => return None,
                             Err(TryRecvError::Disconnected) => {
@@ -245,10 +273,11 @@ impl ServiceUpdater {
                     }
                     LeaderState::Waiting => {
                         match census_ring.census_group_for(&service.service_group) {
-                            Some(census_group) => {
-                                if census_group.members()
-                                               .any(|cm| cm.pkg != census_group.me().unwrap().pkg)
-                                {
+                            Some(cg) => {
+                                // Note that it is possible that the followers have a later
+                                // version if this leader just joined the group that had no
+                                // quorum. If so, do not wait for the followers until we catch up
+                                if cg.active_members().any(|c| c.pkg < cg.me().unwrap().pkg) {
                                     debug!("Update leader still waiting for followers...");
                                     return None;
                                 }
@@ -279,6 +308,20 @@ impl ServiceUpdater {
                                        census_group.me())
                                 {
                                     (Some(leader), Some(peer), Some(me)) => {
+                                        // if the current leader is no longer live
+                                        // it is possible that this follower is now
+                                        // a leader
+                                        if leader.member_id == me.member_id {
+                                            debug!("I'm a leader now");
+                                            self.states
+                                                .insert(service.service_group.clone(), UpdaterState::Rolling(RollingState::Leader(LeaderState::Waiting)));
+                                            return None;
+                                        }
+                                        if leader.pkg < me.pkg {
+                                            debug!("Leader has an outdated package and needs to \
+                                                    update");
+                                            return None;
+                                        }
                                         if leader.pkg == me.pkg {
                                             debug!("We're not in an update");
                                             return None;
@@ -308,7 +351,7 @@ impl ServiceUpdater {
                             Some(census_group) => {
                                 match rx.try_recv() {
                                     Ok(package) => {
-                                        ident = Some(package.ident.clone());
+                                        ident = Some(package.ident);
                                     }
                                     Err(TryRecvError::Empty) => return None,
                                     Err(TryRecvError::Disconnected) => {
@@ -536,7 +579,7 @@ impl Worker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use biome_common::locked_env_var;
+    use biome_core::locked_env_var;
 
     #[test]
     fn default_update_period_is_equal_to_minimum_allowed_value() {

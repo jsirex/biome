@@ -38,15 +38,15 @@ use crate::{census::{CensusRing,
             error::{Error,
                     Result},
             event::{self,
-                    EventCore,
                     EventStreamConfig},
             http_gateway,
             VERSION};
 use cpu_time::ProcessTime;
-use futures::{future,
+use futures::{channel::{mpsc as fut_mpsc,
+                        oneshot},
+              future,
               prelude::*,
-              sync::{mpsc as fut_mpsc,
-                     oneshot}};
+              stream::FuturesUnordered};
 use biome_butterfly::{member::Member,
                         server::{timing::Timing,
                                  ServerProxy,
@@ -97,7 +97,8 @@ use std::{collections::{HashMap,
                BufReader,
                Read,
                Write},
-          iter::IntoIterator,
+          iter::{FromIterator,
+                 IntoIterator},
           net::{IpAddr,
                 SocketAddr},
           path::{Path,
@@ -115,7 +116,7 @@ use time::{self,
            Duration as TimeDuration,
            SteadyTime,
            Timespec};
-use tokio::{executor,
+use tokio::{self,
             runtime::{Builder as RuntimeBuilder,
                       Runtime}};
 #[cfg(windows)]
@@ -157,32 +158,24 @@ pub enum ServicePidSource {
 }
 
 impl ServicePidSource {
-    /// This check is to determine if the user has both opted-in to
-    /// the new "no pidfiles" feature AND is running a Launcher
-    /// that can support it. If either of those conditions are not
-    /// met, we will continue to use the old pidfile logic.
+    /// This check is to determine if the user is working with a
+    /// Launcher that can provide service PIDs. If not, we will
+    /// continue to use the old pidfile logic.
     ///
     /// You should call this function once early in the Supservisor's
     /// lifecycle and cache the results. We only want to incur the
     /// timeout hit when we check to see if the launcher can answer
     /// our query once. Otherwise, if we were using an older launcher,
     /// we would incur that hit each time we start a new service.
-    fn determine_source(feature_flags: FeatureFlag, launcher: &LauncherCli) -> Self {
-        if feature_flags.contains(FeatureFlag::PIDS_FROM_LAUNCHER) {
-            if launcher.pid_of("fake_service.just_to_see_if_the_launcher_can_handle_this_message")
-                       .is_err()
-            {
-                warn!("Opted in to PIDS_FROM_LAUNCHER feature, but you do not appear to be \
-                       running a compatible Launcher. Continuing to use pidfiles for services.");
-                ServicePidSource::Files
-            } else {
-                outputln!("PIDS_FROM_LAUNCHER feature enabled: Not using pidfiles for services!");
-                ServicePidSource::Launcher
-            }
-        } else {
-            // This is the pre-existing "normal" behavior; no reason
-            // to call attention to it with logging output.
+    fn determine_source(launcher: &LauncherCli) -> Self {
+        if launcher.pid_of("fake_service.just_to_see_if_the_launcher_can_handle_this_message")
+                   .is_err()
+        {
+            warn!("You do not appear to be running a Launcher that can provide service PIDs to \
+                   the Supervisor. Using pidfiles for services instead.");
             ServicePidSource::Files
+        } else {
+            ServicePidSource::Launcher
         }
     }
 }
@@ -619,8 +612,9 @@ impl Manager {
                 -> Result<Manager> {
         debug!("new(cfg: {:?}, fs_cfg: {:?}", cfg, fs_cfg);
         let mut runtime =
-            RuntimeBuilder::new().name_prefix("tokio-")
-                                 .core_threads(TokioThreadCount::configured_value().into())
+            RuntimeBuilder::new().threaded_scheduler()
+                                 .num_threads(TokioThreadCount::configured_value().into())
+                                 .enable_all()
                                  .build()
                                  .expect("Couldn't build Tokio Runtime!");
         let current = PackageIdent::from_str(&format!("{}/{}", SUP_PKG_IDENT, VERSION)).unwrap();
@@ -672,29 +666,15 @@ impl Manager {
 
         let spec_watcher = SpecWatcher::run(&spec_dir)?;
 
-        if cfg.feature_flags.contains(FeatureFlag::EVENT_STREAM) {
-            // Putting configuration of the stream behind a feature
-            // flag for now. If the flag isn't set, just don't
-            // initialize the stream; everything else will turn into a
-            // no-op automatically.
-
-            // TODO: Determine what the actual connection parameters
-            // should be, and process them at some point before here.
-            let es_config =
-                cfg.event_stream_config
-                   .expect("Config should be present if the EventStream feature is enabled");
-
+        if let Some(config) = cfg.event_stream_config {
             // Collect the FQDN of the running machine
             let fqdn = biome_core::os::net::fqdn().unwrap_or_else(|| sys.hostname.clone());
             outputln!("Event FQDN {}", fqdn);
 
-            let ec = EventCore::new(&es_config, &sys, fqdn);
-            // unwrap won't fail here; if there were an issue, from_env()
-            // would have already propagated an error up the stack.
-            event::init_stream(es_config, ec, &mut runtime)?;
+            runtime.block_on(event::init(&sys, fqdn, config))?;
         }
 
-        let pid_source = ServicePidSource::determine_source(cfg.feature_flags, &launcher);
+        let pid_source = ServicePidSource::determine_source(&launcher);
 
         Ok(Manager { state: Arc::new(ManagerState { cfg: cfg_static,
                                                     services,
@@ -909,8 +889,8 @@ impl Manager {
                                            mgr_receiver,
                                            ctl_shutdown_rx,
                                            action_sender).for_each(move |handler| {
-                                                             executor::spawn(handler);
-                                                             Ok(())
+                                                             tokio::spawn(handler);
+                                                             future::ready(())
                                                          });
         self.runtime.spawn(ctl_handler);
 
@@ -932,7 +912,8 @@ impl Manager {
         let ctl_listen_addr = self.sys.ctl_listen();
         let ctl_secret_key = ctl_gateway::readgen_secret_key(&self.fs_cfg.sup_root)?;
         outputln!("Starting ctl-gateway on {}", &ctl_listen_addr);
-        ctl_gateway::server::run(ctl_listen_addr, ctl_secret_key, mgr_sender);
+        self.runtime
+            .spawn(ctl_gateway::server::run(ctl_listen_addr, ctl_secret_key, mgr_sender));
         debug!("ctl-gateway started");
 
         if self.http_disable {
@@ -1136,7 +1117,19 @@ impl Manager {
                 // this var goes out of scope
                 #[allow(unused_variables)]
                 let service_timer = service_hist.start_timer();
-                if service.tick(&self.census_ring, &self.launcher, &self.runtime.executor()) {
+                // The service tick function is itentially async even though we could make it
+                // sychronous. We then block on executing the returned future essentially turning it
+                // back into a synchronous call. We do this for two reasons:
+                // 1. It allows us to use tokio::spawn within the Service code instead of passing
+                // around handles to the runtime.
+                // 2. It is a small, yet significant, step away from the event loop architecture
+                // towards a future per service architecture. TODO: (DM) It would be
+                // staightforward to join every tick into a single future and block on the joined
+                // future allowing each service to "tick" concurrently.
+                // See https://github.com/habitat-sh/habitat/issues/7112
+                if self.runtime
+                       .block_on(service.tick(&self.census_ring, &self.launcher))
+                {
                     self.gossip_latest_service_rumor_rsw_mlw_rhw(&service);
                 }
             }
@@ -1185,18 +1178,19 @@ impl Manager {
                 outputln!("Gracefully departing from butterfly network.");
                 self.butterfly.set_departed_mlw_smw_rhw();
 
-                for svc in self.state.services.lock_msw().drain_services() {
-                    self.runtime.spawn(self.stop_service_future_gsw(svc, None));
-                }
+                let service_stop_futures =
+                    FuturesUnordered::from_iter(self.state
+                                                    .services
+                                                    .lock_msw()
+                                                    .drain_services()
+                                                    .map(|svc| {
+                                                        self.stop_service_future_gsw(svc, None)
+                                                    }));
+                // Wait while all services are stopped
+                self.runtime
+                    .block_on(service_stop_futures.collect::<Vec<_>>());
             }
         }
-
-        // Allow all existing futures to run to completion.
-        event::stop_stream();
-        self.runtime
-            .shutdown_on_idle()
-            .wait()
-            .expect("Error waiting on Tokio runtime to shutdown");
 
         release_process_lock(&self.fs_cfg);
         self.butterfly.persist_data_rsr_mlr();
@@ -1271,8 +1265,7 @@ impl Manager {
     // our specfile reconciliation logic to catch the fact that
     // the service needs to be restarted. At that point, this function
     // can be renamed; right now, it says exactly what it's doing.
-    fn stop_services_with_updates_rsw_mlr_rhw_msw(&mut self)
-                                                  -> Vec<impl Future<Item = (), Error = ()>> {
+    fn stop_services_with_updates_rsw_mlr_rhw_msw(&mut self) -> Vec<impl Future<Output = ()>> {
         self.take_services_with_updates_rsw_mlr_rhw_msw()
             .into_iter()
             .map(|service| self.stop_service_future_gsw(service, None))
@@ -1317,7 +1310,7 @@ impl Manager {
         }
 
         if service_states != self.service_states {
-            self.service_states = service_states.clone();
+            self.service_states = service_states;
             true
         } else {
             false
@@ -1445,7 +1438,7 @@ impl Manager {
     fn stop_service_future_gsw(&self,
                                mut service: Service,
                                shutdown_input: Option<&ShutdownInput>)
-                               -> impl Future<Item = (), Error = ()> {
+                               -> impl Future<Output = ()> {
         let mut user_config_watcher = self.user_config_watcher.clone();
         let updater = Arc::clone(&self.updater);
         let busy_services = Arc::clone(&self.busy_services);
@@ -1456,14 +1449,14 @@ impl Manager {
         // cluster
         // TODO (CM): But only if we're not going down for a restart.
         let ident = service.spec_ident.clone();
-        let stop_it = service.stop_gsw(shutdown_config).then(move |_| {
-                                                           event::service_stopped(&service);
-                                                           user_config_watcher.remove(&service);
-                                                           updater.lock()
-                                                                  .expect("Updater lock poisoned")
-                                                                  .remove(&service);
-                                                           Ok(())
-                                                       });
+        let stop_it = async move {
+            service.stop_gsw(shutdown_config).await;
+            event::service_stopped(&service);
+            user_config_watcher.remove(&service);
+            updater.lock()
+                   .expect("Updater lock poisoned")
+                   .remove(&service);
+        };
         Self::wrap_async_service_operation(ident,
                                            busy_services,
                                            services_need_reconciliation,
@@ -1496,34 +1489,24 @@ impl Manager {
     /// As more service operations (e.g., hooks) become asynchronous,
     /// we'll need to wrap those operations in this logic to ensure
     /// consistent operation.
-    fn wrap_async_service_operation<F>(ident: PackageIdent,
-                                       busy_services: Arc<Mutex<HashSet<PackageIdent>>>,
-                                       services_need_reconciliation: ReconciliationFlag,
-                                       fut: F)
-                                       -> impl Future<Item = (), Error = ()>
-        where F: IntoFuture<Item = (), Error = ()>
+    async fn wrap_async_service_operation<F>(ident: PackageIdent,
+                                             busy_services: Arc<Mutex<HashSet<PackageIdent>>>,
+                                             services_need_reconciliation: ReconciliationFlag,
+                                             fut: F)
+        where F: Future<Output = ()>
     {
-        // TODO (CM): can't wait for the Pinning API :(
-        let busy_services_2 = Arc::clone(&busy_services);
-        let ident_2 = ident.clone();
-
-        future::lazy(move || {
-            trace!("Flagging '{:?}' as busy, pending an asynchronous operation",
-                   ident);
-            busy_services.lock()
-                         .expect("busy_services lock is poisoned")
-                         .insert(ident);
-            Ok(())
-        }).and_then(|_| fut)
-          .and_then(move |_| {
-              trace!("Removing 'busy' flag for '{:?}'; asynchronous operation over",
-                     ident_2);
-              busy_services_2.lock()
-                             .expect("busy_services lock is poisoned")
-                             .remove(&ident_2);
-              services_need_reconciliation.set();
-              Ok(())
-          })
+        trace!("Flagging '{:?}' as busy, pending an asynchronous operation",
+               ident);
+        busy_services.lock()
+                     .expect("busy_services lock is poisoned")
+                     .insert(ident.clone());
+        fut.await;
+        trace!("Removing 'busy' flag for '{:?}'; asynchronous operation over",
+               ident);
+        busy_services.lock()
+                     .expect("busy_services lock is poisoned")
+                     .remove(&ident);
+        services_need_reconciliation.set();
     }
 
     /// Determine if our on-disk spec files indicate that we should
@@ -1543,9 +1526,7 @@ impl Manager {
     /// * `ManagerServices::inner` (write)
     fn maybe_spawn_service_futures_rsw_mlw_gsw_rhw_msw(&mut self) {
         let ops = self.compute_service_operations_msr();
-        for f in self.operations_into_futures_rsw_mlw_gsw_rhw_msw(ops) {
-            self.runtime.spawn(f);
-        }
+        self.spawn_futures_from_operations_rsw_mlw_gsw_rhw_msw(ops);
     }
 
     /// # Locking (see locking.md)
@@ -1569,43 +1550,38 @@ impl Manager {
     /// * `GatewayState::inner` (write)
     /// * `RumorHeat::inner` (write)
     /// * `ManagerServices::inner` (write)
-    fn operations_into_futures_rsw_mlw_gsw_rhw_msw<O>(&mut self,
-                                                      ops: O)
-                                                      -> Vec<impl Future<Item = (), Error = ()>>
+    fn spawn_futures_from_operations_rsw_mlw_gsw_rhw_msw<O>(&mut self, ops: O)
         where O: IntoIterator<Item = ServiceOperation>
     {
-        ops.into_iter()
-           .filter_map(|op| {
-               match op {
-                   ServiceOperation::Stop(spec)
-                   | ServiceOperation::Restart { to_stop: spec, .. } => {
-                       // Yes, Stop and Restart both turn into
-                       // "stop"... Once we've finished stopping, we'll
-                       // end up re-examining the spec file on disk; if
-                       // we should be running, we'll start up again.
-                       //
-                       // This may change in the future, once service
-                       // start can be performed asynchronously in a
-                       // future; then we could just chain that future
-                       // onto the end of the stop one for a *real*
-                       // restart future.
-                       let f = self.remove_service_from_state_msw(&spec.ident)
-                                   .map(|service| self.stop_service_future_gsw(service, None));
-                       if f.is_none() {
-                           // We really don't expect this to happen....
-                           outputln!("Tried to remove service for {} but could not find it \
-                                      running, skipping",
-                                     &spec.ident);
-                       }
-                       f
-                   }
-                   ServiceOperation::Start(spec) => {
-                       self.add_service_rsw_mlw_rhw_msr(spec);
-                       None // No future to return (currently synchronous!)
-                   }
-               }
-           })
-           .collect()
+        for op in ops.into_iter() {
+            match op {
+                ServiceOperation::Stop(spec) | ServiceOperation::Restart { to_stop: spec, .. } => {
+                    // Yes, Stop and Restart both turn into
+                    // "stop"... Once we've finished stopping, we'll
+                    // end up re-examining the spec file on disk; if
+                    // we should be running, we'll start up again.
+                    //
+                    // This may change in the future, once service
+                    // start can be performed asynchronously in a
+                    // future; then we could just chain that future
+                    // onto the end of the stop one for a *real*
+                    // restart future.
+                    if let Some(service) = self.remove_service_from_state_msw(&spec.ident) {
+                        self.runtime
+                            .spawn(self.stop_service_future_gsw(service, None));
+                    } else {
+                        // We really don't expect this to happen....
+                        outputln!("Tried to remove service for {} but could not find it running, \
+                                   skipping",
+                                  &spec.ident);
+                    }
+                }
+                ServiceOperation::Start(spec) => {
+                    // No future to spawn (currently synchronous!)
+                    self.add_service_rsw_mlw_rhw_msr(spec);
+                }
+            }
+        }
     }
 
     /// Determine what services we need to start, stop, or restart in
@@ -2025,7 +2001,7 @@ mod test {
 
     mod tokio_thread_count {
         use super::*;
-        use biome_common::locked_env_var;
+        use biome_core::locked_env_var;
 
         locked_env_var!(HAB_TOKIO_THREAD_COUNT, lock_thread_count);
 
@@ -2068,7 +2044,7 @@ mod test {
         #[test]
         fn identical_specs_yield_no_changes() {
             let specs = vec![new_spec("core/foo"), new_spec("core/bar")];
-            assert!(Manager::specs_to_operations(specs.clone(), specs.clone()).is_empty());
+            assert!(Manager::specs_to_operations(specs.clone(), specs).is_empty());
         }
 
         #[test]
@@ -2190,25 +2166,24 @@ mod test {
             // This should get shut down
             let svc_6_running = new_spec("core/lolwut");
 
-            let running = vec![svc_1_running.clone(),
+            let running = vec![svc_1_running,
                                svc_2_running.clone(),
                                svc_3_running.clone(),
                                svc_6_running.clone(),];
 
-            let on_disk = vec![svc_1_on_disk.clone(),
-                               svc_2_on_disk.clone(),
+            let on_disk = vec![svc_1_on_disk,
+                               svc_2_on_disk,
                                svc_3_on_disk.clone(),
-                               svc_4_on_disk.clone(),
+                               svc_4_on_disk,
                                svc_5_on_disk.clone(),];
 
             let operations = Manager::specs_to_operations(running, on_disk);
 
-            let expected_operations =
-                vec![ServiceOperation::Stop(svc_2_running.clone()),
-                     ServiceOperation::Restart { to_stop:  svc_3_running.clone(),
-                                                 to_start: svc_3_on_disk.clone(), },
-                     ServiceOperation::Start(svc_5_on_disk.clone()),
-                     ServiceOperation::Stop(svc_6_running.clone()),];
+            let expected_operations = vec![ServiceOperation::Stop(svc_2_running),
+                                           ServiceOperation::Restart { to_stop:  svc_3_running,
+                                                                       to_start: svc_3_on_disk, },
+                                           ServiceOperation::Start(svc_5_on_disk),
+                                           ServiceOperation::Stop(svc_6_running),];
 
             // Ideally, we'd just sort `operations` and
             // `expected_operations`, but we can't, since that would

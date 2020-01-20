@@ -8,8 +8,7 @@ function Get-Ident($pkg, $tar) {
 Describe "bio pkg export tar core/nginx" {
     bio pkg export tar core/nginx --base-pkgs-channel $env:HAB_INTERNAL_BLDR_CHANNEL
     $tar = get-item core-nginx-*.tar.gz
-    $version = (Get-ChildItem c:\hab\pkgs\biome\bio)[-1].Name
-
+    $version = ((((bio --version) -split " ")[1]) -split "/")[0]
     It "Creates tarball" {
         $tar | Should -Not -Be $null
     }

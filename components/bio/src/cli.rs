@@ -32,6 +32,7 @@ use biome_core::{crypto::{keys::PairType,
                              ServiceGroup},
                    ChannelIdent};
 use biome_sup_protocol;
+use rants::Address as NatsAddress;
 use std::{net::{Ipv4Addr,
                 SocketAddr},
           path::Path,
@@ -277,7 +278,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             )
         )
         (@subcommand origin =>
-            (about: "Commands relating to Biome origin keys")
+            (about: "Commands relating to Biome Builder origins")
             (aliases: &["o", "or", "ori", "orig", "origi"])
             (@setting ArgRequiredElseHelp)
             (@subcommand create =>
@@ -299,6 +300,16 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                      be taken from the `HAB_BLDR_URL environment variable if defined. (default: \
                      https://bldr.habitat.sh)")
                 (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
+            )
+            (@subcommand transfer =>
+                (about: "Transfers ownership of an origin to another member of that origin")
+                (@arg ORIGIN: +required {valid_origin} "The origin name")
+                (@arg BLDR_URL: -u --url +takes_value {valid_url}
+                     "Specify an alternate Builder endpoint. If not specified, the value will \
+                     be taken from the `HAB_BLDR_URL` environment variable if defined. (default: \
+                     https://bldr.habitat.sh)")
+                (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
+                (@arg NEW_OWNER_ACCOUNT: +required +takes_value {non_empty} "The account name of the new origin owner")
             )
             (@subcommand key =>
                 (about: "Commands relating to Biome origin key maintenance")
@@ -1040,7 +1051,7 @@ pub fn sub_sup_bash() -> App<'static, 'static> {
     )
 }
 
-pub fn sub_sup_run(feature_flags: FeatureFlag) -> App<'static, 'static> {
+pub fn sub_sup_run(_feature_flags: FeatureFlag) -> App<'static, 'static> {
     let sub = clap_app!(@subcommand run =>
                             (about: "Run the Biome Supervisor")
                             // set custom usage string, otherwise the binary
@@ -1105,10 +1116,10 @@ pub fn sub_sup_run(feature_flags: FeatureFlag) -> App<'static, 'static> {
                                                                        the Supervisor startup specified by a package identifier \
                                                                        (ex: core/redis) or filepath to a Biome Artifact \
                                                                        (ex: /home/core-redis-3.0.7-21120102031201-x86_64-linux.hart).")
-                            (@arg APPLICATION: --application -a +takes_value requires[ENVIRONMENT]
-                             "Application name; [default: not set].")
-                            (@arg ENVIRONMENT: --environment -e +takes_value requires[APPLICATION]
-                             "Environment name; [default: not set].")
+                            // TODO (DM): These flags can eventually be removed.
+                            // See https://github.com/habitat-sh/habitat/issues/7339
+                            (@arg APPLICATION: --application -a +hidden +multiple "DEPRECATED")
+                            (@arg ENVIRONMENT: --environment -e +hidden +multiple "DEPRECATED")
                             (@arg GROUP: --group +takes_value
                              "The service group; shared config and topology [default: default].")
                             (@arg TOPOLOGY: --topology -t +takes_value possible_value[standalone leader]
@@ -1133,11 +1144,7 @@ pub fn sub_sup_run(feature_flags: FeatureFlag) -> App<'static, 'static> {
                              `127.0.0.1`.")
     );
 
-    let sub = if feature_flags.contains(FeatureFlag::EVENT_STREAM) {
-        add_event_stream_options(sub)
-    } else {
-        sub
-    };
+    let sub = add_event_stream_options(sub);
     add_shutdown_timeout_option(sub)
 }
 
@@ -1206,10 +1213,10 @@ fn sub_svc_load() -> App<'static, 'static> {
             identifier, a suitable package will be installed from Builder.")
         (@arg PKG_IDENT: +required +takes_value {valid_ident}
             "A Biome package identifier (ex: core/redis)")
-        (@arg APPLICATION: --application -a +takes_value requires[ENVIRONMENT]
-            "Application name; [default: not set].")
-        (@arg ENVIRONMENT: --environment -e +takes_value requires[APPLICATION]
-            "Environment name; [default: not set].")
+        // TODO (DM): These flags can eventually be removed.
+        // See https://github.com/habitat-sh/habitat/issues/7339
+        (@arg APPLICATION: --application -a +hidden +multiple "DEPRECATED")
+        (@arg ENVIRONMENT: --environment -e +hidden +multiple "DEPRECATED")
         (@arg CHANNEL: --channel +takes_value default_value[stable]
             "Receive package updates from the specified release channel")
         (@arg GROUP: --group +takes_value
@@ -1256,79 +1263,78 @@ fn sub_svc_unload() -> App<'static, 'static> {
     add_shutdown_timeout_option(sub)
 }
 
-// TODO (CM): yeah, this is uuuuuuuuuugly. Ideally, we'd just not have
-// the `--application` and `--environment` flags, or they would become
-// this, and then disappear from the `bio svc load` command.
-//
-// For now, though, these at least provide a place to supply the
-// information; we can revise as we go.
 fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static> {
     // Create shorter alias so formating works correctly
     type ConnectMethod = EventStreamConnectMethod;
     app.arg(Arg::with_name("EVENT_STREAM_APPLICATION").help("The name of the application for \
-                                                             event stream purposes. This is \
-                                                             distinct from the `--application` \
-                                                             flag (which may be going away), and \
+                                                             event stream purposes. This \
                                                              will be attached to all events \
                                                              generated by this Supervisor.")
                                                       .long("event-stream-application")
-                                                      .required(true)
+                                                      .required(false)
                                                       .takes_value(true)
                                                       .validator(non_empty))
        .arg(Arg::with_name("EVENT_STREAM_ENVIRONMENT").help("The name of the environment for \
-                                                             event stream purposes. This is \
-                                                             distinct from the `--environment` \
-                                                             flag (which may be going away), and \
+                                                             event stream purposes. This \
                                                              will be attached to all events \
                                                              generated by this Supervisor.")
                                                       .long("event-stream-environment")
-                                                      .required(true)
+                                                      .required(false)
                                                       .takes_value(true)
                                                       .validator(non_empty))
        .arg(Arg::with_name(ConnectMethod::ARG_NAME).help("How long in seconds to wait for an \
                                                           event stream connection before exiting \
-                                                          the supervisor. Set to '0' to \
-                                                          immediately start the supervisor and \
+                                                          the Supervisor. Set to '0' to \
+                                                          immediately start the Supervisor and \
                                                           continue running regardless of the \
-                                                          event stream status.")
+                                                          initial connection status.")
                                                    .long("event-stream-connect-timeout")
                                                    .required(false)
                                                    .takes_value(true)
                                                    .env(ConnectMethod::ENVVAR)
-                                                   .default_value("5")
+                                                   .default_value("0")
                                                    .validator(valid_numeric::<u64>))
        .arg(Arg::with_name("EVENT_STREAM_URL").help("The event stream connection string \
                                                      (host:port) used by this Supervisor to send \
-                                                     events to a messaging server.")
+                                                     events to Chef Automate. This enables \
+                                                     the event stream and requires \
+                                                     --event-stream-application, \
+                                                     --event-stream-environment, and \
+                                                     --event-stream-token also be set.")
                                               .long("event-stream-url")
-                                              .required(true)
+                                              .required(false)
+                                              .requires_all(&[
+                                                    "EVENT_STREAM_APPLICATION",
+                                                    "EVENT_STREAM_ENVIRONMENT",
+                                                    AutomateAuthToken::ARG_NAME
+                                                ])
                                               .takes_value(true)
-                                              .validator(non_empty))
+                                              .validator(nats_address))
        .arg(Arg::with_name("EVENT_STREAM_SITE").help("The name of the site where this Supervisor \
-                                                      is running. It is used for event stream \
-                                                      purposes.")
+                                                      is running for event stream purposes.")
                                                .long("event-stream-site")
+                                               .required(false)
                                                .takes_value(true)
                                                .validator(non_empty))
-       .arg(Arg::with_name(AutomateAuthToken::ARG_NAME).help("An authentication token for \
-                                                              streaming events to an messaging \
-                                                              server.")
+       .arg(Arg::with_name(AutomateAuthToken::ARG_NAME).help("The authentication token for \
+                                                              connecting the event stream to \
+                                                              Chef Automate.")
                                                        .long("event-stream-token")
-                                                       .required(true)
+                                                       .required(false)
                                                        .takes_value(true)
                                                        .validator(AutomateAuthToken::validate)
                                                        .env(AutomateAuthToken::ENVVAR))
        .arg(Arg::with_name(EventStreamMetadata::ARG_NAME).help("An arbitrary key-value pair to \
                                                                 add to each event generated by \
-                                                                this Supervisor")
+                                                                this Supervisor.")
                                                          .long("event-meta")
                                                          .takes_value(true)
                                                          .multiple(true)
                                                          .validator(EventStreamMetadata::validate))
-       .arg(Arg::with_name("EVENT_STREAM_SERVER_CERTIFICATE").help("The path to the event stream \
-                                                                    server's certificate in PEM \
-                                                                    format used to establish a \
-                                                                    TLS connection")
+       .arg(Arg::with_name("EVENT_STREAM_SERVER_CERTIFICATE").help("The path to Chef Automate's \
+                                                                    event stream certificate in \
+                                                                    PEM format used to establish \
+                                                                    a TLS connection.")
                                               .long("event-stream-server-certificate")
                                               .required(false)
                                               .takes_value(true)
@@ -1529,6 +1535,14 @@ fn valid_shutdown_timeout(val: String) -> result::Result<(), String> {
 }
 
 #[allow(clippy::needless_pass_by_value)] // Signature required by CLAP
+fn nats_address(val: String) -> result::Result<(), String> {
+    match NatsAddress::from_str(&val) {
+        Ok(_) => Ok(()),
+        Err(_) => Err(format!("'{}' is not a valid event stream address", val)),
+    }
+}
+
+#[allow(clippy::needless_pass_by_value)] // Signature required by CLAP
 fn non_empty(val: String) -> result::Result<(), String> {
     if val.is_empty() {
         Err("must not be empty (check env overrides)".to_string())
@@ -1555,6 +1569,29 @@ mod tests {
     fn no_feature_flags() -> FeatureFlag { FeatureFlag::empty() }
 
     use super::*;
+
+    #[test]
+    fn legacy_appliction_and_environment_args() {
+        let r = get(no_feature_flags()).get_matches_from_safe(vec!["bio",
+                                                                   "sup",
+                                                                   "run",
+                                                                   "--application",
+                                                                   "--environment=env"]);
+        assert!(r.is_ok());
+        let r = get(no_feature_flags()).get_matches_from_safe(vec!["bio",
+                                                                   "svc",
+                                                                   "load",
+                                                                   "--application=app",
+                                                                   "--environment",
+                                                                   "pkg/ident"]);
+        assert!(r.is_ok());
+        let r = get(no_feature_flags()).get_matches_from_safe(vec!["bio",
+                                                                   "svc",
+                                                                   "load",
+                                                                   "--application",
+                                                                   "pkg/ident"]);
+        assert!(r.is_ok());
+    }
 
     mod sup_commands {
 
@@ -1589,20 +1626,38 @@ mod tests {
     mod event_stream_feature {
         use super::*;
 
-        fn event_stream_enabled() -> FeatureFlag {
-            let mut f = FeatureFlag::empty();
-            f.insert(FeatureFlag::EVENT_STREAM);
-            f
-        }
-
         #[test]
-        fn run_requires_app_and_env_and_token_and_url() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec!["run"]);
+        fn app_and_env_and_token_options_required_if_url_option() {
+            let matches =
+                sub_sup_run(no_feature_flags()).get_matches_from_safe(vec!["run",
+                                                                           "--event-stream-url",
+                                                                           "127.0.0.1:4222",]);
             assert!(matches.is_err());
-            assert_eq!(matches.unwrap_err().kind,
-                       clap::ErrorKind::MissingRequiredArgument);
-
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let error = matches.unwrap_err();
+            assert_eq!(error.kind, clap::ErrorKind::MissingRequiredArgument);
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
+                "run",
+                "--event-stream-application",
+                "MY_APP",
+                "--event-stream-url",
+                "127.0.0.1:4222",
+            ]);
+            assert!(matches.is_err());
+            let error = matches.unwrap_err();
+            assert_eq!(error.kind, clap::ErrorKind::MissingRequiredArgument);
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
+                "run",
+                "--event-stream-application",
+                "MY_APP",
+                "--event-stream-environment",
+                "MY_ENV",
+                "--event-stream-url",
+                "127.0.0.1:4222",
+            ]);
+            assert!(matches.is_err());
+            let error = matches.unwrap_err();
+            assert_eq!(error.kind, clap::ErrorKind::MissingRequiredArgument);
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-stream-application",
                 "MY_APP",
@@ -1617,28 +1672,8 @@ mod tests {
         }
 
         #[test]
-        fn app_and_env_and_token_and_url_options_require_event_stream_feature() {
-            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
-                "run",
-                "--event-stream-application",
-                "MY_APP",
-                "--event-stream-environment",
-                "MY_ENV",
-                "--event-stream-token",
-                "MY_TOKEN",
-                "--event-stream-url",
-                "127.0.0.1:4222",
-            ]);
-            assert!(matches.is_err());
-            let error = matches.unwrap_err();
-            assert_eq!(error.kind, clap::ErrorKind::UnknownArgument);
-            assert_eq!(error.info,
-                       Some(vec!["--event-stream-application".to_string()]));
-        }
-
-        #[test]
         fn app_option_must_take_a_value() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-stream-application",
                 "--event-stream-environment",
@@ -1657,7 +1692,7 @@ mod tests {
 
         #[test]
         fn app_option_cannot_be_empty() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-stream-application",
                 "",
@@ -1675,7 +1710,7 @@ mod tests {
 
         #[test]
         fn env_option_must_take_a_value() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-stream-application",
                 "MY_APP",
@@ -1694,7 +1729,7 @@ mod tests {
 
         #[test]
         fn env_option_cannot_be_empty() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-stream-application",
                 "MY_APP",
@@ -1711,29 +1746,8 @@ mod tests {
         }
 
         #[test]
-        fn event_meta_flag_requires_event_stream_feature() {
-            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
-                "run",
-                "--event-meta",
-                "foo=bar",
-                "--event-stream-application",
-                "MY_APP",
-                "--event-stream-token",
-                "MY_TOKEN",
-                "--event-stream-environment",
-                "MY_ENV",
-                "--event-stream-url",
-                "127.0.0.1:4222",
-            ]);
-            assert!(matches.is_err());
-            let error = matches.unwrap_err();
-            assert_eq!(error.kind, clap::ErrorKind::UnknownArgument);
-            assert_eq!(error.info, Some(vec!["--event-meta".to_string()]));
-        }
-
-        #[test]
         fn event_meta_can_be_repeated() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-meta",
                 "foo=bar",
@@ -1760,7 +1774,7 @@ mod tests {
 
         #[test]
         fn event_meta_cannot_be_empty() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-meta",
                 "--event-stream-application",
@@ -1778,7 +1792,7 @@ mod tests {
 
         #[test]
         fn event_meta_must_have_an_equal_sign() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-meta",
                 "foobar",
@@ -1797,7 +1811,7 @@ mod tests {
 
         #[test]
         fn event_meta_key_cannot_be_empty() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-meta",
                 "=bar",
@@ -1816,7 +1830,7 @@ mod tests {
 
         #[test]
         fn event_meta_value_cannot_be_empty() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-meta",
                 "foo=",
@@ -1835,7 +1849,7 @@ mod tests {
 
         #[test]
         fn token_option_must_take_a_value() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-stream-application",
                 "MY_APP",
@@ -1854,7 +1868,7 @@ mod tests {
 
         #[test]
         fn token_option_cannot_be_empty() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-stream-application",
                 "MY_APP",
@@ -1872,7 +1886,7 @@ mod tests {
 
         #[test]
         fn site_option_must_take_a_value() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-stream-application",
                 "MY_APP",
@@ -1892,7 +1906,7 @@ mod tests {
 
         #[test]
         fn site_option_cannot_be_empty() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-stream-application",
                 "MY_APP",
@@ -1912,7 +1926,7 @@ mod tests {
 
         #[test]
         fn url_option_must_take_a_value() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-stream-application",
                 "MY_APP",
@@ -1930,7 +1944,7 @@ mod tests {
 
         #[test]
         fn url_option_cannot_be_empty() {
-            let matches = sub_sup_run(event_stream_enabled()).get_matches_from_safe(vec![
+            let matches = sub_sup_run(no_feature_flags()).get_matches_from_safe(vec![
                 "run",
                 "--event-stream-application",
                 "MY_APP",

@@ -287,7 +287,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
                     (ident, target): (&PackageIdent, PackageTarget),
                     package_only: bool,
                     token: &str)
-                    -> Result<(String)> {
+                    -> Result<String> {
         debug!("Scheduling job for {}, {}", ident, target);
 
         let path = format!("depot/pkgs/schedule/{}/{}", ident.origin(), ident.name());
@@ -463,12 +463,14 @@ impl BuilderAPIProvider for BuilderAPIClient {
 
         let path = format!("depot/origins/{}/secret/{}", origin, key_name);
 
-        // We expect NO_CONTENT, because the origin must be empty to delete
+        // Originally, we only returned an Ok result if the response was StatusCode::NO_CONTENT
+        // (HTTP 204). However the Bldr API appears to always have returned HTTP 200. We'll accept
+        // either as indicators of a successful operation moving forward.
         self.0
             .delete(&path)
             .bearer_auth(token)
             .send()?
-            .ok_if(&[StatusCode::NO_CONTENT])
+            .ok_if(&[StatusCode::NO_CONTENT, StatusCode::OK])
     }
 
     /// Check an origin exists
@@ -503,6 +505,27 @@ impl BuilderAPIProvider for BuilderAPIClient {
 
         self.0
             .delete(&path)
+            .bearer_auth(token)
+            .send()?
+            .ok_if(&[StatusCode::NO_CONTENT])
+    }
+
+    /// Transfer ownership of an origin to a new account
+    ///
+    ///  # Failures
+    ///
+    ///  * Remote builder is not available
+    ///  * Origin is not owned by the account of auth token
+    ///  * Account is not a member of the origin
+    ///  * Account does not exist
+    ///  * Origin does not exist
+    fn transfer_origin_ownership(&self, origin: &str, token: &str, account: &str) -> Result<()> {
+        debug!("Transferring ownership of {} origin to {}", origin, account);
+
+        let path = format!("depot/origins/{}/transfer/{}", origin, account);
+
+        self.0
+            .post(&path)
             .bearer_auth(token)
             .send()?
             .ok_if(&[StatusCode::NO_CONTENT])
