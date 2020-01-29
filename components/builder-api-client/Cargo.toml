@@ -13,12 +13,13 @@ biome_core = { path = "../core" }
 biome_http_client = { path = "../http-client" }
 log = "*"
 pbr = "*"
+percent-encoding = "*"
 rand = "*"
 regex = "*"
-reqwest = "*"
+reqwest = { version = "*", features = ["blocking", "json"] }
 serde = "*"
 serde_derive = "*"
 serde_json = "*"
+tabwriter = "*"
 tee = "*"
-# Unlock with env_proxy and url in http-client
-url = "=1.7.2"
+url = "*"

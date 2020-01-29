@@ -1,5 +1,5 @@
 bio pkg install core/nginx --channel stable
-$job = start-job { bio sup run }
+$job = Start-Job { bio sup run }
 bio pkg install core/nginx
 Wait-Supervisor -Timeout 120
 

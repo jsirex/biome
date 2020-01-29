@@ -5,27 +5,27 @@
 # See https://github.com/biome-sh/biome/blob/master/BUILDING.md#testing-changes
 
 Describe "Exited Supervisor" {
-	$exit_file = New-TemporaryFile
-	$env:HAB_FEAT_TEST_EXIT=$exit_file
-	$launcher_proc = Start-Supervisor -Timeout 45 -LogFile "sup.log"
-	$supervisor_proc = Get-Process bio-sup
-	Set-Content $exit_file -Value 1
-	while(!$supervisor_proc.HasExited) {
-		start-Sleep 1
-	}
-	while(!(Get-Process bio-sup -ErrorAction SilentlyContinue)) {
-		Start-Sleep 1
-	}
-	$new_supervisor_proc = Get-Process bio-sup
-	$new_launcher_proc = Get-Process bio-launch
+    $exit_file = New-TemporaryFile
+    $env:HAB_FEAT_TEST_EXIT=$exit_file
+    $launcher_proc = Start-Supervisor -Timeout 45 -LogFile "sup.log"
+    $supervisor_proc = Get-Process bio-sup
+    Set-Content $exit_file -Value 1
+    while(!$supervisor_proc.HasExited) {
+        Start-Sleep 1
+    }
+    while(!(Get-Process bio-sup -ErrorAction SilentlyContinue)) {
+        Start-Sleep 1
+    }
+    $new_supervisor_proc = Get-Process bio-sup
+    $new_launcher_proc = Get-Process bio-launch
 
-	It "will not exit the launcher" {
-		$launcher_proc.HasExited | Should -Be $false
-	}
-	It "will spawn a new supervisor" {
-		$new_supervisor_proc.Id | Should -Not -Be $supervisor_proc.Id
-	}
-	It "will not spawn a new launcher" {
-		$new_launcher_proc.Id | Should -Be $launcher_proc.Id
-	}
+    It "will not exit the launcher" {
+        $launcher_proc.HasExited | Should -Be $false
+    }
+    It "will spawn a new supervisor" {
+        $new_supervisor_proc.Id | Should -Not -Be $supervisor_proc.Id
+    }
+    It "will not spawn a new launcher" {
+        $new_launcher_proc.Id | Should -Be $launcher_proc.Id
+    }
 }

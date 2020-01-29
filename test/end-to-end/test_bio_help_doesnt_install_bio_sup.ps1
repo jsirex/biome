@@ -5,12 +5,12 @@ $env:TESTING_FS_ROOT = (Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.
 $env:HAB_SUP_BINARY = $null
 
 Describe "bio sup --help" {
-  bio sup --help | Out-null
+    bio sup --help | Out-Null
 
-  It "runs successfully" {
-    $LASTEXITCODE | Should -Be 0
-  }
-  It "does not install the supervisor package" {
-    "$env:TESTING_FS_ROOT/hab/pkgs/biome/bio-sup" | Should -Not -Exist
-  }
+    It "runs successfully" {
+        $LASTEXITCODE | Should -Be 0
+    }
+    It "does not install the supervisor package" {
+        "$env:TESTING_FS_ROOT/hab/pkgs/biome/bio-sup" | Should -Not -Exist
+    }
 }
