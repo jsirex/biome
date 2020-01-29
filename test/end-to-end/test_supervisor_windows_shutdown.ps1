@@ -12,13 +12,11 @@ Describe "Clean Biome Shutdown" {
         try  { Invoke-WebRequest "http://localhost" }
         catch [Microsoft.PowerShell.Commands.HttpResponseException] { $headers = $_.Exception.Response.Headers }
         [string]$headers.Server | Should -BeLike "nginx/*"
-        Test-Path C:\hab\svc\nginx\PID | Should -Be $true
     }
     It "Stops all processes" {
         Stop-Service Biome
         Get-Process bio-sup -ErrorAction SilentlyContinue | Should -Be $null
         Get-Process bio-launch -ErrorAction SilentlyContinue | Should -Be $null
         Get-Process nginx -ErrorAction SilentlyContinue | Should -Be $null
-        Test-Path C:\hab\svc\nginx\PID | Should -Be $false
     }
 }

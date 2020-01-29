@@ -2,11 +2,11 @@ Consider below original Chef Habitat Changelog
 
 # Upstream Habitat CHANGELOG
 
-<!-- latest_release 0.90.74 -->
-## [0.90.74](https://github.com/habitat-sh/habitat/tree/0.90.74) (2020-01-17)
+<!-- latest_release 1.5.6 -->
+## [1.5.6](https://github.com/habitat-sh/habitat/tree/1.5.6) (2020-01-29)
 
 #### Merged Pull Requests
-- Fix a few end-to-end test failures [#7346](https://github.com/habitat-sh/habitat/pull/7346) ([christophermaier](https://github.com/christophermaier))
+- Assorted service updater tweaks [#7390](https://github.com/habitat-sh/habitat/pull/7390) ([christophermaier](https://github.com/christophermaier))
 <!-- latest_release -->
 
 <!-- release_rollup since=0.90.6 -->
@@ -18,12 +18,14 @@ Consider below original Chef Habitat Changelog
 - The initial event stream connection attempt no longer blocks by default. Set --event-stream-connect-timeout if blocking is desired. [#7293](https://github.com/habitat-sh/habitat/pull/7293) ([davidMcneil](https://github.com/davidMcneil))
 
 #### New Features & Enhancements
+- hab origin invitations subcommand [#7349](https://github.com/habitat-sh/habitat/pull/7349) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.5.4 -->
 - origin ownership transfer subcommand [#7331](https://github.com/habitat-sh/habitat/pull/7331) ([jeremymv2](https://github.com/jeremymv2)) <!-- 0.90.69 -->
 - Event stream connection backoff strategy [#7293](https://github.com/habitat-sh/habitat/pull/7293) ([davidMcneil](https://github.com/davidMcneil))
 - bulkupload: discover origins from signing keys [#7279](https://github.com/habitat-sh/habitat/pull/7279) ([jeremymv2](https://github.com/jeremymv2)) <!-- 0.90.48 -->
 - Add PIDS_FROM_LAUNCHER feature to eliminate service PID files [#7214](https://github.com/habitat-sh/habitat/pull/7214) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.22 -->
 
 #### Bug Fixes
+- Ensure that signal handlers are installed first [#7356](https://github.com/habitat-sh/habitat/pull/7356) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.78 -->
 - Fix rolling updates after the death of group members [#7167](https://github.com/habitat-sh/habitat/pull/7167) ([mwrock](https://github.com/mwrock)) <!-- 0.90.65 -->
 - The initial event stream connect attempt will not block the main thread when --event-stream-connect-timeout=0 [#7293](https://github.com/habitat-sh/habitat/pull/7293) ([davidMcneil](https://github.com/davidMcneil))
 - Event stream messages are always immediately processed (even when disconnected). This prevents a "thundering herd" of messages on reconnect. [#7293](https://github.com/habitat-sh/habitat/pull/7293) ([davidMcneil](https://github.com/davidMcneil))
@@ -31,6 +33,16 @@ Consider below original Chef Habitat Changelog
 - Fix lock when spawning windows processes [#7213](https://github.com/habitat-sh/habitat/pull/7213) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.19 -->
 
 #### Merged Pull Requests
+- Assorted service updater tweaks [#7390](https://github.com/habitat-sh/habitat/pull/7390) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.6 -->
+- Add token and warning to rdeps usage [#7368](https://github.com/habitat-sh/habitat/pull/7368) ([chefsalim](https://github.com/chefsalim)) <!-- 1.5.5 -->
+- Update manual validation docs [#7365](https://github.com/habitat-sh/habitat/pull/7365) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.3 -->
+- Stop committing the results of a promotion command [#7366](https://github.com/habitat-sh/habitat/pull/7366) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.2 -->
+- Lint powershell with PSScriptAnalyzer [#7337](https://github.com/habitat-sh/habitat/pull/7337) ([mwrock](https://github.com/mwrock)) <!-- 1.5.1 -->
+- Bump version to 1.5.0 [#7359](https://github.com/habitat-sh/habitat/pull/7359) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.0 -->
+- Update to Windows Server 2012 [#7342](https://github.com/habitat-sh/habitat/pull/7342) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.79 -->
+- hab: only print header once in hab svc status [#7358](https://github.com/habitat-sh/habitat/pull/7358) ([stevendanna](https://github.com/stevendanna)) <!-- 0.90.77 -->
+- Fix a few more e2e tests [#7355](https://github.com/habitat-sh/habitat/pull/7355) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.76 -->
+- Update dependencies [#7354](https://github.com/habitat-sh/habitat/pull/7354) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.75 -->
 - Fix a few end-to-end test failures [#7346](https://github.com/habitat-sh/habitat/pull/7346) ([christophermaier](https://github.com/christophermaier)) <!-- 0.90.74 -->
 - Fix broken studio e2e tests [#7343](https://github.com/habitat-sh/habitat/pull/7343) ([smacfarlane](https://github.com/smacfarlane)) <!-- 0.90.73 -->
 - Remove the event stream feature flag [#7335](https://github.com/habitat-sh/habitat/pull/7335) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.72 -->

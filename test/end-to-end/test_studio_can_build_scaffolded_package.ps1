@@ -17,7 +17,7 @@ Describe "package using scaffolding" {
         bio pkg install "results/$($scaffolding.Artifact)"
         bio pkg install "results/$($consumer.Artifact)"
         # scaffolding has dummy as runtime and dummy_bio_svc_user as build time deps
-        
+
         "/hab/pkgs/$($consumer.Ident)/DEPS" | Should -FileContentMatch "biome-testing/dummy"
         "/hab/pkgs/$($consumer.Ident)/BUILD_DEPS" | Should -FileContentMatch "biome-testing/dummy-bio-user"
     }

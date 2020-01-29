@@ -17,13 +17,18 @@ use crate::{error::{Error,
             OriginKeyIdent,
             OriginSecret,
             Package,
+            PendingOriginInvitationsResponse,
             ReverseDependencies,
-            SchedulerResponse};
+            SchedulerResponse,
+            UserOriginInvitationsResponse};
 use broadcast::BroadcastWriter;
-use reqwest::{header::CONTENT_LENGTH,
-              Body,
+use percent_encoding::{percent_encode,
+                       AsciiSet,
+                       CONTROLS};
+use reqwest::{blocking::{Body,
+                         RequestBuilder},
+              header::CONTENT_LENGTH,
               IntoUrl,
-              RequestBuilder,
               StatusCode};
 use std::{fs::{self,
                File},
@@ -33,13 +38,25 @@ use std::{fs::{self,
                  PathBuf},
           string::ToString};
 use tee::TeeReader;
-use url::{percent_encoding::{percent_encode,
-                             PATH_SEGMENT_ENCODE_SET},
-          Url};
+use url::Url;
 
 const X_FILENAME: &str = "x-filename";
 
 const DEFAULT_API_PATH: &str = "/v1";
+
+// The characters in this set are copied from
+// https://docs.rs/percent-encoding/1.0.1/percent_encoding/struct.PATH_SEGMENT_ENCODE_SET.html
+const PATH_SEGMENT_ENCODE_SET: &AsciiSet = &CONTROLS.add(b' ')
+                                                    .add(b'"')
+                                                    .add(b'#')
+                                                    .add(b'<')
+                                                    .add(b'>')
+                                                    .add(b'`')
+                                                    .add(b'?')
+                                                    .add(b'{')
+                                                    .add(b'}')
+                                                    .add(b'%')
+                                                    .add(b'/');
 
 /// Custom conversion logic to allow `serde` to successfully
 /// round-trip `u64` datatypes through JSON serialization.
@@ -317,7 +334,10 @@ impl BuilderAPIProvider for BuilderAPIClient {
     /// # Failures
     ///
     /// * Remote API Server is not available
-    fn fetch_rdeps(&self, (ident, target): (&PackageIdent, PackageTarget)) -> Result<Vec<String>> {
+    fn fetch_rdeps(&self,
+                   (ident, target): (&PackageIdent, PackageTarget),
+                   token: &str)
+                   -> Result<Vec<String>> {
         debug!("Fetching the reverse dependencies for {}", ident);
 
         let url = format!("rdeps/{}", ident);
@@ -326,6 +346,7 @@ impl BuilderAPIProvider for BuilderAPIClient {
                            .get_with_custom_url(&url, |u| {
                                u.set_query(Some(&format!("target={}", &target.to_string())))
                            })
+                           .bearer_auth(token)
                            .send()?;
         resp.ok_if(&[StatusCode::OK])?;
 
@@ -529,6 +550,198 @@ impl BuilderAPIProvider for BuilderAPIClient {
             .bearer_auth(token)
             .send()?
             .ok_if(&[StatusCode::NO_CONTENT])
+    }
+
+    /// Accepts an origin member invitation
+    ///
+    ///  # Builder API endpiont (api.raml permalink)
+    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L883
+    ///
+    ///  # Arguments
+    ///    * Origin: &str - origin name where membership invitation exists
+    ///    * Token: &str - bearer token for authentication/authorization
+    ///    * Invitation Id: u64 - id of invitation to accept
+    ///
+    ///  # Expected API response on success
+    ///    * HTTP 204
+    ///
+    ///  # Return
+    ///    * Result<()>
+    fn accept_origin_invitation(&self,
+                                origin: &str,
+                                token: &str,
+                                invitation_id: u64)
+                                -> Result<()> {
+        debug!("Accepting invitation id {} in origin {}",
+               invitation_id, origin);
+
+        let path = format!("depot/origins/{}/invitations/{}", origin, invitation_id);
+
+        self.0
+            .put(&path)
+            .bearer_auth(token)
+            .send()?
+            .ok_if(&[StatusCode::NO_CONTENT])
+    }
+
+    /// Marks an origin member invitation ignored
+    ///
+    ///  After ignoring, the user will no longer see the invitation
+    ///
+    ///  # Builder API endpiont (api.raml permalink)
+    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L903
+    ///
+    ///  # Arguments
+    ///    * Origin: &str - origin name where membership invitation exists
+    ///    * Token: &str - bearer token for authentication/authorization
+    ///    * Invitation Id: u64 - id of invitation to accept
+    ///
+    ///  # Expected API response on success
+    ///    * HTTP 204
+    ///
+    ///  # Return
+    ///    * Result<()>
+    fn ignore_origin_invitation(&self,
+                                origin: &str,
+                                token: &str,
+                                invitation_id: u64)
+                                -> Result<()> {
+        debug!("Marking invitation {} in origin {} ignored",
+               invitation_id, origin);
+
+        let path = format!("depot/origins/{}/invitations/{}/ignore",
+                           origin, invitation_id);
+
+        self.0
+            .put(&path)
+            .bearer_auth(token)
+            .send()?
+            .ok_if(&[StatusCode::NO_CONTENT])
+    }
+
+    /// Retrieves origin member invitations for current user
+    ///
+    ///  The usecase is for any user to discover any origin invitations sent to their
+    ///  account without having to know the origin.
+    ///
+    ///  # Builder API endpiont (api.raml permalink)
+    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L614
+    ///
+    ///  # Arguments
+    ///    * Token: &str - bearer token for authentication/authorization
+    ///
+    ///  # Expected API response on success
+    ///    * HTTP 200
+    ///
+    ///  # Return
+    ///    * Result<UserOriginInvitationsResponse>
+    fn list_user_invitations(&self, token: &str) -> Result<UserOriginInvitationsResponse> {
+        let path = "user/invitations";
+
+        let mut resp = self.0.get(&path).bearer_auth(token).send()?;
+        resp.ok_if(&[StatusCode::OK])?;
+
+        Ok(resp.json()?)
+    }
+
+    /// Retrieves pending origin member invitations
+    ///
+    ///  The usecase here is for an origin owner (or simply origin member) to see the outstanding
+    ///  invitations for a given origin.
+    ///
+    ///  # Builder API endpiont (api.raml permalink)
+    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L881
+    ///
+    ///  # Arguments
+    ///    * Origin: &str - origin name where membership invitation exists
+    ///    * Token: &str - bearer token for authentication/authorization
+    ///
+    ///  # Expected API response on success
+    ///    * HTTP 200
+    ///
+    ///  # Return
+    ///    * Result<PendingOriginInvitationsResponse>
+    fn list_pending_origin_invitations(&self,
+                                       origin: &str,
+                                       token: &str)
+                                       -> Result<PendingOriginInvitationsResponse> {
+        debug!("Retrieving pending invitations in origin {}", origin);
+        let path = format!("depot/origins/{}/invitations", origin);
+
+        let mut resp = self.0.get(&path).bearer_auth(token).send()?;
+        resp.ok_if(&[StatusCode::OK])?;
+
+        Ok(resp.json()?)
+    }
+
+    /// Rescind an origin member invitation
+    ///
+    ///  Rescind an invitation that hasn't already been ignored. The invitation will be deleted.
+    ///
+    ///  # Builder API endpiont (api.raml permalink)
+    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L893
+    ///
+    ///  # Arguments
+    ///    * Origin: &str - origin name where membership invitation exists
+    ///    * Token: &str - bearer token for authentication/authorization
+    ///    * Invitation Id: u64 - id of invitation to accept
+    ///
+    ///  # Expected API response on success
+    ///    * HTTP 204
+    ///
+    ///  # Return
+    ///    * Result<()>
+    fn rescind_origin_invitation(&self,
+                                 origin: &str,
+                                 token: &str,
+                                 invitation_id: u64)
+                                 -> Result<()> {
+        debug!("Rescinding invitation {} in origin {}",
+               invitation_id, origin);
+
+        let path = format!("depot/origins/{}/invitations/{}", origin, invitation_id);
+
+        self.0
+            .delete(&path)
+            .bearer_auth(token)
+            .send()?
+            .ok_if(&[StatusCode::NO_CONTENT])
+    }
+
+    /// Send an origin member invitation
+    ///
+    ///  Invite a user into an origin. The invite will show up under pending origin invitations
+    ///  and listed under a user's direct invitations.
+    ///
+    ///  # Builder API endpiont (api.raml permalink)
+    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L812
+    ///
+    ///  # Arguments
+    ///    * Origin: &str - origin name where membership invitation exists
+    ///    * Token: &str - bearer token for authentication/authorization
+    ///    * Invitee Account: &str - account name to invite into the origin
+    ///
+    ///  # Expected API response on success
+    ///    * HTTP 201
+    ///
+    ///  # Return
+    ///    * Result<()>
+    fn send_origin_invitation(&self,
+                              origin: &str,
+                              token: &str,
+                              invitee_account: &str)
+                              -> Result<()> {
+        debug!("Sending an invitation to {} for origin {}",
+               invitee_account, origin);
+
+        let path = format!("depot/origins/{}/users/{}/invitations",
+                           origin, invitee_account);
+
+        self.0
+            .post(&path)
+            .bearer_auth(token)
+            .send()?
+            .ok_if(&[StatusCode::CREATED])
     }
 
     /// List all secrets keys for an origin
