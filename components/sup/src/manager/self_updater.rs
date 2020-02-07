@@ -4,19 +4,21 @@
 use crate::{env,
             util};
 use biome_common::{command::package::install::InstallSource,
-                     liveliness_checker,
                      ui::UI};
 use biome_core::{package::{PackageIdent,
                              PackageInstall},
                    ChannelIdent};
-use std::{sync::mpsc::{sync_channel,
-                       Receiver,
-                       SyncSender,
-                       TryRecvError},
-          thread,
+use std::{thread,
           time::Duration};
 use time::{Duration as TimeDuration,
            SteadyTime};
+use tokio::{self,
+            runtime,
+            sync::oneshot::{self,
+                            error::TryRecvError,
+                            Receiver,
+                            Sender},
+            time as tokiotime};
 
 pub const SUP_PKG_IDENT: &str = "biome/bio-sup";
 const DEFAULT_FREQUENCY: i64 = 60_000;
@@ -46,39 +48,53 @@ impl SelfUpdater {
             update_url: String,
             update_channel: ChannelIdent)
             -> Receiver<PackageInstall> {
-        let (tx, rx) = sync_channel(0);
+        let (tx, rx) = oneshot::channel();
+        // Execute this future on a dedicated thread, and using a
+        // single-threaded runtime. Eventually, this should use `tokio::spawn`,
+        // but that will require refactoring to make the future safe
+        // to spawn on an executor.
+        //
+        // (Note: the `enable_all` is to ensure the Tokio timer is set
+        // up on the runtime, which is needed both here and also in
+        // the async reqwest calls we make from here.)
         thread::Builder::new().name("self-updater".to_string())
-                              .spawn(move || Self::run(&tx, &current, &update_url, &update_channel))
+                              .spawn(move || {
+                                  let mut rt =
+                                      runtime::Builder::new().basic_scheduler()
+                                                             .enable_all()
+                                                             .build()
+                                                             .expect("Could not spawn runtime \
+                                                                      for self-updater thread!");
+
+                                  rt.block_on(Self::run(tx, &current, &update_url, &update_channel))
+                              })
                               .expect("Unable to start self-updater thread");
         rx
     }
 
-    fn run(sender: &SyncSender<PackageInstall>,
-           current: &PackageIdent,
-           builder_url: &str,
-           channel: &ChannelIdent)
-           -> liveliness_checker::ThreadUnregistered {
+    async fn run(tx: Sender<PackageInstall>,
+                 current: &PackageIdent,
+                 update_url: &str,
+                 update_channel: &ChannelIdent) {
         debug!("Self updater current package, {}", current);
         // SUP_PKG_IDENT will always parse as a valid PackageIdent,
         // and thus a valid InstallSource
         let install_source: InstallSource = SUP_PKG_IDENT.parse().unwrap();
         loop {
-            let checked_thread = liveliness_checker::mark_thread_alive();
-
             let next_check = SteadyTime::now() + TimeDuration::milliseconds(update_frequency());
 
             match util::pkg::install(// We don't want anything in here to print
                                      &mut UI::with_sinks(),
-                                     builder_url,
+                                     &update_url,
                                      &install_source,
-                                     channel)
+                                     &update_channel).await
             {
                 Ok(package) => {
                     if current < package.ident() {
                         debug!("Self updater installing newer Supervisor, {}",
                                package.ident());
-                        sender.send(package).expect("Main thread has gone away!");
-                        break checked_thread.unregister(Ok(()));
+                        tx.send(package).expect("Main thread has gone away!");
+                        break;
                     } else {
                         debug!("Supervisor package found is not newer than ours");
                     }
@@ -90,16 +106,16 @@ impl SelfUpdater {
 
             let time_to_wait = (next_check - SteadyTime::now()).num_milliseconds();
             if time_to_wait > 0 {
-                thread::sleep(Duration::from_millis(time_to_wait as u64));
+                tokiotime::delay_for(Duration::from_millis(time_to_wait as u64)).await;
             }
         }
     }
 
-    pub fn updated(&mut self) -> Option<PackageInstall> {
+    pub async fn updated(&mut self) -> Option<PackageInstall> {
         match self.rx.try_recv() {
             Ok(package) => Some(package),
             Err(TryRecvError::Empty) => None,
-            Err(TryRecvError::Disconnected) => {
+            Err(TryRecvError::Closed) => {
                 debug!("Self updater has died, restarting...");
                 self.rx = Self::init(self.current.clone(),
                                      self.update_url.clone(),

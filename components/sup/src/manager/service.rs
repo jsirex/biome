@@ -187,13 +187,13 @@ pub struct Service {
     pub shutdown_timeout:    Option<ShutdownTimeout>,
     // TODO (DM): This flag is a temporary hack to signal to the `Manager` that this service needs
     // to be restarted. As we continue refactoring lifecycle hooks this flag should be removed.
-    pub needs_restart: bool,
+    pub needs_restart:       bool,
     // TODO (DM): The need to track initialization state across ticks would be removed if we
     // migrated away from the event loop architecture to an architecture that had a top level
     // `Service` future. See https://github.com/habitat-sh/habitat/issues/7112
-    initialization_state: Arc<RwLock<InitializationState>>,
+    initialization_state:    Arc<RwLock<InitializationState>>,
 
-    config_renderer: CfgRenderer,
+    config_renderer:        CfgRenderer,
     // Note: This field is really only needed for serializing a
     // Service in the gateway (see ServiceProxy's Serialize
     // implementation). Ideally, we could get rid of this, since we're
@@ -204,20 +204,20 @@ pub struct Service {
     // In order to access this field in an asynchronous health check
     // hook, we need to wrap some Arc<Mutex<_>> protection around it
     // :(
-    health_check_result: Arc<Mutex<HealthCheckResult>>,
-    last_election_status: ElectionStatus,
+    health_check_result:    Arc<Mutex<HealthCheckResult>>,
+    last_election_status:   ElectionStatus,
     /// The mapping of bind name to a service group, specified by the
     /// user when the service definition was loaded into the Supervisor.
-    binds: Vec<ServiceBind>,
+    binds:                  Vec<ServiceBind>,
     /// The binds that the current service package declares, both
     /// required and optional. We don't differentiate because this is
     /// used to validate the user-specified bindings against the
     /// current state of the census; once you get into the actual
     /// running of the service, the distinction is immaterial.
-    all_pkg_binds: Vec<Bind>,
+    all_pkg_binds:          Vec<Bind>,
     /// Controls how the presence or absence of bound service groups
     /// impacts the service's start-up.
-    binding_mode: BindingMode,
+    binding_mode:           BindingMode,
     /// Binds specified by the user that are currently mapped to
     /// service groups that do _not_ satisfy the bind's contract, as
     /// defined in the service's current package.
@@ -229,13 +229,13 @@ pub struct Service {
     /// We don't serialize because this is purely runtime information
     /// that should be reconciled against the current state of the
     /// census.
-    unsatisfied_binds: HashSet<ServiceBind>,
-    hooks: HookTable,
-    config_from: Option<PathBuf>,
-    manager_fs_cfg: Arc<FsCfg>,
-    supervisor: Arc<Mutex<Supervisor>>,
+    unsatisfied_binds:      HashSet<ServiceBind>,
+    hooks:                  HookTable,
+    config_from:            Option<PathBuf>,
+    manager_fs_cfg:         Arc<FsCfg>,
+    supervisor:             Arc<Mutex<Supervisor>>,
     svc_encrypted_password: Option<String>,
-    health_check_interval: HealthCheckInterval,
+    health_check_interval:  HealthCheckInterval,
 
     gateway_state: Arc<GatewayState>,
 
@@ -243,22 +243,22 @@ pub struct Service {
     /// health checks on this service. This is the means by which we
     /// can stop that future.
     health_check_handle: Option<AbortHandle>,
-    post_run_handle: Option<AbortHandle>,
-    initialize_handle: Option<AbortHandle>,
+    post_run_handle:     Option<AbortHandle>,
+    initialize_handle:   Option<AbortHandle>,
 }
 
 impl Service {
-    fn with_package(sys: Arc<Sys>,
-                    package: &PackageInstall,
-                    spec: ServiceSpec,
-                    manager_fs_cfg: Arc<FsCfg>,
-                    organization: Option<&str>,
-                    gateway_state: Arc<GatewayState>,
-                    pid_source: ServicePidSource)
-                    -> Result<Service> {
+    async fn with_package(sys: Arc<Sys>,
+                          package: &PackageInstall,
+                          spec: ServiceSpec,
+                          manager_fs_cfg: Arc<FsCfg>,
+                          organization: Option<&str>,
+                          gateway_state: Arc<GatewayState>,
+                          pid_source: ServicePidSource)
+                          -> Result<Service> {
         spec.validate(&package)?;
         let all_pkg_binds = package.all_binds()?;
-        let pkg = Self::resolve_pkg(&package, &spec)?;
+        let pkg = Self::resolve_pkg(&package, &spec).await?;
         let spec_file = manager_fs_cfg.specs_path.join(spec.file());
         let service_group = ServiceGroup::new(&pkg.name, spec.group, organization)?;
         let config_root = Self::config_root(&pkg, spec.config_from.as_ref());
@@ -314,8 +314,8 @@ impl Service {
     // '--password' argument to 'bio svc load', we will revert the user to
     // the current user.
     #[cfg(windows)]
-    fn resolve_pkg(package: &PackageInstall, spec: &ServiceSpec) -> Result<Pkg> {
-        let mut pkg = Pkg::from_install(&package)?;
+    async fn resolve_pkg(package: &PackageInstall, spec: &ServiceSpec) -> Result<Pkg> {
+        let mut pkg = Pkg::from_install(&package).await?;
         if spec.svc_encrypted_password.is_none() && pkg.svc_user == DEFAULT_USER {
             if let Some(user) = users::get_current_username() {
                 pkg.svc_user = user;
@@ -325,8 +325,8 @@ impl Service {
     }
 
     #[cfg(unix)]
-    fn resolve_pkg(package: &PackageInstall, _spec: &ServiceSpec) -> Result<Pkg> {
-        Ok(Pkg::from_install(&package)?)
+    async fn resolve_pkg(package: &PackageInstall, _spec: &ServiceSpec) -> Result<Pkg> {
+        Ok(Pkg::from_install(&package).await?)
     }
 
     /// Returns the config root given the package and optional config-from path.
@@ -343,13 +343,13 @@ impl Service {
                    .join("hooks")
     }
 
-    pub fn new(sys: Arc<Sys>,
-               spec: ServiceSpec,
-               manager_fs_cfg: Arc<FsCfg>,
-               organization: Option<&str>,
-               gateway_state: Arc<GatewayState>,
-               pid_source: ServicePidSource)
-               -> Result<Service> {
+    pub async fn new(sys: Arc<Sys>,
+                     spec: ServiceSpec,
+                     manager_fs_cfg: Arc<FsCfg>,
+                     organization: Option<&str>,
+                     gateway_state: Arc<GatewayState>,
+                     pid_source: ServicePidSource)
+                     -> Result<Service> {
         // The package for a spec should already be installed.
         let fs_root_path = Path::new(&*FS_ROOT_PATH);
         let package = PackageInstall::load(&spec.ident, Some(fs_root_path))?;
@@ -359,7 +359,7 @@ impl Service {
                               manager_fs_cfg,
                               organization,
                               gateway_state,
-                              pid_source)?)
+                              pid_source).await?)
     }
 
     /// Create the service path for this package.
@@ -508,7 +508,7 @@ impl Service {
     /// Performs updates and executes hooks.
     ///
     /// Returns `true` if the service was marked to be restarted or reconfigured.
-    pub async fn tick(&mut self, census_ring: &CensusRing, launcher: &LauncherCli) -> bool {
+    pub fn tick(&mut self, census_ring: &CensusRing, launcher: &LauncherCli) -> bool {
         // We may need to block the service from starting until all
         // its binds are satisfied
         if !self.initialized() {
@@ -1280,7 +1280,7 @@ mod tests {
                     Ipv4Addr},
               str::FromStr};
 
-    fn initialize_test_service() -> Service {
+    async fn initialize_test_service() -> Service {
         let listen_ctl_addr =
             ListenCtlAddr::from_str("127.0.0.1:1234").expect("Can't parse IP into SocketAddr");
         let sys = Sys::new(false,
@@ -1317,13 +1317,14 @@ mod tests {
                               afs,
                               Some("haha"),
                               gs,
-                              ServicePidSource::Launcher).expect("I wanted a service to load, but \
+                              ServicePidSource::Launcher).await
+                                                         .expect("I wanted a service to load, but \
                                                                   it didn't")
     }
 
-    #[test]
-    fn service_proxy_conforms_to_the_schema() {
-        let service = initialize_test_service();
+    #[tokio::test]
+    async fn service_proxy_conforms_to_the_schema() {
+        let service = initialize_test_service().await;
 
         // With config
         let proxy_with_config = ServiceProxy::new(&service, ConfigRendering::Full);

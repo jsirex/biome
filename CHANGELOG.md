@@ -1,14 +1,48 @@
 # Habitat CHANGELOG
 
-<!-- latest_release 1.5.6 -->
-## [1.5.6](https://github.com/habitat-sh/habitat/tree/1.5.6) (2020-01-29)
+<!-- latest_release 1.5.24 -->
+## [1.5.24](https://github.com/habitat-sh/habitat/tree/1.5.24) (2020-02-07)
 
 #### Merged Pull Requests
-- Assorted service updater tweaks [#7390](https://github.com/habitat-sh/habitat/pull/7390) ([christophermaier](https://github.com/christophermaier))
+- Enable updater threads to work with tokio::time [#7430](https://github.com/habitat-sh/habitat/pull/7430) ([christophermaier](https://github.com/christophermaier))
 <!-- latest_release -->
 
-<!-- release_rollup since=0.90.6 -->
-### Changes since 0.90.6 release
+<!-- release_rollup since=1.5.0 -->
+### Changes since 1.5.0 release
+
+#### New Features & Enhancements
+- hab origin invitations subcommand [#7349](https://github.com/habitat-sh/habitat/pull/7349) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.5.4 -->
+
+#### Merged Pull Requests
+- Enable updater threads to work with tokio::time [#7430](https://github.com/habitat-sh/habitat/pull/7430) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.24 -->
+- Habitat Pattern Library [#7344](https://github.com/habitat-sh/habitat/pull/7344) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.5.23 -->
+- Change split to second set so it pulls pkg name [#7425](https://github.com/habitat-sh/habitat/pull/7425) ([TheLunaticScripter](https://github.com/TheLunaticScripter)) <!-- 1.5.22 -->
+- Add LCR Button [#7419](https://github.com/habitat-sh/habitat/pull/7419) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.5.21 -->
+- terminate launcher on hab sup term on windows [#7418](https://github.com/habitat-sh/habitat/pull/7418) ([mwrock](https://github.com/mwrock)) <!-- 1.5.20 -->
+- Convert all reqwest usage to async [#7409](https://github.com/habitat-sh/habitat/pull/7409) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.19 -->
+- add Invoke-AfterSuccess and Invoke-AfterFailure callbacks for powershell plans [#7413](https://github.com/habitat-sh/habitat/pull/7413) ([mwrock](https://github.com/mwrock)) <!-- 1.5.18 -->
+- Correct Middleman file structure [#7406](https://github.com/habitat-sh/habitat/pull/7406) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.5.17 -->
+- Allow ad-hoc deployments of acceptance environment website changes [#7410](https://github.com/habitat-sh/habitat/pull/7410) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.16 -->
+- Update docs for 1.5.0 [#7396](https://github.com/habitat-sh/habitat/pull/7396) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.15 -->
+- Use packages.chef.io for installation of all versions [#7387](https://github.com/habitat-sh/habitat/pull/7387) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.5.14 -->
+- Run cargo-update as part of post-release activities [#7394](https://github.com/habitat-sh/habitat/pull/7394) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.5.13 -->
+- Remove a debug log message from the service updater [#7404](https://github.com/habitat-sh/habitat/pull/7404) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.12 -->
+- Adds client command for departing from an origin [#7401](https://github.com/habitat-sh/habitat/pull/7401) ([eeyun](https://github.com/eeyun)) <!-- 1.5.11 -->
+- start windows service on install if it was running when the hook was invoked [#7399](https://github.com/habitat-sh/habitat/pull/7399) ([mwrock](https://github.com/mwrock)) <!-- 1.5.10 -->
+- Update Changelog for 1.5.0 release [#7395](https://github.com/habitat-sh/habitat/pull/7395) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.9 -->
+- &quot;Bump nightly toolchain to nightly-2020-01-29&quot; [#7393](https://github.com/habitat-sh/habitat/pull/7393) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.9 -->
+- [CI] Update Github Release automation [#7391](https://github.com/habitat-sh/habitat/pull/7391) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.8 -->
+- add end to end tests to cover release validation [#7398](https://github.com/habitat-sh/habitat/pull/7398) ([mwrock](https://github.com/mwrock)) <!-- 1.5.7 -->
+- Assorted service updater tweaks [#7390](https://github.com/habitat-sh/habitat/pull/7390) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.6 -->
+- Add token and warning to rdeps usage [#7368](https://github.com/habitat-sh/habitat/pull/7368) ([chefsalim](https://github.com/chefsalim)) <!-- 1.5.5 -->
+- Update manual validation docs [#7365](https://github.com/habitat-sh/habitat/pull/7365) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.3 -->
+- Stop committing the results of a promotion command [#7366](https://github.com/habitat-sh/habitat/pull/7366) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.2 -->
+- Lint powershell with PSScriptAnalyzer [#7337](https://github.com/habitat-sh/habitat/pull/7337) ([mwrock](https://github.com/mwrock)) <!-- 1.5.1 -->
+<!-- release_rollup -->
+
+<!-- latest_stable_release -->
+## [1.5.0](https://github.com/habitat-sh/habitat/tree/1.5.0) (2020-01-29)
+[Full Changelog](https://github.com/habitat-sh/habitat/compare/0.90.6...1.5.0)
 
 #### Behavioral Changes
 - Remove the `HAB_FEAT_EVENT_STREAM` feature flag. The event stream is now enabled with `--event-stream-url`. [#7335](https://github.com/habitat-sh/habitat/pull/7335) ([davidMcneil](https://github.com/davidMcneil))
@@ -16,7 +50,6 @@
 - The initial event stream connection attempt no longer blocks by default. Set --event-stream-connect-timeout if blocking is desired. [#7293](https://github.com/habitat-sh/habitat/pull/7293) ([davidMcneil](https://github.com/davidMcneil))
 
 #### New Features & Enhancements
-- hab origin invitations subcommand [#7349](https://github.com/habitat-sh/habitat/pull/7349) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.5.4 -->
 - origin ownership transfer subcommand [#7331](https://github.com/habitat-sh/habitat/pull/7331) ([jeremymv2](https://github.com/jeremymv2)) <!-- 0.90.69 -->
 - Event stream connection backoff strategy [#7293](https://github.com/habitat-sh/habitat/pull/7293) ([davidMcneil](https://github.com/davidMcneil))
 - bulkupload: discover origins from signing keys [#7279](https://github.com/habitat-sh/habitat/pull/7279) ([jeremymv2](https://github.com/jeremymv2)) <!-- 0.90.48 -->
@@ -31,11 +64,6 @@
 - Fix lock when spawning windows processes [#7213](https://github.com/habitat-sh/habitat/pull/7213) ([davidMcneil](https://github.com/davidMcneil)) <!-- 0.90.19 -->
 
 #### Merged Pull Requests
-- Assorted service updater tweaks [#7390](https://github.com/habitat-sh/habitat/pull/7390) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.6 -->
-- Add token and warning to rdeps usage [#7368](https://github.com/habitat-sh/habitat/pull/7368) ([chefsalim](https://github.com/chefsalim)) <!-- 1.5.5 -->
-- Update manual validation docs [#7365](https://github.com/habitat-sh/habitat/pull/7365) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.3 -->
-- Stop committing the results of a promotion command [#7366](https://github.com/habitat-sh/habitat/pull/7366) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.2 -->
-- Lint powershell with PSScriptAnalyzer [#7337](https://github.com/habitat-sh/habitat/pull/7337) ([mwrock](https://github.com/mwrock)) <!-- 1.5.1 -->
 - Bump version to 1.5.0 [#7359](https://github.com/habitat-sh/habitat/pull/7359) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.0 -->
 - Update to Windows Server 2012 [#7342](https://github.com/habitat-sh/habitat/pull/7342) ([kagarmoe](https://github.com/kagarmoe)) <!-- 0.90.79 -->
 - hab: only print header once in hab svc status [#7358](https://github.com/habitat-sh/habitat/pull/7358) ([stevendanna](https://github.com/stevendanna)) <!-- 0.90.77 -->
@@ -124,9 +152,7 @@
 
 #### Behavioral Changes
 - Update install scripts to pull from packages.chef.io for new releases [#7119](https://github.com/habitat-sh/habitat/pull/7119) ([smacfarlane](https://github.com/smacfarlane)) <!-- 0.90.12 -->
-<!-- release_rollup -->
 
-<!-- latest_stable_release -->
 ## [0.90.6](https://github.com/habitat-sh/habitat/tree/0.90.6) (2019-11-13)
 [Full Changelog](https://github.com/habitat-sh/habitat/compare/0.88.0...0.90.6)
 

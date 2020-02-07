@@ -84,27 +84,27 @@ fn default_docker_base_image() -> Result<String> {
 #[derive(Debug)]
 pub struct BuildSpec<'a> {
     /// A string representation of a Biome Package Identifer for the Biome CLI package.
-    pub bio: &'a str,
+    pub bio:                &'a str,
     /// A string representation of a Biome Package Identifer for the Biome Launcher package.
-    pub bio_launcher: &'a str,
+    pub bio_launcher:       &'a str,
     /// A string representation of a Biome Package Identifer for the Biome Supervisor package.
-    pub bio_sup: &'a str,
+    pub bio_sup:            &'a str,
     /// The Builder URL which is used to install all service and extra Biome packages.
-    pub url: &'a str,
+    pub url:                &'a str,
     /// The Biome release channel which is used to install all service and extra Biome
     /// packages.
-    pub channel: ChannelIdent,
+    pub channel:            ChannelIdent,
     /// The Builder URL which is used to install all base Biome packages.
-    pub base_pkgs_url: &'a str,
+    pub base_pkgs_url:      &'a str,
     /// The Biome release channel which is used to install all base Biome packages.
-    pub base_pkgs_channel: ChannelIdent,
+    pub base_pkgs_channel:  ChannelIdent,
     /// A list of either Biome Package Identifiers or local paths to Biome Artifact files which
     /// will be installed.
     pub idents_or_archives: Vec<&'a str>,
     /// The Builder Auth Token to use in the request
-    pub auth: Option<&'a str>,
+    pub auth:               Option<&'a str>,
     /// Base image used in From of dockerfile
-    pub base_image: String,
+    pub base_image:         String,
 }
 
 impl<'a> BuildSpec<'a> {
@@ -141,26 +141,26 @@ impl<'a> BuildSpec<'a> {
     /// * If a temporary directory cannot be created
     /// * If the root file system cannot be created
     /// * If the `BuildRootContext` cannot be created
-    pub fn create(self, ui: &mut UI) -> Result<BuildRoot> {
+    pub async fn create(self, ui: &mut UI) -> Result<BuildRoot> {
         debug!("Creating BuildRoot from {:?}", &self);
         let workdir = TempDir::new()?;
         let rootfs = workdir.path().join("rootfs");
         ui.status(Status::Creating,
                   format!("build root in {}", workdir.path().display()))?;
-        self.prepare_rootfs(ui, &rootfs)?;
+        self.prepare_rootfs(ui, &rootfs).await?;
 
         Ok(BuildRoot { workdir,
                        ctx: BuildRootContext::from_spec(&self, &rootfs)? })
     }
 
     #[cfg(unix)]
-    fn prepare_rootfs(&self, ui: &mut UI, rootfs: &Path) -> Result<()> {
+    async fn prepare_rootfs(&self, ui: &mut UI, rootfs: &Path) -> Result<()> {
         ui.status(Status::Creating, "root filesystem")?;
         rootfs::create(rootfs)?;
         self.create_symlink_to_artifact_cache(ui, rootfs)?;
         self.create_symlink_to_key_cache(ui, rootfs)?;
-        let base_pkgs = self.install_base_pkgs(ui, rootfs)?;
-        let user_pkgs = self.install_user_pkgs(ui, rootfs)?;
+        let base_pkgs = self.install_base_pkgs(ui, rootfs).await?;
+        let user_pkgs = self.install_user_pkgs(ui, rootfs).await?;
         self.chmod_bio_directory(ui, rootfs)?;
         self.link_binaries(ui, rootfs, &base_pkgs)?;
         self.link_cacerts(ui, rootfs, &base_pkgs)?;
@@ -172,12 +172,12 @@ impl<'a> BuildSpec<'a> {
     }
 
     #[cfg(windows)]
-    fn prepare_rootfs(&self, ui: &mut UI, rootfs: &Path) -> Result<()> {
+    async fn prepare_rootfs(&self, ui: &mut UI, rootfs: &Path) -> Result<()> {
         ui.status(Status::Creating, "root filesystem")?;
         self.create_symlink_to_artifact_cache(ui, rootfs)?;
         self.create_symlink_to_key_cache(ui, rootfs)?;
-        self.install_base_pkgs(ui, rootfs)?;
-        self.install_user_pkgs(ui, rootfs)?;
+        self.install_base_pkgs(ui, rootfs).await?;
+        self.install_user_pkgs(ui, rootfs).await?;
         self.remove_symlink_to_key_cache(ui, rootfs)?;
         self.remove_symlink_to_artifact_cache(ui, rootfs)?;
 
@@ -210,16 +210,16 @@ impl<'a> BuildSpec<'a> {
         Ok(())
     }
 
-    fn install_base_pkgs(&self, ui: &mut UI, rootfs: &Path) -> Result<BasePkgIdents> {
-        let bio = self.install_base_pkg(ui, self.bio, rootfs)?;
-        let sup = self.install_base_pkg(ui, self.bio_sup, rootfs)?;
-        let launcher = self.install_base_pkg(ui, self.bio_launcher, rootfs)?;
+    async fn install_base_pkgs(&self, ui: &mut UI, rootfs: &Path) -> Result<BasePkgIdents> {
+        let bio = self.install_base_pkg(ui, self.bio, rootfs).await?;
+        let sup = self.install_base_pkg(ui, self.bio_sup, rootfs).await?;
+        let launcher = self.install_base_pkg(ui, self.bio_launcher, rootfs).await?;
         let busybox = if cfg!(target_os = "linux") {
-            Some(self.install_base_pkg(ui, BUSYBOX_IDENT, rootfs)?)
+            Some(self.install_base_pkg(ui, BUSYBOX_IDENT, rootfs).await?)
         } else {
             None
         };
-        let cacerts = self.install_base_pkg(ui, CACERTS_IDENT, rootfs)?;
+        let cacerts = self.install_base_pkg(ui, CACERTS_IDENT, rootfs).await?;
 
         Ok(BasePkgIdents { bio,
                            sup,
@@ -228,10 +228,10 @@ impl<'a> BuildSpec<'a> {
                            cacerts })
     }
 
-    fn install_user_pkgs(&self, ui: &mut UI, rootfs: &Path) -> Result<Vec<PackageIdent>> {
+    async fn install_user_pkgs(&self, ui: &mut UI, rootfs: &Path) -> Result<Vec<PackageIdent>> {
         let mut idents = Vec::new();
         for ioa in self.idents_or_archives.iter() {
-            idents.push(self.install_user_pkg(ui, ioa, rootfs)?);
+            idents.push(self.install_user_pkg(ui, ioa, rootfs).await?);
         }
 
         Ok(idents)
@@ -308,40 +308,42 @@ impl<'a> BuildSpec<'a> {
         Ok(())
     }
 
-    fn install_base_pkg(&self,
-                        ui: &mut UI,
-                        ident_or_archive: &str,
-                        fs_root_path: &Path)
-                        -> Result<PackageIdent> {
+    async fn install_base_pkg(&self,
+                              ui: &mut UI,
+                              ident_or_archive: &str,
+                              fs_root_path: &Path)
+                              -> Result<PackageIdent> {
         self.install(ui,
                      ident_or_archive,
                      self.base_pkgs_url,
                      &self.base_pkgs_channel,
                      fs_root_path,
                      None)
+            .await
     }
 
-    fn install_user_pkg(&self,
-                        ui: &mut UI,
-                        ident_or_archive: &str,
-                        fs_root_path: &Path)
-                        -> Result<PackageIdent> {
+    async fn install_user_pkg(&self,
+                              ui: &mut UI,
+                              ident_or_archive: &str,
+                              fs_root_path: &Path)
+                              -> Result<PackageIdent> {
         self.install(ui,
                      ident_or_archive,
                      self.url,
                      &self.channel,
                      fs_root_path,
                      self.auth)
+            .await
     }
 
-    fn install(&self,
-               ui: &mut UI,
-               ident_or_archive: &str,
-               url: &str,
-               channel: &ChannelIdent,
-               fs_root_path: &Path,
-               token: Option<&str>)
-               -> Result<PackageIdent> {
+    async fn install(&self,
+                     ui: &mut UI,
+                     ident_or_archive: &str,
+                     url: &str,
+                     channel: &ChannelIdent,
+                     fs_root_path: &Path,
+                     token: Option<&str>)
+                     -> Result<PackageIdent> {
         let install_source: InstallSource = ident_or_archive.parse()?;
         let package_install =
             common::command::package::install::start(ui,
@@ -359,7 +361,7 @@ impl<'a> BuildSpec<'a> {
                                                      // TODO (CM): pass through and enable
                                                      // ignore-local mode
                                                      &LocalPackageUsage::default(),
-                                                     InstallHookMode::Ignore)?;
+                                                     InstallHookMode::Ignore).await?;
         Ok(package_install.into())
     }
 }
@@ -370,7 +372,7 @@ pub struct BuildRoot {
     /// directories will be created.
     workdir: TempDir,
     /// The build root context containing information about Biome packages, `PATH` info, etc.
-    ctx: BuildRootContext,
+    ctx:     BuildRootContext,
 }
 
 impl BuildRoot {
@@ -402,21 +404,21 @@ impl BuildRoot {
 pub struct BuildRootContext {
     /// A list of all Biome service and library packages which were determined from the original
     /// list in a `BuildSpec`.
-    idents: Vec<PkgIdentType>,
+    idents:          Vec<PkgIdentType>,
     /// List of environment variables that can overload configuration.
     pub environment: HashMap<String, String>,
     /// The `bin` path which will be used for all program symlinking.
-    bin_path: PathBuf,
+    bin_path:        PathBuf,
     /// A string representation of the build root's `PATH` environment variable value (i.e. a
     /// colon-delimited `PATH` string).
-    env_path: String,
+    env_path:        String,
     /// The channel name which was used to install all user-provided Biome service and library
     /// packages.
-    channel: ChannelIdent,
+    channel:         ChannelIdent,
     /// The path to the root of the file system.
-    rootfs: PathBuf,
+    rootfs:          PathBuf,
     /// Base image used in From of dockerfile
-    base_image: String,
+    base_image:      String,
 }
 
 impl BuildRootContext {
@@ -707,22 +709,22 @@ impl BuildRootContext {
 #[derive(Debug)]
 struct BasePkgIdents {
     /// Installed package identifer for the Biome CLI package.
-    pub bio: PackageIdent,
+    pub bio:      PackageIdent,
     /// Installed package identifer for the Supervisor package.
-    pub sup: PackageIdent,
+    pub sup:      PackageIdent,
     /// Installed package identifer for the Launcher package.
     pub launcher: PackageIdent,
     /// Installed package identifer for the Busybox package.
-    pub busybox: Option<PackageIdent>,
+    pub busybox:  Option<PackageIdent>,
     /// Installed package identifer for the CA certs package.
-    pub cacerts: PackageIdent,
+    pub cacerts:  PackageIdent,
 }
 
 /// A service identifier representing a Biome package which contains a runnable service.
 #[derive(Debug)]
 struct SvcIdent {
     /// The Package Identifier.
-    pub ident: PackageIdent,
+    pub ident:   PackageIdent,
     /// A list of all port exposes for the package.
     pub exposes: Vec<String>,
 }
