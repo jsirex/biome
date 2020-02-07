@@ -63,22 +63,22 @@ const CACERTS_IDENT: &str = "core/cacerts";
 #[derive(Debug)]
 pub struct Naming<'a> {
     /// An optional custom image name which would override a computed default value.
-    pub custom_image_name: Option<&'a str>,
+    pub custom_image_name:   Option<&'a str>,
     /// Whether or not to tag the image with a latest value.
-    pub latest_tag: bool,
+    pub latest_tag:          bool,
     /// Whether or not to tag the image with a value containing a version from a Package
     /// Identifier.
-    pub version_tag: bool,
+    pub version_tag:         bool,
     /// Whether or not to tag the image with a value containing a version and release from a
     /// Package Identifier.
     pub version_release_tag: bool,
     /// An optional custom tag value for the image.
-    pub custom_tag: Option<&'a str>,
+    pub custom_tag:          Option<&'a str>,
     /// A URL to a custom Docker registry to publish to. This will be used as part of every tag
     /// before pushing.
-    pub registry_url: Option<&'a str>,
+    pub registry_url:        Option<&'a str>,
     /// The type of registry we're publishing to. Ex: Amazon, Docker, Google, Azure.
-    pub registry_type: RegistryType,
+    pub registry_type:       RegistryType,
 }
 
 impl<'a> Naming<'a> {
@@ -184,14 +184,14 @@ impl Credentials {
 /// * If additional Docker-related files cannot be created in the root file system
 /// * If building the Docker image fails
 /// * If destroying the temporary build root directory fails
-pub fn export(ui: &mut UI,
-              build_spec: BuildSpec,
-              naming: &Naming,
-              memory: Option<&str>)
-              -> Result<DockerImage> {
+pub async fn export<'a>(ui: &'a mut UI,
+                        build_spec: BuildSpec<'a>,
+                        naming: &'a Naming<'a>,
+                        memory: Option<&'a str>)
+                        -> Result<DockerImage> {
     ui.begin(format!("Building a runnable Docker image with: {}",
                      build_spec.idents_or_archives.join(", ")))?;
-    let build_root = DockerBuildRoot::from_build_root(build_spec.create(ui)?, ui)?;
+    let build_root = DockerBuildRoot::from_build_root(build_spec.create(ui).await?, ui)?;
     let image = build_root.export(ui, naming, memory)?;
     build_root.destroy(ui)?;
     ui.end(format!("Docker image '{}' created with tags: {}",
@@ -212,14 +212,14 @@ pub fn export(ui: &mut UI,
 /// * Pushing the image to remote registry fails.
 /// * Parsing of credentials fails.
 /// * The image (tags) cannot be removed.
-pub fn export_for_cli_matches(ui: &mut UI,
-                              matches: &clap::ArgMatches<'_>)
-                              -> Result<Option<DockerImage>> {
+pub async fn export_for_cli_matches(ui: &mut UI,
+                                    matches: &clap::ArgMatches<'_>)
+                                    -> Result<Option<DockerImage>> {
     let default_url = hurl::default_bldr_url();
     let spec = BuildSpec::new_from_cli_matches(&matches, &default_url)?;
     let naming = Naming::new_from_cli_matches(&matches);
 
-    let docker_image = export(ui, spec, &naming, matches.value_of("MEMORY_LIMIT"))?;
+    let docker_image = export(ui, spec, &naming, matches.value_of("MEMORY_LIMIT")).await?;
     docker_image.create_report(ui, env::current_dir()?.join("results"))?;
 
     if matches.is_present("PUSH_IMAGE") {

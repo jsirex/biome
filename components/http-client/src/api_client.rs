@@ -6,15 +6,15 @@ use std::{fs,
           time::Duration};
 
 use native_tls::Certificate;
-use reqwest::{blocking::{Client as ReqwestClient,
-                         RequestBuilder},
-              header::{HeaderMap,
+use reqwest::{header::{HeaderMap,
                        HeaderValue,
                        CONNECTION,
                        USER_AGENT},
               Certificate as ReqwestCertificate,
+              Client as ReqwestClient,
               IntoUrl,
               Proxy,
+              RequestBuilder,
               Url};
 
 use biome_core::{env,
@@ -43,7 +43,7 @@ pub struct ApiClient {
     /// The base URL for the client.
     endpoint: Url,
     /// An instance of a `reqwest::Client`
-    inner: ReqwestClient,
+    inner:    ReqwestClient,
 }
 
 impl ApiClient {
