@@ -1,4 +1,4 @@
-bio pkg install core/windows-service
+bio pkg install biome/windows-service
 
 Describe "Terminate Launcher" {
     Start-Service Biome

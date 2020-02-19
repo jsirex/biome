@@ -1,5 +1,5 @@
 bio pkg install core/nginx --channel stable
-bio pkg install core/windows-service
+bio pkg install biome/windows-service
 
 Describe "Clean Biome Shutdown" {
     Start-Service Biome

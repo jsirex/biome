@@ -12,7 +12,7 @@ bio pkg build test/fixtures/windows_plans/dummy_svc_user
 . .\results\last_build.ps1
 bio pkg install .\results\$pkg_artifact
 
-bio pkg install core/windows-service
+bio pkg install biome/windows-service
 Start-Service Biome
 Wait-Supervisor -Timeout 45
 
