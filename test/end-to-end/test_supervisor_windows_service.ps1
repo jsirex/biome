@@ -1,4 +1,4 @@
-bio pkg install core/windows-service
+bio pkg install biome/windows-service
 
 Describe "Biome Windows Service" {
     It "Starts the service" {

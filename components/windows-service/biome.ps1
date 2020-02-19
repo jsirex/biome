@@ -1,13 +1,13 @@
 function Install-HabService {
     if($null -ne (Get-Service Biome -ErrorAction SilentlyContinue)) {
-        Write-Error "The Biome service is already installed. Please run 'bio exec core/windows-service uninstall' first if you wish to reinstall."
+        Write-Error "The Biome service is already installed. Please run 'bio pkg exec biome/windows-service uninstall' first if you wish to reinstall."
         return
     }
 
     if(!(Test-Path (Join-Path $env:SystemDrive "hab\pkgs\biome\bio-sup"))) {
         $bioProc = Get-Process bio -ErrorAction SilentlyContinue
         if(!$bioProc) {
-            Write-Error "Could not locate the Biome CLI. Make sure you are running this via 'bio pkg exec core/windows-service install'."
+            Write-Error "Could not locate the Biome CLI. Make sure you are running this via 'bio pkg exec biome/windows-service install'."
             return
         }
         $bioExe = $bioProc[0].Path

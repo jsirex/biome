@@ -1,4 +1,9 @@
-use crate::command::studio;
+mod bio;
+
+use crate::{cli::bio::{sup::{PartialSupRun,
+                             Sup},
+                       Hab},
+            command::studio};
 
 use clap::{App,
            AppSettings,
@@ -33,14 +38,60 @@ use biome_core::{crypto::{keys::PairType,
                    ChannelIdent};
 use biome_sup_protocol;
 use rants::Address as NatsAddress;
-use std::{net::{Ipv4Addr,
+use std::{env,
+          fs,
+          net::{Ipv4Addr,
                 SocketAddr},
           path::Path,
           result,
           str::FromStr};
+use structopt::StructOpt;
+use toml;
 use url::Url;
 
+fn get_subcommand_mut<'a>(app: &'a mut App<'static, 'static>,
+                          name: &str)
+                          -> &'a mut App<'static, 'static> {
+    app.p
+       .subcommands
+       .iter_mut()
+       .find(|s| s.p.meta.name == name)
+       .unwrap_or_else(|| panic!("expected to find subcommand '{}'", name))
+}
+
+fn config_file_to_bio_sup_run_defaults(config_file: &str)
+                                       -> Result<PartialSupRun, Box<dyn std::error::Error>> {
+    let contents = fs::read_to_string(config_file)?;
+    Ok(toml::from_str(&contents)?)
+}
+
+fn overide_bio_sup_run_defaults_with_config_file(bio_sup_run: &mut App<'static, 'static>) {
+    if let Ok(config_file) = env::var("HAB_FEAT_CONFIG_FILE") {
+        // If we have a config file try and parse it as a `PartialSupRun`. `PartialSupRun`
+        // implements `ConfigOptDefaults` which allows it to set the default values of a
+        // `clap::App`.
+        match config_file_to_bio_sup_run_defaults(&config_file) {
+            Ok(defaults) => {
+                // Set the defaults of the `clap::App` this is how config file values are
+                // interleaved with CLI specified arguments.
+                configopt::set_defaults(bio_sup_run, &defaults)
+            }
+            Err(e) => error!("Failed to parse config file, err: {}", e),
+        }
+    }
+}
+
 pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
+    if feature_flags.contains(FeatureFlag::CONFIG_FILE) {
+        let mut bio = Hab::clap();
+        // Get a reference to the bio sup run subcommand. This is currently the only subcommand with
+        // config file support.
+        let bio_sup = get_subcommand_mut(&mut bio, "sup");
+        let bio_sup_run = get_subcommand_mut(bio_sup, "run");
+        overide_bio_sup_run_defaults_with_config_file(bio_sup_run);
+        return bio;
+    }
+
     let alias_apply = sub_config_apply().about("Alias for 'config apply'")
                                         .aliases(&["ap", "app", "appl"])
                                         .setting(AppSettings::Hidden);
@@ -61,12 +112,14 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
     clap_app!(bio =>
         (about: "\"A Biome is the natural environment for your services\" - Alan Turing")
         (version: super::VERSION)
-        (author: "\nAuthors: The Biome Maintainers <humans@biome.sh>\n")
+        (author: "\nThe Biome Maintainers <humans@biome.sh>\n")
         (@setting GlobalVersion)
         (@setting ArgRequiredElseHelp)
+        (@setting SubcommandRequiredElseHelp)
         (@subcommand license =>
             (about: "Commands relating to Biome license agreements")
             (@setting ArgRequiredElseHelp)
+            (@setting SubcommandRequiredElseHelp)
             (@subcommand accept =>
                 (about: "Accept the Chef Binary Distribution Agreement without prompting"))
         )
@@ -74,6 +127,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (about: "Commands relating to Biome runtime config")
             (aliases: &["cl"])
             (@setting ArgRequiredElseHelp)
+            (@setting SubcommandRequiredElseHelp)
             (subcommand: sub_cli_setup().aliases(&["s", "se", "set", "setu"]))
             (subcommand: sub_cli_completers().aliases(&["c", "co", "com", "comp"]))
         )
@@ -81,6 +135,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (about: "Commands relating to a Service's runtime config")
             (aliases: &["co", "con", "conf", "confi"])
             (@setting ArgRequiredElseHelp)
+            (@setting SubcommandRequiredElseHelp)
             (subcommand: sub_config_apply().aliases(&["ap", "app", "appl"]))
             (@subcommand show =>
                 (about: "Displays the default configuration options for a service")
@@ -95,6 +150,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (about: "Commands relating to Biome files")
             (aliases: &["f", "fi", "fil"])
             (@setting ArgRequiredElseHelp)
+            (@setting SubcommandRequiredElseHelp)
             (@subcommand upload =>
                 (about: "Uploads a file to be shared between members of a Service Group")
                 (aliases: &["u", "up", "upl", "uplo", "uploa"])
@@ -106,28 +162,28 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@arg USER: -u --user +takes_value "Name of the user key")
                 (@arg REMOTE_SUP: --("remote-sup") -r +takes_value
                     "Address to a remote Supervisor's Control Gateway [default: 127.0.0.1:9632]")
-                (arg: arg_cache_key_path("Path to search for encryption keys. \
-                    Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                    directory otherwise."))
+                (arg: arg_cache_key_path())
             )
         )
         (@subcommand bldr =>
             (about: "Commands relating to Biome Builder")
             (aliases: &["b", "bl", "bld"])
             (@setting ArgRequiredElseHelp)
+            (@setting SubcommandRequiredElseHelp)
             (@subcommand job =>
                 (about: "Commands relating to Biome Builder jobs")
                 (aliases: &["j", "jo"])
                 (@setting ArgRequiredElseHelp)
+                (@setting SubcommandRequiredElseHelp)
                 (@subcommand start =>
                     (about: "Schedule a build job or group of jobs")
                     (aliases: &["s", "st", "sta", "star"])
                     (@arg PKG_IDENT: +required +takes_value {valid_ident}
-                        "The origin and name of the package to schedule a job for (eg: core/redis)")
+                        "A package identifier (ex: core/redis, core/busybox-static/1.42.2)")
                     (arg: arg_target())
                     (@arg BLDR_URL: -u --url +takes_value {valid_url}
                         "Specify an alternate Builder endpoint. If not specified, the value will \
-                         be taken from the cli.toml or HAB_BLDR_URL environment variable if defined. \
+                         be taken from the HAB_BLDR_URL environment variable if defined. \
                          (default: https://bldr.habitat.sh)")
                     (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
                     (@arg GROUP: -g --group "Schedule jobs for this package and all of its reverse \
@@ -151,7 +207,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                     (about: "Promote packages from a completed build job to a specified channel")
                     (aliases: &["p", "pr", "pro", "prom", "promo", "promot"])
                     (@arg GROUP_ID: +required +takes_value
-                        "The job id that was returned from \"bio bldr job start\" \
+                        "The job group id that was returned from \"bio bldr job start\" \
                         (ex: 771100000000000000)")
                     (@arg CHANNEL: +takes_value +required "The target channel name")
                     (@arg ORIGIN: -o --origin +takes_value {valid_origin}
@@ -168,7 +224,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                     (about: "Demote packages from a completed build job from a specified channel")
                     (aliases: &["d", "de", "dem", "demo", "demot"])
                     (@arg GROUP_ID: +required +takes_value
-                        "The job id that was returned from \"bio bldr start\" \
+                        "The job group id that was returned from \"bio bldr job start\" \
                         (ex: 771100000000000000)")
                     (@arg CHANNEL: +takes_value +required "The name of the channel to demote from")
                     (@arg ORIGIN: -o --origin +takes_value {valid_origin}
@@ -187,7 +243,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                     (@group status =>
                         (@attributes +required)
                         (@arg GROUP_ID: +takes_value
-                            "The group id that was returned from \"bio bldr job start\" \
+                            "The job group id that was returned from \"bio bldr job start\" \
                             (ex: 771100000000000000)")
                         (@arg ORIGIN: -o --origin +takes_value {valid_origin}
                             "Show the status of recent job groups created in this origin \
@@ -208,6 +264,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (about: "Commands relating to Biome Builder channels")
                 (aliases: &["c", "ch", "cha", "chan", "chann", "channe"])
                 (@setting ArgRequiredElseHelp)
+                (@setting SubcommandRequiredElseHelp)
                 (@subcommand promote =>
                     (about: "Atomically promotes all packages in channel")
                     (@arg BLDR_URL: -u --url +takes_value {valid_url}
@@ -261,7 +318,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                          https://bldr.habitat.sh)")
                     (@arg CHANNEL: +required + takes_value "The channel name")
                     (@arg ORIGIN: -o --origin +takes_value {valid_origin}
-                        "Sets the origin to which the channel belongs. Default is from 'HAB_ORIGIN'\
+                        "Sets the origin to which the channel belongs. Default is from 'HAB_ORIGIN' \
                         or cli.toml")
                 )
                 (@subcommand list =>
@@ -272,7 +329,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                          be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                          https://bldr.habitat.sh)")
                     (@arg ORIGIN: +takes_value {valid_origin}
-                        "The origin for which channels will be listed. Default is from 'HAB_ORIGIN'\
+                        "The origin for which channels will be listed. Default is from 'HAB_ORIGIN' \
                         or cli.toml")
                 )
             )
@@ -281,13 +338,14 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (about: "Commands relating to Biome Builder origins")
             (aliases: &["o", "or", "ori", "orig", "origi"])
             (@setting ArgRequiredElseHelp)
+            (@setting SubcommandRequiredElseHelp)
             (@subcommand create =>
                 (about: "Creates a new Builder origin")
                 (aliases: &["cre", "crea"])
                 (@arg ORIGIN: +required {valid_origin} "The origin to be created")
                 (@arg BLDR_URL: -u --url +takes_value {valid_url}
                      "Specify an alternate Builder endpoint. If not specified, the value will \
-                     be taken from the `HAB_BLDR_URL` environment variable if defined. (default: \
+                     be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                      https://bldr.habitat.sh)")
                 (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
             )
@@ -297,7 +355,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@arg ORIGIN: +required {valid_origin} "The origin name")
                 (@arg BLDR_URL: -u --url +takes_value {valid_url}
                      "Specify an alternate Builder endpoint. If not specified, the value will \
-                     be taken from the `HAB_BLDR_URL` environment variable if defined. (default: \
+                     be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                      https://bldr.habitat.sh)")
                 (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
             )
@@ -306,7 +364,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@arg ORIGIN: +required {valid_origin} "The origin name")
                 (@arg BLDR_URL: -u --url +takes_value {valid_url}
                      "Specify an alternate Builder endpoint. If not specified, the value will \
-                     be taken from the `HAB_BLDR_URL` environment variable if defined. (default: \
+                     be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                      https://bldr.habitat.sh)")
                 (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
                 (@arg NEW_OWNER_ACCOUNT: +required +takes_value {non_empty} "The account name of the new origin owner")
@@ -316,19 +374,31 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@arg ORIGIN: +required {valid_origin} "The origin name")
                 (@arg BLDR_URL: -u --url +takes_value {valid_url}
                      "Specify an alternate Builder endpoint. If not specified, the value will \
-                     be taken from the `HAB_BLDR_URL` environment variable if defined. (default: \
+                     be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                      https://bldr.habitat.sh)")
-                (@arg AUTH_TOKEN: -z --auth +required +takes_value "Authentication token for Builder")
+                (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
+            )
+            (@subcommand info =>
+                (about: "Displays general information about an origin")
+                (@arg ORIGIN: +required {valid_origin} "The origin name to be queried")
+                (@arg TO_JSON: -j --json "Output will be rendered in json")
+                (@arg BLDR_URL: -u --url +takes_value {valid_url}
+                     "Specify an alternate Builder endpoint. If not specified, the value will \
+                     be taken from the HAB_BLDR_URL environment variable if defined. (default: \
+                     https://bldr.habitat.sh)")
+                (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
             )
             (@subcommand invitations =>
                 (about: "Manage origin member invitations")
+                (@setting ArgRequiredElseHelp)
+                (@setting SubcommandRequiredElseHelp)
                 (@subcommand accept =>
                      (about: "Accept an origin member invitation")
                      (@arg ORIGIN: +required {valid_origin} "The origin name the invitation applies to")
                      (@arg INVITATION_ID: +required +takes_value {valid_numeric::<u64>} "The id of the invitation to accept")
                      (@arg BLDR_URL: -u --url +takes_value {valid_url}
                           "Specify an alternate Builder endpoint. If not specified, the value will \
-                          be taken from the `HAB_BLDR_URL` environment variable if defined. (default: \
+                          be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                           https://bldr.habitat.sh)")
                      (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
                 )
@@ -338,7 +408,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                      (@arg INVITATION_ID: +required +takes_value {valid_numeric::<u64>} "The id of the invitation to ignore")
                      (@arg BLDR_URL: -u --url +takes_value {valid_url}
                           "Specify an alternate Builder endpoint. If not specified, the value will \
-                          be taken from the `HAB_BLDR_URL` environment variable if defined. (default: \
+                          be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                           https://bldr.habitat.sh)")
                      (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
                 )
@@ -346,16 +416,16 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                      (about: "List origin invitations sent to your account")
                      (@arg BLDR_URL: -u --url +takes_value {valid_url}
                           "Specify an alternate Builder endpoint. If not specified, the value will \
-                          be taken from the `HAB_BLDR_URL` environment variable if defined. (default: \
+                          be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                           https://bldr.habitat.sh)")
                      (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
                 )
                 (@subcommand pending =>
-                     (about: "List pending invitations for a particular origin. Requires that you are the origin owner.")
-                     (@arg ORIGIN: +required {valid_origin} "The name of the origin you wish to list invitations for ")
+                     (about: "List pending invitations for a particular origin. Requires that you are the origin owner")
+                     (@arg ORIGIN: +required {valid_origin} "The name of the origin you wish to list invitations for")
                      (@arg BLDR_URL: -u --url +takes_value {valid_url}
                           "Specify an alternate Builder endpoint. If not specified, the value will \
-                          be taken from the `HAB_BLDR_URL` environment variable if defined. (default: \
+                          be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                           https://bldr.habitat.sh)")
                      (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
                 )
@@ -365,7 +435,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                      (@arg INVITATION_ID: +required +takes_value {valid_numeric::<u64>} "The id of the invitation to rescind")
                     (@arg BLDR_URL: -u --url +takes_value {valid_url}
                           "Specify an alternate Builder endpoint. If not specified, the value will \
-                          be taken from the `HAB_BLDR_URL` environment variable if defined. (default: \
+                          be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                           https://bldr.habitat.sh)")
                     (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
                 )
@@ -375,7 +445,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                      (@arg INVITEE_ACCOUNT: +required +takes_value {non_empty} "The account name to invite into the origin")
                      (@arg BLDR_URL: -u --url +takes_value {valid_url}
                           "Specify an alternate Builder endpoint. If not specified, the value will \
-                          be taken from the `HAB_BLDR_URL` environment variable if defined. (default: \
+                          be taken from the HAB_BLDR_URL environment variable if defined. (default: \
                           https://bldr.habitat.sh)")
                      (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
                 )
@@ -384,12 +454,11 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (about: "Commands relating to Biome origin key maintenance")
                 (aliases: &["k", "ke"])
                 (@setting ArgRequiredElseHelp)
+                (@setting SubcommandRequiredElseHelp)
                 (@subcommand download =>
                     (about: "Download origin key(s)")
                     (aliases: &["d", "do", "dow", "down", "downl", "downlo", "downloa"])
-                    (arg: arg_cache_key_path("Path to download origin keys to. \
-                        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                        directory otherwise."))
+                    (arg: arg_cache_key_path())
                     (@arg ORIGIN: +required {valid_origin} "The origin name" )
                     (@arg REVISION: "The origin key revision")
                     (@arg BLDR_URL: -u --url +takes_value {valid_url}
@@ -406,29 +475,23 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@subcommand export =>
                     (about: "Outputs the latest origin key contents to stdout")
                     (aliases: &["e", "ex", "exp", "expo", "expor"])
-                    (@arg ORIGIN: +required +takes_value {valid_origin})
+                    (@arg ORIGIN: +required +takes_value {valid_origin} "The origin name")
                     (@arg PAIR_TYPE: -t --type +takes_value {valid_pair_type}
                         "Export either the 'public' or 'secret' key. The 'secret' key is the origin private key")
-                    (arg: arg_cache_key_path("Path to export origin keys from. \
-                        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                        directory otherwise."))
+                    (arg: arg_cache_key_path())
                 )
                 (@subcommand generate =>
                     (about: "Generates a Biome origin key pair")
                     (aliases: &["g", "ge", "gen", "gene", "gener", "genera", "generat"])
                     (@arg ORIGIN: {valid_origin} "The origin name")
-                    (arg: arg_cache_key_path("Path to store generated keys. \
-                        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                        directory otherwise."))
+                    (arg: arg_cache_key_path())
 
                 )
                 (@subcommand import =>
                     (about: "Reads a stdin stream containing a public or private origin key \
                         contents and writes the key to disk")
                     (aliases: &["i", "im", "imp", "impo", "impor"])
-                    (arg: arg_cache_key_path("Path to import origin keys to. \
-                        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                        directory otherwise."))
+                    (arg: arg_cache_key_path())
                 )
                 (@subcommand upload =>
                     (@group upload =>
@@ -439,9 +502,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                     )
                     (about: "Upload origin keys to Builder")
                     (aliases: &["u", "up", "upl", "uplo", "uploa"])
-                    (arg: arg_cache_key_path("Path to upload origin keys from. \
-                        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                        directory otherwise."))
+                    (arg: arg_cache_key_path())
                     (@arg WITH_SECRET: -s --secret conflicts_with[PUBLIC_FILE]
                         "Upload origin private key in addition to the public key")
                     (@arg SECRET_FILE: --secfile +takes_value {file_exists} conflicts_with[ORIGIN]
@@ -456,13 +517,14 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (@subcommand secret =>
                 (about: "Commands related to secret management")
                 (@setting ArgRequiredElseHelp)
+                (@setting SubcommandRequiredElseHelp)
                 (@subcommand upload =>
-                    (about: "Create and upload a secret for your origin.")
+                    (about: "Create and upload a secret for your origin")
                     (@arg KEY_NAME: +required +takes_value
                         "The name of the variable key to be injected into the studio. \
                         Ex: KEY=\"some_value\"")
                     (@arg SECRET: +required +takes_value
-                        "The contents of the variable to be injected into the studio.")
+                        "The contents of the variable to be injected into the studio")
                     (@arg BLDR_URL: -u --url +takes_value {valid_url}
                         "Specify an alternate Builder endpoint. If not specified, the value will \
                          be taken from the HAB_BLDR_URL environment variable if defined. (default: \
@@ -471,14 +533,12 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                     (@arg ORIGIN: -o --origin +takes_value {valid_origin}
                         "The origin for which the secret will be uploaded. Default is from \
                         'HAB_ORIGIN' or cli.toml")
-                    (arg: arg_cache_key_path("Path to public encryption key. \
-                        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                        directory otherwise."))
+                    (arg: arg_cache_key_path())
                 )
                 (@subcommand delete =>
                     (about: "Delete a secret for your origin")
                     (@arg KEY_NAME: +required +takes_value
-                        "The name of the variable key to be injected into the studio.")
+                        "The name of the variable key to be injected into the studio")
                     (@arg BLDR_URL: -u --url +takes_value {valid_url}
                         "Specify an alternate Builder endpoint. If not specified, the value will \
                          be taken from the HAB_BLDR_URL environment variable if defined. (default: \
@@ -505,10 +565,11 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (about: "Commands relating to Biome packages")
             (aliases: &["p", "pk", "package"])
             (@setting ArgRequiredElseHelp)
+            (@setting SubcommandRequiredElseHelp)
             (@subcommand binds =>
                 (about: "Displays the binds for a service")
                 (@arg PKG_IDENT: +required +takes_value {valid_ident}
-                    "A package identifier (ex: core/redis, core/busybox-statis/1.42.2)")
+                    "A package identifier (ex: core/redis, core/busybox-static/1.42.2)")
             )
             (@subcommand binlink =>
                 (about: "Creates a binlink for a package binary in a common 'PATH' location")
@@ -583,7 +644,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                     (@arg ORIGIN: -o --origin +takes_value {valid_origin}
                             "An origin to list")
                     (@arg PKG_IDENT: +takes_value {valid_ident}
-                    "A package identifier (ex: core/redis, core/busybox-static/1.42.2).")
+                    "A package identifier (ex: core/redis, core/busybox-static/1.42.2)")
                 )
 
             )
@@ -616,15 +677,13 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@arg DEST: +required
                     "The destination path to the signed Biome Artifact \
                     (ex: /home/acme-redis-3.0.7-21120102031201-x86_64-linux.hart)")
-                (arg: arg_cache_key_path("Path to search for origin keys. \
-                    Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                    directory otherwise."))
+                (arg: arg_cache_key_path())
             )
             (@subcommand uninstall =>
                 (about: "Safely uninstall a package and dependencies from the local filesystem")
                 (aliases: &["un", "unin"])
                 (@arg PKG_IDENT: +required +takes_value {valid_ident}
-                    "A package identifier (ex: core/redis, core/busybox-static/1.42.2/21120102031201)")
+                    "A package identifier (ex: core/redis, core/busybox-static/1.42.2)")
                 (@arg DRYRUN: -d --dryrun "Just show what would be uninstalled, don't actually do it")
                 (@arg EXCLUDE: --exclude +takes_value +multiple {valid_ident}
                     "Identifier of one or more packages that should not be uninstalled. \
@@ -634,24 +693,24 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             // alas no hyphens in subcommand names..
             // https://github.com/clap-rs/clap/issues/1297
             (@subcommand bulkupload =>
-                (about: "Bulk Uploads Biome Artifacts to a Depot from a local directory.")
+                (about: "Bulk Uploads Biome Artifacts to a Depot from a local directory")
                 (aliases: &["bul", "bulk"])
-                (@arg BLDR_URL: -u --url +takes_value {valid_url} "Specify an alternate Depot \
+                (@arg BLDR_URL: -u --url +takes_value {valid_url} "Specify an alternate Builder \
                     endpoint. If not specified, the value will be taken from the HAB_BLDR_URL \
                     environment variable if defined. (default: https://bldr.habitat.sh)")
                 (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
                 (@arg CHANNEL: --channel -c +takes_value
                     "Optional additional release channel to upload package to. \
                      Packages are always uploaded to `unstable`, regardless \
-                     of the value of this option.")
+                     of the value of this option")
                 (@arg FORCE: --force "Skip checking availability of package and \
-                    force uploads, potentially overwriting a stored copy of a package.")
+                    force uploads, potentially overwriting a stored copy of a package")
                 (@arg AUTO_BUILD: --("auto-build") "Enable auto-build for all packages in this upload. \
-                    Only applicable to SaaS Builder.")
+                    Only applicable to SaaS Builder")
                 (@arg AUTO_CREATE_ORIGINS: --("auto-create-origins") "Skip the confirmation prompt and \
-                    automatically create origins that do not exist in the target Builder.")
+                    automatically create origins that do not exist in the target Builder")
                 (@arg UPLOAD_DIRECTORY: +required {dir_exists}
-                    "Directory Path from which artifacts will be uploaded.")
+                    "Directory Path from which artifacts will be uploaded")
             )
             (@subcommand upload =>
                 (about: "Uploads a local Biome Artifact to Builder")
@@ -663,17 +722,15 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@arg CHANNEL: --channel -c +takes_value
                     "Optional additional release channel to upload package to. \
                      Packages are always uploaded to `unstable`, regardless \
-                     of the value of this option.")
+                     of the value of this option")
                 (@arg FORCE: --force "Skips checking availability of package and \
                     force uploads, potentially overwriting a stored copy of a package. \
                     (default: false)")
-                (@arg NO_BUILD: --("no-build")  "Disable auto-build for all packages in this upload.")
+                (@arg NO_BUILD: --("no-build")  "Disable auto-build for all packages in this upload")
                 (@arg HART_FILE: +required +multiple {file_exists}
                     "One or more filepaths to a Biome Artifact \
                     (ex: /home/acme-redis-3.0.7-21120102031201-x86_64-linux.hart)")
-                (arg: arg_cache_key_path("Path to search for public origin keys to upload. \
-                    Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                    directory otherwise."))
+                (arg: arg_cache_key_path())
             )
             (@subcommand delete =>
                 (about: "Removes a package from Builder")
@@ -726,9 +783,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (aliases: &["v", "ve", "ver", "veri", "verif"])
                 (@arg SOURCE: +required {file_exists} "A path to a Biome Artifact \
                     (ex: /home/acme-redis-3.0.7-21120102031201-x86_64-linux.hart)")
-                (arg: arg_cache_key_path("Path to search for public origin keys for verification. \
-                    Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                    directory otherwise."))
+                (arg: arg_cache_key_path())
             )
             (@subcommand header =>
                 (about: "Returns the Biome Artifact header")
@@ -755,9 +810,10 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             )
         )
         (@subcommand plan =>
-            (about: "Commands relating to plans and other app-specific configuration.")
+            (about: "Commands relating to plans and other app-specific configuration")
             (aliases: &["pl", "pla"])
             (@setting ArgRequiredElseHelp)
+            (@setting SubcommandRequiredElseHelp)
             (@subcommand init =>
                 (about: "Generates common package specific configuration files. Executing without \
                     argument will create a `biome` directory in your current folder for the \
@@ -789,33 +845,29 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (about: "Commands relating to Biome rings")
             (aliases: &["r", "ri", "rin"])
             (@setting ArgRequiredElseHelp)
+            (@setting SubcommandRequiredElseHelp)
             (@subcommand key =>
                 (about: "Commands relating to Biome ring keys")
                 (aliases: &["k", "ke"])
                 (@setting ArgRequiredElseHelp)
+                (@setting SubcommandRequiredElseHelp)
                 (@subcommand export =>
                     (about: "Outputs the latest ring key contents to stdout")
                     (aliases: &["e", "ex", "exp", "expo", "expor"])
                     (@arg RING: +required +takes_value "Ring key name")
-                    (arg: arg_cache_key_path("Path to search for keys. \
-                        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                        directory otherwise."))
+                    (arg: arg_cache_key_path())
                 )
                 (@subcommand import =>
                     (about: "Reads a stdin stream containing ring key contents and writes \
                     the key to disk")
                     (aliases: &["i", "im", "imp", "impo", "impor"])
-                    (arg: arg_cache_key_path("Path to store imported keys. \
-                        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                        directory otherwise."))
+                    (arg: arg_cache_key_path())
                 )
                 (@subcommand generate =>
                     (about: "Generates a Biome ring key")
                     (aliases: &["g", "ge", "gen", "gene", "gener", "genera", "generat"])
                     (@arg RING: +required +takes_value "Ring key name")
-                    (arg: arg_cache_key_path("Path to store generated keys. \
-                        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                        directory otherwise."))
+                    (arg: arg_cache_key_path())
                 )
             )
         )
@@ -824,19 +876,19 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (about: "Commands relating to Biome services")
             (aliases: &["sv", "ser", "serv", "service"])
             (@setting ArgRequiredElseHelp)
+            (@setting SubcommandRequiredElseHelp)
             (@subcommand key =>
                 (about: "Commands relating to Biome service keys")
                 (aliases: &["k", "ke"])
                 (@setting ArgRequiredElseHelp)
+                (@setting SubcommandRequiredElseHelp)
                 (@subcommand generate =>
                     (about: "Generates a Biome service key")
                     (aliases: &["g", "ge", "gen", "gene", "gener", "genera", "generat"])
                     (@arg SERVICE_GROUP: +required +takes_value {valid_service_group}
                         "Target service group service.group[@organization] (ex: redis.default or foo.default@bazcorp)")
                     (@arg ORG: "The service organization")
-                    (arg: arg_cache_key_path("Path to store generated keys. \
-                        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                        directory otherwise."))
+                    (arg: arg_cache_key_path())
                 )
             )
             (subcommand: sub_svc_load().aliases(&["l", "lo", "loa"]))
@@ -857,17 +909,17 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (about: "Commands relating to Biome users")
             (aliases: &["u", "us", "use"])
             (@setting ArgRequiredElseHelp)
+            (@setting SubcommandRequiredElseHelp)
             (@subcommand key =>
                 (about: "Commands relating to Biome user keys")
                 (aliases: &["k", "ke"])
                 (@setting ArgRequiredElseHelp)
+                (@setting SubcommandRequiredElseHelp)
                 (@subcommand generate =>
                     (about: "Generates a Biome user key")
                     (aliases: &["g", "ge", "gen", "gene", "gener", "genera", "generat"])
                     (@arg USER: +required +takes_value "Name of the user key")
-                    (arg: arg_cache_key_path("Path to store generated keys. \
-                        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                        directory otherwise."))
+                    (arg: arg_cache_key_path())
                 )
             )
         )
@@ -907,14 +959,20 @@ fn alias_term() -> App<'static, 'static> {
 
 fn sub_cli_setup() -> App<'static, 'static> {
     clap_app!(@subcommand setup =>
-    (about: "Sets up the CLI with reasonable defaults.")
-    (arg: arg_cache_key_path("Path to search for or create keys in. \
-        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-        directory otherwise."))
+    (about: "Sets up the CLI with reasonable defaults")
+    (arg: arg_cache_key_path())
     )
 }
 
 pub fn sup_commands(feature_flags: FeatureFlag) -> App<'static, 'static> {
+    if feature_flags.contains(FeatureFlag::CONFIG_FILE) {
+        let mut sup = Sup::clap();
+        // Get a reference to the sup run subcommand. This is currently the only subcommand with
+        // config file support.
+        let sup_run = get_subcommand_mut(&mut sup, "run");
+        overide_bio_sup_run_defaults_with_config_file(sup_run);
+        return sup;
+    }
     // Define all of the `bio sup *` subcommands in one place.
     // This removes the need to duplicate this in `bio-sup`.
     // The 'sup' App name here is significant for the `bio` binary as it
@@ -924,12 +982,13 @@ pub fn sup_commands(feature_flags: FeatureFlag) -> App<'static, 'static> {
     clap_app!(("sup") =>
     (about: "The Biome Supervisor")
     (version: super::VERSION)
-    (author: "\nAuthors: The Biome Maintainers <humans@biome.sh>\n")
+    (author: "\nThe Biome Maintainers <humans@biome.sh>\n")
     // set custom usage string, otherwise the binary
     // is displayed as the clap_app name, which may or may not be different.
     // see: https://github.com/kbknapp/clap-rs/blob/2724ec5399c500b12a1a24d356f4090f4816f5e2/src/app/mod.rs#L373-L394
     (usage: "bio sup <SUBCOMMAND>")
     (@setting VersionlessSubcommands)
+    (@setting ArgRequiredElseHelp)
     (@setting SubcommandRequiredElseHelp)
     (subcommand: sub_sup_bash().aliases(&["b", "ba", "bas"]))
     (subcommand: sub_sup_depart().aliases(&["d", "de", "dep", "depa", "depart"]))
@@ -943,17 +1002,16 @@ pub fn sup_commands(feature_flags: FeatureFlag) -> App<'static, 'static> {
 
 fn sub_cli_completers() -> App<'static, 'static> {
     let sub = clap_app!(@subcommand completers =>
-        (about: "Creates command-line completers for your shell."));
+        (about: "Creates command-line completers for your shell"));
 
-    let supported_shells = ["bash", "fish", "zsh", "powershell"];
+    let supported_shells = ["Bash", "Fish", "Zsh", "PowerShell"];
 
     // The clap_app! macro above is great but does not support the ability to specify a range of
     // possible values. We wanted to fail here with an unsupported shell instead of pushing off a
     // bad value to clap.
 
     sub.arg(Arg::with_name("SHELL").help("The name of the shell you want to generate the \
-                                          command-completion. Supported Shells: bash, fish, zsh, \
-                                          powershell")
+                                          command-completion")
                                    .short("s")
                                    .long("shell")
                                    .required(true)
@@ -964,14 +1022,16 @@ fn sub_cli_completers() -> App<'static, 'static> {
 // We need a default_value so that the argument can be required and validated. We hide the
 // default because it's a special value that will be internally mapped according to the
 // user type. This is to allow us to apply consistent validation to the env var override.
-fn arg_cache_key_path(help_text: &'static str) -> Arg<'static, 'static> {
+fn arg_cache_key_path() -> Arg<'static, 'static> {
     Arg::with_name("CACHE_KEY_PATH").long("cache-key-path")
                                     .required(true)
                                     .validator(non_empty)
                                     .env(CACHE_KEY_PATH_ENV_VAR)
                                     .default_value(CACHE_KEY_PATH)
                                     .hide_default_value(true)
-                                    .help(&help_text)
+                                    .help("Cache for creating and searching encryption keys. \
+                                           Default value is hab/cache/keys if root and \
+                                           .hab/cache/keys under the home directory otherwise")
 }
 
 fn arg_target() -> Arg<'static, 'static> {
@@ -979,7 +1039,7 @@ fn arg_target() -> Arg<'static, 'static> {
                                 .validator(valid_target)
                                 .env(PACKAGE_TARGET_ENVVAR)
                                 .help("A package target (ex: x86_64-windows) (default: system \
-                                       appropriate target")
+                                       appropriate target)")
 }
 
 fn sub_pkg_build() -> App<'static, 'static> {
@@ -994,9 +1054,7 @@ fn sub_pkg_build() -> App<'static, 'static> {
     (@arg PLAN_CONTEXT: +required +takes_value
         "A directory containing a plan file \
         or a `biome/` directory which contains the plan file")
-    (arg: arg_cache_key_path("Path to search for origin keys. \
-        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-        directory otherwise."))
+    (arg: arg_cache_key_path())
     );
     // Only a truly native/local Studio can be reused--the Docker implementation will always be
     // ephemeral
@@ -1019,16 +1077,16 @@ fn sub_pkg_download() -> App<'static, 'static> {
     (@arg AUTH_TOKEN: -z --auth +takes_value "Authentication token for Builder")
     (@arg BLDR_URL: --url -u +takes_value {valid_url}
         "Specify an alternate Builder endpoint. If not specified, the value will \
-         be taken from the HAB_BLDR_URL environment variable if defined.")
+         be taken from the HAB_BLDR_URL environment variable if defined. (default: https://bldr.habitat.sh)")
     (@arg CHANNEL: --channel -c +takes_value default_value[stable] env(ChannelIdent::ENVVAR)
-        "Download from the specified release channel. Overridden if channel is specified in toml file.")
+        "Download from the specified release channel. Overridden if channel is specified in toml file")
     (@arg DOWNLOAD_DIRECTORY: --("download-directory") +takes_value "The path to store downloaded artifacts")
     (@arg PKG_IDENT_FILE: --file +takes_value +multiple {valid_ident_or_toml_file}
         "File with newline separated package identifiers, or TOML file (ending with .toml extension)")
     (@arg PKG_IDENT: +multiple {valid_ident}
             "One or more Biome package identifiers (ex: acme/redis)")
     (@arg PKG_TARGET: --target -t +takes_value {valid_target}
-            "Target architecture to fetch. E.g. x86_64-linux. Overridden if architecture is specified in toml file.")
+            "Target architecture to fetch. E.g. x86_64-linux. Overridden if architecture is specified in toml file")
     (@arg VERIFY: --verify
             "Verify package integrity after download (Warning: this can be slow)")
     );
@@ -1081,16 +1139,14 @@ fn sub_config_apply() -> App<'static, 'static> {
     (@arg USER: -u --user +takes_value "Name of a user key to use for encryption")
     (@arg REMOTE_SUP: --("remote-sup") -r +takes_value
         "Address to a remote Supervisor's Control Gateway [default: 127.0.0.1:9632]")
-    (arg: arg_cache_key_path("Path to search for encryption keys. \
-        Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-        directory otherwise."))
+    (arg: arg_cache_key_path())
     )
 }
 
 // the following sup related functions are
 // public due to their utilization in `bio-sup`
 // for consistency, all supervisor related clap subcommands are defined in this module
-pub fn sub_sup_depart() -> App<'static, 'static> {
+fn sub_sup_depart() -> App<'static, 'static> {
     clap_app!(@subcommand depart =>
         (about: "Depart a Supervisor from the gossip ring; kicking and banning the target \
             from joining again with the same member-id")
@@ -1100,17 +1156,18 @@ pub fn sub_sup_depart() -> App<'static, 'static> {
     )
 }
 
-pub fn sub_sup_secret() -> App<'static, 'static> {
+fn sub_sup_secret() -> App<'static, 'static> {
     clap_app!(@subcommand secret =>
         (about: "Commands relating to a Biome Supervisor's Control Gateway secret")
         (@setting ArgRequiredElseHelp)
+        (@setting SubcommandRequiredElseHelp)
         (@subcommand generate =>
             (about: "Generate a secret key to use as a Supervisor's Control Gateway secret")
         )
     )
 }
 
-pub fn sub_sup_bash() -> App<'static, 'static> {
+fn sub_sup_bash() -> App<'static, 'static> {
     clap_app!(@subcommand bash =>
         (about: "Start an interactive Bash-like shell")
         // set custom usage string, otherwise the binary
@@ -1120,7 +1177,7 @@ pub fn sub_sup_bash() -> App<'static, 'static> {
     )
 }
 
-pub fn sub_sup_run(_feature_flags: FeatureFlag) -> App<'static, 'static> {
+fn sub_sup_run(_feature_flags: FeatureFlag) -> App<'static, 'static> {
     let sub = clap_app!(@subcommand run =>
                             (about: "Run the Biome Supervisor")
                             // set custom usage string, otherwise the binary
@@ -1128,27 +1185,25 @@ pub fn sub_sup_run(_feature_flags: FeatureFlag) -> App<'static, 'static> {
                             // see: https://github.com/kbknapp/clap-rs/blob/2724ec5399c500b12a1a24d356f4090f4816f5e2/src/app/mod.rs#L373-L394
                             (usage: "bio sup run [FLAGS] [OPTIONS] [--] [PKG_IDENT_OR_ARTIFACT]")
                             (@arg LISTEN_GOSSIP: --("listen-gossip") env(GossipListenAddr::ENVVAR) default_value(GossipListenAddr::default_as_str()) {valid_socket_addr}
-                             "The listen address for the Gossip System Gateway.")
+                             "The listen address for the Gossip System Gateway")
                             (@arg LOCAL_GOSSIP_MODE: --("local-gossip-mode") conflicts_with("LISTEN_GOSSIP") conflicts_with("PEER") conflicts_with("PEER_WATCH_FILE")
-                             "Start the supervisor in local mode.")
+                             "Start the supervisor in local mode")
                             (@arg LISTEN_HTTP: --("listen-http") env(HttpListenAddr::ENVVAR) default_value(HttpListenAddr::default_as_str()) {valid_socket_addr}
-                             "The listen address for the HTTP Gateway.")
+                             "The listen address for the HTTP Gateway")
                             (@arg HTTP_DISABLE: --("http-disable") -D
-                             "Disable the HTTP Gateway completely [default: false]")
+                             "Disable the HTTP Gateway completely")
                             (@arg LISTEN_CTL: --("listen-ctl") env(ListenCtlAddr::ENVVAR) default_value(ListenCtlAddr::default_as_str()) {valid_socket_addr}
                              "The listen address for the Control Gateway. If not specified, the value will \
-                              be taken from the HAB_LISTEN_CTL environment variable if defined. [default: 127.0.0.1:9632]")
+                              be taken from the HAB_LISTEN_CTL environment variable if defined")
                             (@arg ORGANIZATION: --org +takes_value
-                             "The organization that the Supervisor and its subsequent services are part of.")
+                             "The organization that the Supervisor and its subsequent services are part of")
                             (@arg PEER: --peer +takes_value +multiple
                              "The listen address of one or more initial peers (IP[:PORT])")
                             (@arg PERMANENT_PEER: --("permanent-peer") -I "If this Supervisor is a permanent peer")
                             (@arg PEER_WATCH_FILE: --("peer-watch-file") +takes_value conflicts_with("PEER")
                              "Watch this file for connecting to the ring"
                             )
-                            (arg: arg_cache_key_path("Path to search for encryption keys. \
-                                                      Default value is hab/cache/keys if root and .hab/cache/keys under the home \
-                                                      directory otherwise."))
+                            (arg: arg_cache_key_path())
                             (@arg RING: --ring -r env(RING_ENVVAR) conflicts_with("RING_KEY") {non_empty}
                              "The name of the ring used by the Supervisor when running with wire encryption. \
                               (ex: bio sup run --ring myring)")
@@ -1163,7 +1218,7 @@ pub fn sub_sup_run(_feature_flags: FeatureFlag) -> App<'static, 'static> {
                              "Receive Supervisor updates from the specified release channel")
                             (@arg BLDR_URL: -u --url +takes_value {valid_url}
                              "Specify an alternate Builder endpoint. If not specified, the value will \
-                              be taken from the HAB_BLDR_URL environment variable if defined. (default: \
+                              be taken from the HAB_BLDR_URL environment variable if defined (default: \
                               https://bldr.habitat.sh)")
 
                             (@arg CONFIG_DIR: --("config-from") +takes_value {dir_exists}
@@ -1172,25 +1227,25 @@ pub fn sub_sup_run(_feature_flags: FeatureFlag) -> App<'static, 'static> {
                                                                      itself")
                             (@arg KEY_FILE: --key +takes_value {file_exists} requires[CERT_FILE]
                              "Used for enabling TLS for the HTTP gateway. Read private key from KEY_FILE. \
-                              This should be a RSA private key or PKCS8-encoded private key, in PEM format.")
+                              This should be a RSA private key or PKCS8-encoded private key, in PEM format")
                             (@arg CERT_FILE: --certs +takes_value {file_exists} requires[KEY_FILE]
                              "Used for enabling TLS for the HTTP gateway. Read server certificates from CERT_FILE. \
                               This should contain PEM-format certificates in the right order (the first certificate \
-                              should certify KEY_FILE, the last should be a root CA).")
+                              should certify KEY_FILE, the last should be a root CA)")
                             (@arg CA_CERT_FILE: --("ca-certs") +takes_value {file_exists} requires[CERT_FILE] requires[KEY_FILE]
                              "Used for enabling client-authentication with TLS for the HTTP gateway. Read CA certificate from CA_CERT_FILE. \
-                              This should contain PEM-format certificate that can be used to validate client requests.")
+                              This should contain PEM-format certificate that can be used to validate client requests")
                             // === Optional arguments to additionally load an initial service for the Supervisor
                             (@arg PKG_IDENT_OR_ARTIFACT: +takes_value "Load the given Biome package as part of \
                                                                        the Supervisor startup specified by a package identifier \
                                                                        (ex: core/redis) or filepath to a Biome Artifact \
-                                                                       (ex: /home/core-redis-3.0.7-21120102031201-x86_64-linux.hart).")
+                                                                       (ex: /home/core-redis-3.0.7-21120102031201-x86_64-linux.hart)")
                             // TODO (DM): These flags can eventually be removed.
                             // See https://github.com/habitat-sh/habitat/issues/7339
                             (@arg APPLICATION: --application -a +hidden +multiple "DEPRECATED")
                             (@arg ENVIRONMENT: --environment -e +hidden +multiple "DEPRECATED")
                             (@arg GROUP: --group +takes_value
-                             "The service group; shared config and topology [default: default].")
+                             "The service group; shared config and topology [default: default]")
                             (@arg TOPOLOGY: --topology -t +takes_value possible_value[standalone leader]
                              "Service topology; [default: none]")
                             (@arg STRATEGY: --strategy -s +takes_value {valid_update_strategy}
@@ -1210,14 +1265,14 @@ pub fn sub_sup_run(_feature_flags: FeatureFlag) -> App<'static, 'static> {
                              "The IPv4 address to use as the `sys.ip` template variable. If this \
                              argument is not set, the supervisor tries to dynamically determine \
                              an IP address. If that fails, the supervisor defaults to using \
-                             `127.0.0.1`.")
+                             `127.0.0.1`")
     );
 
     let sub = add_event_stream_options(sub);
     add_shutdown_timeout_option(sub)
 }
 
-pub fn sub_sup_sh() -> App<'static, 'static> {
+fn sub_sup_sh() -> App<'static, 'static> {
     clap_app!(@subcommand sh =>
         (about: "Start an interactive Bourne-like shell")
         // set custom usage string, otherwise the binary
@@ -1227,7 +1282,7 @@ pub fn sub_sup_sh() -> App<'static, 'static> {
     )
 }
 
-pub fn sub_sup_term() -> App<'static, 'static> {
+fn sub_sup_term() -> App<'static, 'static> {
     clap_app!(@subcommand term =>
         (about: "Gracefully terminate the Biome Supervisor and all of its running services")
         // set custom usage string, otherwise the binary
@@ -1239,9 +1294,9 @@ pub fn sub_sup_term() -> App<'static, 'static> {
 
 fn sub_svc_start() -> App<'static, 'static> {
     clap_app!(@subcommand start =>
-        (about: "Start a loaded, but stopped, Biome service.")
+        (about: "Start a loaded, but stopped, Biome service")
         (@arg PKG_IDENT: +required +takes_value {valid_ident}
-            "A Biome package identifier (ex: core/redis)")
+            "A package identifier (ex: core/redis, core/busybox-static/1.42.2)")
         (@arg REMOTE_SUP: --("remote-sup") -r +takes_value
             "Address to a remote Supervisor's Control Gateway [default: 127.0.0.1:9632]")
     )
@@ -1249,10 +1304,10 @@ fn sub_svc_start() -> App<'static, 'static> {
 
 // `bio svc status` is the canonical location for this command, but we
 // have historically used `bio sup status` as an alias.
-pub fn sub_svc_status() -> App<'static, 'static> {
+fn sub_svc_status() -> App<'static, 'static> {
     clap_app!(@subcommand status =>
-        (about: "Query the status of Biome services.")
-        (@arg PKG_IDENT: +takes_value {valid_ident} "A Biome package identifier (ex: core/redis)")
+        (about: "Query the status of Biome services")
+        (@arg PKG_IDENT: +takes_value {valid_ident} "A package identifier (ex: core/redis, core/busybox-static/1.42.2)")
         (@arg REMOTE_SUP: --("remote-sup") -r +takes_value
         "Address to a remote Supervisor's Control Gateway [default: 127.0.0.1:9632]")
     )
@@ -1266,9 +1321,9 @@ pub fn parse_optional_arg<T: FromStr>(name: &str, m: &ArgMatches) -> Option<T>
 
 fn sub_svc_stop() -> App<'static, 'static> {
     let sub = clap_app!(@subcommand stop =>
-        (about: "Stop a running Biome service.")
+        (about: "Stop a running Biome service")
         (@arg PKG_IDENT: +required +takes_value {valid_ident}
-            "A Biome package identifier (ex: core/redis)")
+            "A package identifier (ex: core/redis, core/busybox-static/1.42.2)")
         (@arg REMOTE_SUP: --("remote-sup") -r +takes_value
             "Address to a remote Supervisor's Control Gateway [default: 127.0.0.1:9632]")
     );
@@ -1279,9 +1334,9 @@ fn sub_svc_load() -> App<'static, 'static> {
     let mut sub = clap_app!(@subcommand load =>
         (about: "Load a service to be started and supervised by Biome from a package \
             identifier. If an installed package doesn't satisfy the given package \
-            identifier, a suitable package will be installed from Builder.")
+            identifier, a suitable package will be installed from Builder")
         (@arg PKG_IDENT: +required +takes_value {valid_ident}
-            "A Biome package identifier (ex: core/redis)")
+            "A package identifier (ex: core/redis, core/busybox-static/1.42.2)")
         // TODO (DM): These flags can eventually be removed.
         // See https://github.com/habitat-sh/habitat/issues/7339
         (@arg APPLICATION: --application -a +hidden +multiple "DEPRECATED")
@@ -1289,7 +1344,7 @@ fn sub_svc_load() -> App<'static, 'static> {
         (@arg CHANNEL: --channel +takes_value default_value[stable]
             "Receive package updates from the specified release channel")
         (@arg GROUP: --group +takes_value
-            "The service group; shared config and topology [default: default].")
+            "The service group; shared config and topology [default: default]")
         (@arg BLDR_URL: -u --url +takes_value {valid_url}
             "Specify an alternate Builder endpoint. If not specified, the value will \
              be taken from the HAB_BLDR_URL environment variable if defined. (default: \
@@ -1323,9 +1378,9 @@ fn sub_svc_load() -> App<'static, 'static> {
 fn sub_svc_unload() -> App<'static, 'static> {
     let sub = clap_app!(@subcommand unload =>
         (about: "Unload a service loaded by the Biome Supervisor. If the service is \
-            running it will additionally be stopped.")
+            running it will additionally be stopped")
         (@arg PKG_IDENT: +required +takes_value {valid_ident}
-            "A Biome package identifier (ex: core/redis)")
+            "A package identifier (ex: core/redis, core/busybox-static/1.42.2)")
         (@arg REMOTE_SUP: --("remote-sup") -r +takes_value
             "Address to a remote Supervisor's Control Gateway [default: 127.0.0.1:9632]")
     );
@@ -1338,7 +1393,7 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
     app.arg(Arg::with_name("EVENT_STREAM_APPLICATION").help("The name of the application for \
                                                              event stream purposes. This \
                                                              will be attached to all events \
-                                                             generated by this Supervisor.")
+                                                             generated by this Supervisor")
                                                       .long("event-stream-application")
                                                       .required(false)
                                                       .takes_value(true)
@@ -1346,7 +1401,7 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
        .arg(Arg::with_name("EVENT_STREAM_ENVIRONMENT").help("The name of the environment for \
                                                              event stream purposes. This \
                                                              will be attached to all events \
-                                                             generated by this Supervisor.")
+                                                             generated by this Supervisor")
                                                       .long("event-stream-environment")
                                                       .required(false)
                                                       .takes_value(true)
@@ -1356,7 +1411,7 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
                                                           the Supervisor. Set to '0' to \
                                                           immediately start the Supervisor and \
                                                           continue running regardless of the \
-                                                          initial connection status.")
+                                                          initial connection status")
                                                    .long("event-stream-connect-timeout")
                                                    .required(false)
                                                    .takes_value(true)
@@ -1369,7 +1424,7 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
                                                      the event stream and requires \
                                                      --event-stream-application, \
                                                      --event-stream-environment, and \
-                                                     --event-stream-token also be set.")
+                                                     --event-stream-token also be set")
                                               .long("event-stream-url")
                                               .required(false)
                                               .requires_all(&[
@@ -1380,14 +1435,14 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
                                               .takes_value(true)
                                               .validator(nats_address))
        .arg(Arg::with_name("EVENT_STREAM_SITE").help("The name of the site where this Supervisor \
-                                                      is running for event stream purposes.")
+                                                      is running for event stream purposes")
                                                .long("event-stream-site")
                                                .required(false)
                                                .takes_value(true)
                                                .validator(non_empty))
        .arg(Arg::with_name(AutomateAuthToken::ARG_NAME).help("The authentication token for \
                                                               connecting the event stream to \
-                                                              Chef Automate.")
+                                                              Chef Automate")
                                                        .long("event-stream-token")
                                                        .required(false)
                                                        .takes_value(true)
@@ -1395,7 +1450,7 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
                                                        .env(AutomateAuthToken::ENVVAR))
        .arg(Arg::with_name(EventStreamMetadata::ARG_NAME).help("An arbitrary key-value pair to \
                                                                 add to each event generated by \
-                                                                this Supervisor.")
+                                                                this Supervisor")
                                                          .long("event-meta")
                                                          .takes_value(true)
                                                          .multiple(true)
@@ -1403,7 +1458,7 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
        .arg(Arg::with_name("EVENT_STREAM_SERVER_CERTIFICATE").help("The path to Chef Automate's \
                                                                     event stream certificate in \
                                                                     PEM format used to establish \
-                                                                    a TLS connection.")
+                                                                    a TLS connection")
                                               .long("event-stream-server-certificate")
                                               .required(false)
                                               .takes_value(true)

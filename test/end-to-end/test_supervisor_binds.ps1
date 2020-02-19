@@ -1,12 +1,3 @@
-Function Invoke-BuildAndInstall($PackageName) {
-    bio pkg build test/fixtures/$PackageName
-    if($IsLinux) {
-        Get-Content "results/last_build.env" | ForEach-Object { Add-Content "results/last_build.ps1" -Value "`$$($_.Replace("=", '="'))`"" }
-    }
-    . ./results/last_build.ps1
-    bio pkg install ./results/$pkg_artifact
-}
-
 Describe "Supervisor binds" {
     BeforeAll {
         bio origin key generate $env:HAB_ORIGIN

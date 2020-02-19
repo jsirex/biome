@@ -13,7 +13,7 @@ $lsa_wrapper.SetRight($username, "SeServiceLogonRight")
 $env:HAB_ORIGIN = "ci"
 bio origin key generate ci
 
-bio pkg install core/windows-service
+bio pkg install biome/windows-service
 Start-Service Biome
 Wait-Supervisor -Timeout 45
 

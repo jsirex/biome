@@ -11,7 +11,7 @@ The only requirement is that you have the Biome cli (bio.exe) installed and on y
 To install the Biome Windows service, run:
 
 ```
-bio pkg install core/windows-service
+bio pkg install biome/windows-service
 ```
 
 This will install the package and invoke its `install` hook creating the service in the Windows Service Control Manager (SCM). You can locate the service in the Services console app. It will be named "Biome." It will be set to start automatically and run under the `Local System` account. You may of course change the startup type and/or account identity in the service's properties.
@@ -21,7 +21,7 @@ This will install the package and invoke its `install` hook creating the service
 To uninstall the Biome service, run:
 
 ```
-bio pkg exec core/windows-service uninstall
+bio pkg exec biome/windows-service uninstall
 ```
 
 This will stop the service if it is running and uninstall it from the Windows Service Control Manager (SCM).

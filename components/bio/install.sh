@@ -255,7 +255,7 @@ install_bio() {
     linux)
       local _ident="biome/bio"
 
-      if [ -n "${version-}" ]; then
+      if [ -n "${version-}" ] && [ "${version}" != "latest" ]; then
         _ident+="/$version";
       fi
 
