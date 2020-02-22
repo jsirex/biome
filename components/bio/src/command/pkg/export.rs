@@ -5,8 +5,6 @@ use biome_core::{package::PackageIdent,
 
 pub mod cf;
 pub mod docker;
-pub mod helm;
-pub mod kubernetes;
 pub mod tar;
 
 mod export_common;
@@ -59,14 +57,6 @@ mod inner {
     pub fn format_for(_ui: &mut UI, value: &str) -> Result<ExportFormat> {
         let version: Vec<_> = VERSION.split('/').collect();
         match value {
-            "aci" => {
-                let format =
-                    ExportFormat { pkg_ident:
-                                       PackageIdent::from_str(&format!("biome/bio-pkg-aci/{}",
-                                                                       version[0]))?,
-                                   cmd:       "bio-pkg-aci".to_string(), };
-                Ok(format)
-            }
             "mesos" => {
                 let format = ExportFormat { pkg_ident: PackageIdent::from_str(&format!(
                     "biome/bio-pkg-mesosize/{}",
