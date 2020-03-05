@@ -37,7 +37,7 @@ use structopt::{clap::AppSettings,
             version = VERSION,
             about = "\"A Biome is the natural environment for your services\" - Alan Turing",
             author = "\nThe Biome Maintainers <humans@biome.sh>\n",
-            global_settings = &[AppSettings::GlobalVersion],
+            settings = &[AppSettings::GlobalVersion],
         )]
 #[allow(clippy::large_enum_variant)]
 pub enum Hab {

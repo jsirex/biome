@@ -2,15 +2,18 @@ Consider below original Chef Habitat Changelog
 
 # Upstream Habitat CHANGELOG
 
-<!-- latest_release 1.5.35 -->
-## [1.5.35](https://github.com/habitat-sh/habitat/tree/1.5.35) (2020-02-21)
+<!-- latest_release 1.5.53 -->
+## [1.5.53](https://github.com/habitat-sh/habitat/tree/1.5.53) (2020-03-05)
 
 #### Merged Pull Requests
-- [CI] Restrict certain release pipeline steps to &quot;real&quot; runs only [#7491](https://github.com/habitat-sh/habitat/pull/7491) ([christophermaier](https://github.com/christophermaier))
+- Cargo Update [#7519](https://github.com/habitat-sh/habitat/pull/7519) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot]))
 <!-- latest_release -->
 
 <!-- release_rollup since=1.5.29 -->
 ### Changes since 1.5.29 release
+
+#### Bug Fixes
+- Allow dev environment setup script to work locally or in Vagrant [#7500](https://github.com/habitat-sh/habitat/pull/7500) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.38 -->
 
 #### New Features & Enhancements
 - adds hab origin info subcommand [#7445](https://github.com/habitat-sh/habitat/pull/7445) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.5.33 -->
@@ -20,6 +23,22 @@ Consider below original Chef Habitat Changelog
 - Remove Kubernetes and Helm exporters [#7463](https://github.com/habitat-sh/habitat/pull/7463) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.33 -->
 
 #### Merged Pull Requests
+- Cargo Update [#7519](https://github.com/habitat-sh/habitat/pull/7519) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.53 -->
+- Rustfmt and Nightly Rust Bump to nightly-2020-03-03 [#7518](https://github.com/habitat-sh/habitat/pull/7518) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.52 -->
+- Automated update of Habitat Documentation [#7517](https://github.com/habitat-sh/habitat/pull/7517) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.51 -->
+- Add flag to ignore missing packages in seed lists [#7512](https://github.com/habitat-sh/habitat/pull/7512) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.5.50 -->
+- ensure that studio image builder runs the windows-service install hook [#7516](https://github.com/habitat-sh/habitat/pull/7516) ([mwrock](https://github.com/mwrock)) <!-- 1.5.49 -->
+- [CI] Add HAB_AUTH_TOKEN to at-once update test [#7511](https://github.com/habitat-sh/habitat/pull/7511) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.48 -->
+- Remove time crate from almost everything [#7499](https://github.com/habitat-sh/habitat/pull/7499) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.47 -->
+- Make FullyQualifiedPackageIdent public and use it in Pkg [#7507](https://github.com/habitat-sh/habitat/pull/7507) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.46 -->
+- [CI] Swap command and if blocks for Windows 2016 container step [#7509](https://github.com/habitat-sh/habitat/pull/7509) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.45 -->
+- Better test for comparing structopt to clap_app [#7503](https://github.com/habitat-sh/habitat/pull/7503) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.44 -->
+- Simplify our protobuf generation logic [#7506](https://github.com/habitat-sh/habitat/pull/7506) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.43 -->
+- Get-HabPackagePath accepts any valid ident like pkg_path_for [#7505](https://github.com/habitat-sh/habitat/pull/7505) ([mwrock](https://github.com/mwrock)) <!-- 1.5.42 -->
+- Bump nokogiri from 1.10.4 to 1.10.8 in /www [#7502](https://github.com/habitat-sh/habitat/pull/7502) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.5.41 -->
+- sup: set PID file mode to 0644  [#7489](https://github.com/habitat-sh/habitat/pull/7489) ([stevendanna](https://github.com/stevendanna)) <!-- 1.5.40 -->
+- add NO_NAMED_PIPE_HEALTH_CHECK feature flag to suppress named pipe on windows [#7474](https://github.com/habitat-sh/habitat/pull/7474) ([mwrock](https://github.com/mwrock)) <!-- 1.5.39 -->
+- Refactor service updater [#7455](https://github.com/habitat-sh/habitat/pull/7455) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.36 -->
 - [CI] Restrict certain release pipeline steps to &quot;real&quot; runs only [#7491](https://github.com/habitat-sh/habitat/pull/7491) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.35 -->
 - modification to hab setup defaults and language [#7480](https://github.com/habitat-sh/habitat/pull/7480) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.5.34 -->
 - make the ltsc2019 docker image the default for studio and exporter ifa hyper-v host supports it [#7488](https://github.com/habitat-sh/habitat/pull/7488) ([mwrock](https://github.com/mwrock)) <!-- 1.5.34 -->

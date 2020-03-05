@@ -7,9 +7,11 @@ use crate::cli::{dir_exists,
                  file_exists,
                  valid_ident_or_toml_file,
                  valid_origin};
-use biome_common::cli::{BINLINK_DIR_ENVVAR,
-                          DEFAULT_BINLINK_DIR,
-                          PACKAGE_TARGET_ENVVAR};
+use biome_common::{cli::{BINLINK_DIR_ENVVAR,
+                           DEFAULT_BINLINK_DIR,
+                           PACKAGE_TARGET_ENVVAR},
+                     FeatureFlag,
+                     FEATURE_FLAGS};
 use biome_core::{env::Config,
                    package::{PackageIdent,
                              PackageTarget},
@@ -20,20 +22,20 @@ use structopt::{clap::{AppSettings,
                 StructOpt};
 
 #[derive(StructOpt, Debug)]
-#[structopt(group = ArgGroup::with_name("list").required(true), no_version)]
+#[structopt(group = ArgGroup::with_name("prefix").required(true), no_version)]
 pub struct List {
     /// List all installed packages
-    #[structopt(name = "ALL", short = "a", long = "all", group = "list")]
+    #[structopt(name = "ALL", short = "a", long = "all", group = "prefix")]
     all:       bool,
     /// An origin to list
     #[structopt(name = "ORIGIN",
         short = "o",
         long = "origin",
-        validator = valid_origin, group = "list")]
+        validator = valid_origin, group = "prefix")]
     origin:    Option<String>,
     /// A package identifier (ex: core/redis, core/busybox-static/1.42.2)
-    #[structopt(name = "PKG_IDENT", group = "list")]
-    pkg_ident: PackageIdent,
+    #[structopt(name = "PKG_IDENT", group = "prefix")]
+    pkg_ident: Option<PackageIdent>,
 }
 
 #[derive(StructOpt)]
@@ -176,9 +178,9 @@ pub enum Pkg {
     /// Download Biome artifacts (including dependencies and keys) from Builder
     Download {
         #[structopt(flatten)]
-        auth_token:         AuthToken,
+        auth_token:          AuthToken,
         #[structopt(flatten)]
-        bldr_url:           BldrUrl,
+        bldr_url:            BldrUrl,
         /// Download from the specified release channel. Overridden if channel is specified in toml
         /// file
         #[structopt(name = "CHANNEL",
@@ -186,24 +188,27 @@ pub enum Pkg {
                     long = "channel",
                     default_value = "stable",
                     env = ChannelIdent::ENVVAR)]
-        channel:            String,
+        channel:             String,
         /// The path to store downloaded artifacts
         #[structopt(name = "DOWNLOAD_DIRECTORY", long = "download-directory")]
-        download_directory: Option<PathBuf>,
+        download_directory:  Option<PathBuf>,
         /// File with newline separated package identifiers, or TOML file (ending with .toml
         /// extension)
         #[structopt(name = "PKG_IDENT_FILE", long = "file", validator = valid_ident_or_toml_file)]
-        pkg_ident_file:     Vec<String>,
+        pkg_ident_file:      Vec<String>,
         /// One or more Biome package identifiers (ex: acme/redis)
         #[structopt(name = "PKG_IDENT")]
-        pkg_ident:          Vec<PackageIdent>,
+        pkg_ident:           Vec<PackageIdent>,
         /// Target architecture to fetch. E.g. x86_64-linux. Overridden if architecture is
         /// specified in toml file
         #[structopt(name = "PKG_TARGET", short = "t", long = "target")]
-        pkg_target:         Option<PackageTarget>,
+        pkg_target:          Option<PackageTarget>,
         /// Verify package integrity after download (Warning: this can be slow)
         #[structopt(name = "VERIFY", long = "verify")]
-        verify:             bool,
+        verify:              bool,
+        /// Ignore packages specified that are not present on the target Builder
+        #[structopt(name = "IGNORE_MISSING_SEEDS", long = "ignore-missing-seeds")]
+        ignore_missing_seed: bool,
     },
     /// Prints the runtime environment of a specific installed package
     Env {
@@ -247,7 +252,7 @@ pub enum Pkg {
         source: Option<PathBuf>,
     },
     /// Returns the Biome Artifact header
-    #[structopt(global_settings = &[AppSettings::Hidden])]
+    #[structopt(settings = &[AppSettings::Hidden])]
     Header {
         /// A path to a Biome Artifact (ex:
         /// /home/acme-redis-3.0.7-21120102031201-x86_64-linux.hart)
@@ -297,15 +302,13 @@ pub enum Pkg {
         #[structopt(name = "IGNORE_INSTALL_HOOK", long = "ignore-install-hook")]
         ignore_install_hook:   bool,
         /// Install packages in offline mode
-        // TODO (DM): We need a static way to check if a feature flag is set in order to properly
-        // set hidden
-        #[structopt(name = "OFFLINE", long = "offline", hidden = true)]
+        #[structopt(name = "OFFLINE", long = "offline",
+                    hidden = !FEATURE_FLAGS.contains(FeatureFlag::OFFLINE_INSTALL))]
         offline:               bool,
-        /// Do not use locally-installed packages when a corresponding  package cannot be installed
+        /// Do not use locally-installed packages when a corresponding package cannot be installed
         /// from Builder
-        // TODO (DM): We need a static way to check if a feature flag is set in order to properly
-        // set hidden
-        #[structopt(name = "IGNORE_LOCAL", long = "ignore-local", hidden = true)]
+        #[structopt(name = "IGNORE_LOCAL", long = "ignore-local",
+                    hidden = !FEATURE_FLAGS.contains(FeatureFlag::IGNORE_LOCAL))]
         ignore_local:          bool,
     },
     /// List all versions of installed packages

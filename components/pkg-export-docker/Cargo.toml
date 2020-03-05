@@ -17,7 +17,6 @@ doc = false
 [dependencies]
 base64 = "*"
 clap = { version = "*", features = ["suggestions", "color", "unstable"] }
-chrono = "*"
 env_logger = "*"
 bio = { path = "../bio" }
 biome_common = { path = "../common" }
