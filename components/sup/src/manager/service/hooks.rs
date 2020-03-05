@@ -8,7 +8,8 @@ use biome_common::{error::Result,
                                           HookOutput,
                                           RenderPair},
                                   package::Pkg,
-                                  TemplateRenderer}};
+                                  TemplateRenderer},
+                     FeatureFlag};
 #[cfg(windows)]
 use biome_core::os::process::windows_child::ExitStatus;
 use serde::Serialize;
@@ -63,7 +64,7 @@ impl Hook for FileUpdatedHook {
 
     fn file_name() -> &'static str { "file-updated" }
 
-    fn new(package_name: &str, pair: RenderPair) -> Self {
+    fn new(package_name: &str, pair: RenderPair, _feature_flags: FeatureFlag) -> Self {
         FileUpdatedHook { render_pair:     pair,
                           stdout_log_path: hooks::stdout_log_path::<Self>(package_name),
                           stderr_log_path: hooks::stderr_log_path::<Self>(package_name), }
@@ -89,7 +90,22 @@ pub struct HealthCheckHook {
     stderr_log_path: PathBuf,
     #[cfg(windows)]
     #[serde(skip_serializing)]
-    pipe_client:     PipeHookClient,
+    pipe_client:     Option<PipeHookClient>,
+}
+
+#[cfg(windows)]
+impl HealthCheckHook {
+    fn pipe_client(path: PathBuf,
+                   feature_flags: FeatureFlag,
+                   out_path: PathBuf,
+                   err_path: PathBuf)
+                   -> Option<PipeHookClient> {
+        if feature_flags.contains(FeatureFlag::NO_NAMED_PIPE_HEALTH_CHECK) {
+            None
+        } else {
+            Some(PipeHookClient::new(Self::file_name().to_string(), path, out_path, err_path))
+        }
+    }
 }
 
 impl Hook for HealthCheckHook {
@@ -97,18 +113,19 @@ impl Hook for HealthCheckHook {
 
     fn file_name() -> &'static str { "health-check" }
 
-    fn new(package_name: &str, pair: RenderPair) -> Self {
+    fn new(package_name: &str, pair: RenderPair, _feature_flags: FeatureFlag) -> Self {
+        #[cfg(windows)]
+        let feature_flags = _feature_flags;
         let out_path = hooks::stdout_log_path::<Self>(package_name);
         let err_path = hooks::stderr_log_path::<Self>(package_name);
         #[cfg(windows)]
         let path = pair.path.to_path_buf();
         HealthCheckHook { render_pair:                 pair,
                           #[cfg(windows)]
-                          pipe_client:
-                              PipeHookClient::new(Self::file_name().to_string(),
-                                                  path,
-                                                  out_path.clone(),
-                                                  err_path.clone()),
+                          pipe_client:                 Self::pipe_client(path,
+                                                                         feature_flags,
+                                                                         out_path.clone(),
+                                                                         err_path.clone()),
                           stdout_log_path:             out_path,
                           stderr_log_path:             err_path, }
     }
@@ -121,18 +138,21 @@ impl Hook for HealthCheckHook {
               -> Result<Self::ExitValue>
         where T: ToString
     {
-        match self.pipe_client
-                  .exec_hook(service_group, pkg, svc_encrypted_password)
-        {
-            Ok(exit) => {
-                let hook_output = HookOutput::new(self.stdout_log_path(), self.stderr_log_path());
-                Ok(self.handle_exit(pkg, &hook_output, ExitStatus::from(exit)))
+        if let Some(client) = &self.pipe_client {
+            match client.exec_hook(service_group, pkg, svc_encrypted_password) {
+                Ok(exit) => {
+                    let hook_output =
+                        HookOutput::new(self.stdout_log_path(), self.stderr_log_path());
+                    Ok(self.handle_exit(pkg, &hook_output, ExitStatus::from(exit)))
+                }
+                Err(err) => {
+                    outputln!(preamble service_group,
+                        "Hook failed to run, {}, {}", Self::file_name(), err);
+                    Err(err)
+                }
             }
-            Err(err) => {
-                outputln!(preamble service_group,
-                    "Hook failed to run, {}, {}", Self::file_name(), err);
-                Err(err)
-            }
+        } else {
+            self.run_impl(service_group, pkg, svc_encrypted_password)
         }
     }
 
@@ -168,7 +188,7 @@ impl Hook for InitHook {
 
     fn file_name() -> &'static str { "init" }
 
-    fn new(package_name: &str, pair: RenderPair) -> Self {
+    fn new(package_name: &str, pair: RenderPair, _feature_flags: FeatureFlag) -> Self {
         InitHook { render_pair:     pair,
                    stdout_log_path: hooks::stdout_log_path::<Self>(package_name),
                    stderr_log_path: hooks::stderr_log_path::<Self>(package_name), }
@@ -212,7 +232,7 @@ impl Hook for RunHook {
 
     fn file_name() -> &'static str { "run" }
 
-    fn new(package_name: &str, pair: RenderPair) -> Self {
+    fn new(package_name: &str, pair: RenderPair, _feature_flags: FeatureFlag) -> Self {
         RunHook { render_pair:     pair,
                   stdout_log_path: hooks::stdout_log_path::<Self>(package_name),
                   stderr_log_path: hooks::stderr_log_path::<Self>(package_name), }
@@ -256,7 +276,7 @@ impl Hook for PostRunHook {
 
     fn file_name() -> &'static str { "post-run" }
 
-    fn new(package_name: &str, pair: RenderPair) -> Self {
+    fn new(package_name: &str, pair: RenderPair, _feature_flags: FeatureFlag) -> Self {
         PostRunHook { render_pair:     pair,
                       stdout_log_path: hooks::stdout_log_path::<Self>(package_name),
                       stderr_log_path: hooks::stderr_log_path::<Self>(package_name), }
@@ -299,7 +319,7 @@ impl Hook for ReloadHook {
 
     fn file_name() -> &'static str { "reload" }
 
-    fn new(package_name: &str, pair: RenderPair) -> Self {
+    fn new(package_name: &str, pair: RenderPair, _feature_flags: FeatureFlag) -> Self {
         ReloadHook { render_pair:     pair,
                      stdout_log_path: hooks::stdout_log_path::<Self>(package_name),
                      stderr_log_path: hooks::stderr_log_path::<Self>(package_name), }
@@ -342,7 +362,7 @@ impl Hook for ReconfigureHook {
 
     fn file_name() -> &'static str { "reconfigure" }
 
-    fn new(package_name: &str, pair: RenderPair) -> Self {
+    fn new(package_name: &str, pair: RenderPair, _feature_flags: FeatureFlag) -> Self {
         ReconfigureHook { render_pair:     pair,
                           stdout_log_path: hooks::stdout_log_path::<Self>(package_name),
                           stderr_log_path: hooks::stderr_log_path::<Self>(package_name), }
@@ -406,7 +426,7 @@ impl Hook for SuitabilityHook {
 
     fn file_name() -> &'static str { "suitability" }
 
-    fn new(package_name: &str, pair: RenderPair) -> Self {
+    fn new(package_name: &str, pair: RenderPair, _feature_flags: FeatureFlag) -> Self {
         SuitabilityHook { render_pair:     pair,
                           stdout_log_path: hooks::stdout_log_path::<Self>(package_name),
                           stderr_log_path: hooks::stderr_log_path::<Self>(package_name), }
@@ -462,7 +482,7 @@ impl Hook for PostStopHook {
 
     fn file_name() -> &'static str { "post-stop" }
 
-    fn new(package_name: &str, pair: RenderPair) -> Self {
+    fn new(package_name: &str, pair: RenderPair, _feature_flags: FeatureFlag) -> Self {
         PostStopHook { render_pair:     pair,
                        stdout_log_path: hooks::stdout_log_path::<Self>(package_name),
                        stderr_log_path: hooks::stderr_log_path::<Self>(package_name), }
@@ -560,25 +580,39 @@ pub struct HookTable {
 
 impl HookTable {
     /// Read all available hook templates from the table's package directory into the table.
-    pub fn load<P, T>(package_name: &str, templates: T, hooks_path: P) -> Self
+    pub fn load<P, T>(package_name: &str,
+                      templates: T,
+                      hooks_path: P,
+                      feature_flags: FeatureFlag)
+                      -> Self
         where P: AsRef<Path>,
               T: AsRef<Path>
     {
         let mut table = HookTable::default();
         if let Ok(meta) = std::fs::metadata(templates.as_ref()) {
             if meta.is_dir() {
-                table.file_updated = FileUpdatedHook::load(package_name, &hooks_path, &templates);
-                table.health_check =
-                    HealthCheckHook::load(package_name, &hooks_path, &templates).map(Arc::new);
-                table.suitability = SuitabilityHook::load(package_name, &hooks_path, &templates);
-                table.init = InitHook::load(package_name, &hooks_path, &templates).map(Arc::new);
-                table.reload = ReloadHook::load(package_name, &hooks_path, &templates);
-                table.reconfigure = ReconfigureHook::load(package_name, &hooks_path, &templates);
-                table.run = RunHook::load(package_name, &hooks_path, &templates);
-                table.post_run =
-                    PostRunHook::load(package_name, &hooks_path, &templates).map(Arc::new);
-                table.post_stop =
-                    PostStopHook::load(package_name, &hooks_path, &templates).map(Arc::new);
+                table.file_updated =
+                    FileUpdatedHook::load(package_name, &hooks_path, &templates, feature_flags);
+                table.health_check = HealthCheckHook::load(package_name,
+                                                           &hooks_path,
+                                                           &templates,
+                                                           feature_flags).map(Arc::new);
+                table.suitability =
+                    SuitabilityHook::load(package_name, &hooks_path, &templates, feature_flags);
+                table.init = InitHook::load(package_name, &hooks_path, &templates, feature_flags).map(Arc::new);
+                table.reload =
+                    ReloadHook::load(package_name, &hooks_path, &templates, feature_flags);
+                table.reconfigure =
+                    ReconfigureHook::load(package_name, &hooks_path, &templates, feature_flags);
+                table.run = RunHook::load(package_name, &hooks_path, &templates, feature_flags);
+                table.post_run = PostRunHook::load(package_name,
+                                                   &hooks_path,
+                                                   &templates,
+                                                   feature_flags).map(Arc::new);
+                table.post_stop = PostStopHook::load(package_name,
+                                                     &hooks_path,
+                                                     &templates,
+                                                     feature_flags).map(Arc::new);
             }
         }
         debug!("{}, Hooks loaded, destination={}, templates={}",
@@ -800,7 +834,10 @@ mod tests {
         let mut ring = CensusRing::new("member-a");
         let ctx = ctx(&service_group, &pkg, &sys, &cfg, &mut ring);
 
-        let hook_table = HookTable::load(&service_group, &template_path, &hooks_path);
+        let hook_table = HookTable::load(&service_group,
+                                         &template_path,
+                                         &hooks_path,
+                                         FeatureFlag::empty());
         assert!(hook_table.compile(&service_group, &ctx).changed());
 
         // Verify init hook
@@ -872,8 +909,11 @@ mod tests {
         let concrete_path = hooks_path.clone();
         let template_path = hook_templates_path();
 
-        let hook = HealthCheckHook::load(&service_group.service(), &concrete_path, &template_path)
-            .expect("Could not create testing healch-check hook");
+        let hook = HealthCheckHook::load(&service_group.service(),
+                                         &concrete_path,
+                                         &template_path,
+                                         FeatureFlag::empty()).expect("Could not create testing \
+                                                                       healch-check hook");
 
         let pkg = pkg(&service_group).await;
         let sys = Sys::new(true,
@@ -891,5 +931,57 @@ mod tests {
         let result = hook.run(&service_group, &pkg, None::<&str>).unwrap();
 
         assert_eq!(Some(1), result.exit_status().code());
+        assert!(result.standard_streams()
+                      .stdout
+                      .unwrap()
+                      .contains("Named pipe created"));
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn do_not_run_named_pipe_health_check_hook_under_feature_flag() {
+        use biome_core::fs::svc_logs_path;
+
+        let var = pipe_service_path();
+        let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static")
+                                                              .join("named_pipe_service.ps1");
+        var.set(&script);
+
+        let service_group = service_group();
+        let tmp_root = rendered_hooks_path().into_path();
+        let hooks_path = tmp_root.clone().join("hooks");
+        fs::create_dir_all(&hooks_path).unwrap();
+        fs::create_dir_all(svc_logs_path(&service_group.service())).unwrap();
+        let concrete_path = hooks_path.clone();
+        let template_path = hook_templates_path();
+        let mut flags = FeatureFlag::empty();
+        flags.insert(FeatureFlag::NO_NAMED_PIPE_HEALTH_CHECK);
+
+        let hook = HealthCheckHook::load(&service_group.service(),
+                                         &concrete_path,
+                                         &template_path,
+                                         flags).expect("Could not create testing healch-check \
+                                                        hook");
+
+        let pkg = pkg(&service_group).await;
+        let sys = Sys::new(true,
+                           GossipListenAddr::default(),
+                           ListenCtlAddr::default(),
+                           HttpListenAddr::default(),
+                           IpAddr::V4(Ipv4Addr::LOCALHOST));
+        let cfg = Cfg::new(&pkg, Some(&concrete_path.as_path().to_path_buf()))
+            .expect("Could not create config");
+        let mut ring = CensusRing::new("member-a");
+        let ctx = ctx(&service_group, &pkg, &sys, &cfg, &mut ring);
+
+        hook.compile(&service_group, &ctx).unwrap();
+
+        let result = hook.run(&service_group, &pkg, None::<&str>).unwrap();
+
+        assert_eq!(Some(1), result.exit_status().code());
+        assert!(!result.standard_streams()
+                       .stdout
+                       .unwrap()
+                       .contains("Named pipe created"));
     }
 }

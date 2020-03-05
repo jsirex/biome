@@ -45,5 +45,5 @@ else
   sudo -E addgroup --system hab || true
 fi
 
-sudo "$(dirname -- "$0")/install.sh"
+curl https://raw.githubusercontent.com/biome-sh/biome/master/components/bio/install.sh | sudo bash
 sudo HAB_LICENSE="accept-no-persist" bio install core/busybox-static biome/bio-studio
