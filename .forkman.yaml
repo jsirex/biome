@@ -8,25 +8,19 @@ patterns:
   www.habitat.sh: www.habitat.sh
   bldr.habitat.sh: bldr.habitat.sh
   forums.habitat.sh: forums.habitat.sh
-  slack.habiat.sh: slack.habitat.sh
+  slack.habitat.sh: slack.habitat.sh
 
   # Keep Original GitHub Issues, PRs, Apps
   github.com/habitat-sh/habitat/issues: github.com/habitat-sh/habitat/issues
   github.com/habitat-sh/habitat/pull: github.com/habitat-sh/habitat/pull
   https://github.com/apps/habitat-builder: https://github.com/apps/habitat-builder
 
-  github.com/habitat-sh/habitat-operator/issues: github.com/habitat-sh/habitat-operator/issues
-  github.com/habitat-sh/habitat-operator/pull: github.com/habitat-sh/habitat-operator/pull
-
-  # Currently don't touch bintray
-  # https://api.bintray.com/content/habitat: https://api.bintray.com/content/habitat
-  # https://api.bintray.com/packages/habitat: https://api.bintray.com/packages/habitat
-
   # Chef Packages:
   https://packages.chef.io/files/habitat/$version: https://github/biome-sh/biome/releases/download/bio-$version
 
   The Habitat Maintainers: The Biome Maintainers
   humans@habitat.sh: humans@biome.sh
+  Chef Habitat: Biome
 
   # Github Source
   habitat-sh/rust-zmq: habitat-sh/rust-zmq
@@ -50,15 +44,6 @@ patterns:
 
   # BLDR.TOML constants
   components/launcher/habitat: components/launcher/habitat
-  components/builder-api-proxy/habitat: components/builder-api-proxy/habitat
-  components/builder-api/habitat: components/builder-api/habitat
-  components/builder-jobsrv/habitat: components/builder-jobsrv/habitat
-  components/builder-worker/habitat: components/builder-worker/habitat
-  components/builder-minio/habitat: components/builder-minio/habitat
-
-  # Dev Plans
-  /habitat-dev: /habitat-dev
-  "--exclude='habitat'": "--exclude='habitat'"
 
   # Translate constants
   pkg_origin=core: pkg_origin=biome
@@ -67,7 +52,6 @@ patterns:
   pkg_name=hab: pkg_name=bio
   pkg_path_for hab: pkg_path_for bio
 
-  habirails: biorails
   core/hab hab: biome/bio bio
   hab --version: bio --version
   core/hab: biome/bio
@@ -76,7 +60,6 @@ patterns:
   hab.exe: bio.exe
   core/windows-service: biome/windows-service
 
-  https://habitat-sh.github.io/habitat-operator/helm/charts/stable: https://habitat-sh.github.io/habitat-operator/helm/charts/stable
   habitat-operator: habitat-operator
 
   ':habicat:': ':habicat:'
@@ -106,7 +89,6 @@ patterns:
   PLAN_CONTEXT\habitat: PLAN_CONTEXT\\habitat
   rootfs/hab: rootfs/hab
   FS_ROOT/hab: FS_ROOT/hab
-  'plan_path = "habitat"': 'plan_path = "habitat"'
 
   # Preserve path joining
   '            .join("hab")': '            .join("hab")'
@@ -122,12 +104,8 @@ patterns:
   'tar_builder.append_dir_all("hab", hab_pkgs_path);': 'tar_builder.append_dir_all("hab", bio_pkgs_path);'
 
   # Supervisor compatibility habitat <-> biome
-  'const HABITAT_SUBJECT: &str = "habitat";': 'const HABITAT_SUBJECT: &str = "habitat";'
-  'const SERVICE_STARTED_SUBJECT: &str = "habitat.event.service_started";': 'const SERVICE_STARTED_SUBJECT: &str = "habitat.event.service_started";'
-  'const SERVICE_STOPPED_SUBJECT: &str = "habitat.event.service_stopped";': 'const SERVICE_STOPPED_SUBJECT: &str = "habitat.event.service_stopped";'
-  'const SERVICE_UPDATE_STARTED_SUBJECT: &str = "habitat.event.service_update_started";': 'const SERVICE_UPDATE_STARTED_SUBJECT: &str = "habitat.event.service_update_started";'
-  'const HEALTHCHECK_SUBJECT: &str = "habitat.event.healthcheck";': 'const HEALTHCHECK_SUBJECT: &str = "habitat.event.healthcheck";'
-  'let topic = "habitat".to_string();': 'let topic = "habitat".to_string();'
+  'habitat.event.': 'habitat.event.'
+
 
   # Event protocol compatibility
   chef.habitat.supervisor.event: chef.habitat.supervisor.event
@@ -135,13 +113,6 @@ patterns:
   # builder compatibility
   habitat-builder-artifact-store: habitat-builder-artifact-store
 
-  # builder front
-  habKeysPipe: bioKeysPipe
-
-  # Builder plan path compatibility (looks hacky, I know)
-  'default_plan_path() -> PathBuf { PathBuf::from("habitat")': 'default_plan_path() -> PathBuf { PathBuf::from("habitat")'
-  'p.ends_with("habitat")': 'p.ends_with("habitat")'
-  '        p.push("habitat");': '        p.push("habitat");'
 
   # Builder DB compatibility
   hab_client: hab_client
@@ -204,18 +175,9 @@ patterns:
 
   'hab:hab': 'hab:hab'
 
-  # Mostly for builder
-  'initdb -U hab': 'initdb -U hab'
   'psql -U hab': 'psql -U hab'
   'user = "hab"': 'user = "hab"'
-  'all             hab': 'all             hab'
-  'replication     hab': 'replication     hab'
-  'user:                   String::from("hab")': 'user:                   String::from("hab")'
-  'useradd -r -U hab': 'useradd -r -U hab'
-  "name = 'hab'": "name = 'hab'"
-  "password = 'hab'": "password = 'hab'"
 
-  Chef Habitat: Biome
   Habitat: Biome
   habitat: biome
   habiat: biome
