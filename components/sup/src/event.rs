@@ -52,13 +52,13 @@ lazy_static! {
 
     // NATS subject names
     static ref SERVICE_STARTED_SUBJECT: Subject =
-        "biome.event.service_started".parse().expect("valid NATS subject");
+        "habitat.event.service_started".parse().expect("valid NATS subject");
     static ref SERVICE_STOPPED_SUBJECT: Subject =
-        "biome.event.service_stopped".parse().expect("valid NATS subject");
+        "habitat.event.service_stopped".parse().expect("valid NATS subject");
     static ref SERVICE_UPDATE_STARTED_SUBJECT: Subject =
-        "biome.event.service_update_started".parse().expect("valid NATS subject");
+        "habitat.event.service_update_started".parse().expect("valid NATS subject");
     static ref HEALTHCHECK_SUBJECT: Subject =
-        "biome.event.healthcheck".parse().expect("valid NATS subject");
+        "habitat.event.healthcheck".parse().expect("valid NATS subject");
 
     /// Reference to the event stream.
     static ref NATS_MESSAGE_STREAM: Storage<NatsMessageStream> = Storage::new();
