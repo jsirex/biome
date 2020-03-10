@@ -1,15 +1,27 @@
 # Habitat CHANGELOG
 
-<!-- latest_release 1.5.54 -->
-## [1.5.54](https://github.com/habitat-sh/habitat/tree/1.5.54) (2020-03-05)
+<!-- latest_release 1.5.62 -->
+## [1.5.62](https://github.com/habitat-sh/habitat/tree/1.5.62) (2020-03-10)
 
 #### Merged Pull Requests
-- Update changelog post 1.5.50 [#7521](https://github.com/habitat-sh/habitat/pull/7521) ([smacfarlane](https://github.com/smacfarlane))
+- Fix at-once update test [#7543](https://github.com/habitat-sh/habitat/pull/7543) ([davidMcneil](https://github.com/davidMcneil))
 <!-- latest_release -->
 <!-- release_rollup since=1.5.50 -->
 ### Changes since 1.5.50 release
 
+#### Bug Fixes
+- Make better use of `Instant::elapsed()` for safer timing operations [#7533](https://github.com/habitat-sh/habitat/pull/7533) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.58 -->
+
+#### New Features & Enhancements
+- Add service `--update-condition` enabling service rollback [#7513](https://github.com/habitat-sh/habitat/pull/7513) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.56 -->
+
 #### Merged Pull Requests
+- Fix at-once update test [#7543](https://github.com/habitat-sh/habitat/pull/7543) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.62 -->
+- Fix pwsh binlink dir for e2e tests [#7542](https://github.com/habitat-sh/habitat/pull/7542) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.61 -->
+- http-client: use env_proxy from git [#7532](https://github.com/habitat-sh/habitat/pull/7532) ([stevendanna](https://github.com/stevendanna)) <!-- 1.5.60 -->
+- Miscellaneous Butterfly timing refactorings [#7540](https://github.com/habitat-sh/habitat/pull/7540) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.59 -->
+- [CI] Silently continue on errors to remove the Habitat cache [#7539](https://github.com/habitat-sh/habitat/pull/7539) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.57 -->
+- Always write out service PID files [#7526](https://github.com/habitat-sh/habitat/pull/7526) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.55 -->
 - Update changelog post 1.5.50 [#7521](https://github.com/habitat-sh/habitat/pull/7521) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.5.54 -->
 - Cargo Update [#7519](https://github.com/habitat-sh/habitat/pull/7519) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.53 -->
 - Rustfmt and Nightly Rust Bump to nightly-2020-03-03 [#7518](https://github.com/habitat-sh/habitat/pull/7518) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.52 -->

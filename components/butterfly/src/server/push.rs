@@ -42,7 +42,7 @@ pub fn spawn_thread(name: String, server: Server, timing: Timing) -> std::io::Re
 
 /// Executes the Push thread. Gets a list of members to talk to that are not Confirmed; then
 /// proceeds to process the list in `FANOUT` sized chunks. If we finish sending the messages to
-/// all FANOUT targets faster than `Timing::GOSSIP_PERIOD_DEFAULT_MS`, we will block until we
+/// all FANOUT targets faster than `Timing::gossip_period`, we will block until we
 /// exceed that time.
 fn run_loop(server: &Server, timing: &Timing) -> ! {
     loop {
@@ -56,19 +56,15 @@ fn run_loop(server: &Server, timing: &Timing) -> ! {
         server.update_gossip_round();
 
         let mut check_list = server.member_list.check_list_mlr(server.member_id());
-        let long_wait = timing.gossip_timeout();
+        let fanout_loop_start_time = Instant::now();
 
         'fanout: loop {
             let mut thread_list = Vec::with_capacity(FANOUT);
             if check_list.is_empty() {
                 break 'fanout;
             }
-            let drain_length = if check_list.len() >= FANOUT {
-                FANOUT
-            } else {
-                check_list.len()
-            };
-            let next_gossip = timing.gossip_timeout();
+            let drain_length = check_list.len().min(FANOUT);
+            let gossip_start_time = Instant::now();
             for member in check_list.drain(0..drain_length) {
                 if server.is_member_blocked_sblr(&member.id) {
                     debug!("Not sending rumors to {} - it is blocked", member.id);
@@ -102,24 +98,37 @@ fn run_loop(server: &Server, timing: &Timing) -> ! {
                     }
                 }
             }
-            let num_threads = thread_list.len();
-            for guard in thread_list.drain(0..num_threads) {
-                let _ = guard.join()
-                             .map_err(|e| error!("Push worker died: {:?}", e));
-            }
-            if Instant::now() < next_gossip {
-                let wait_time = (next_gossip - Instant::now()).as_millis();
-                if wait_time > 0 {
-                    thread::sleep(Duration::from_millis(wait_time as u64));
+            for guard in thread_list {
+                if let Err(e) = guard.join() {
+                    error!("Push worker died: {:?}", e);
                 }
             }
+            // If we've still got any time left in the gossip period, sleep
+            // for that long.
+            timing.sleep_for_remaining_gossip_interval(gossip_start_time);
         }
-        if Instant::now() < long_wait {
-            let wait_time = (long_wait - Instant::now()).as_millis();
-            if wait_time > 0 {
-                thread::sleep(Duration::from_millis(wait_time as u64));
-            }
-        }
+
+        // If we've still got any time left in the gossip interval, sleep
+        // for that long.
+        //
+        // This will only come into play if:
+        //
+        //   * there was nothing in `check_list`
+        //   * everything in `check_list` was blocked
+        //   * nothing in `check_list` was pingable,
+        //   * everything in check_list was persistent and also confirmed gone
+        //   * nothing in `check_list` had any "hot" rumors
+        //   * we couldn't spawn a worker thread for anything in `check_list`
+        //
+        // Basically, if we were able to successfully send rumors to
+        // *anything* in the loop, we would have already waited for at
+        // least this long, so this sleep would then be meaningless
+        // and would effectively be skipped.
+        //
+        // This sleep basically ensures that each sending of rumors is
+        // approximately evenly spaced. Were this to be refactored to
+        // something like futures, it might not be required anymore.
+        timing.sleep_for_remaining_gossip_interval(fanout_loop_start_time);
     }
 }
 
