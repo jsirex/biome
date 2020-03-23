@@ -1,22 +1,56 @@
 # Habitat CHANGELOG
 
-<!-- latest_release 1.5.54 -->
-## [1.5.54](https://github.com/habitat-sh/habitat/tree/1.5.54) (2020-03-05)
+<!-- latest_release 1.5.75 -->
+## [1.5.75](https://github.com/habitat-sh/habitat/tree/1.5.75) (2020-03-20)
 
 #### Merged Pull Requests
-- Update changelog post 1.5.50 [#7521](https://github.com/habitat-sh/habitat/pull/7521) ([smacfarlane](https://github.com/smacfarlane))
+- Update changelog post 1.5.71 [#7566](https://github.com/habitat-sh/habitat/pull/7566) ([davidMcneil](https://github.com/davidMcneil))
 <!-- latest_release -->
-<!-- release_rollup since=1.5.50 -->
-### Changes since 1.5.50 release
+<!-- release_rollup since=1.5.71 -->
+### Changes since 1.5.71 release
 
 #### Merged Pull Requests
+- Update changelog post 1.5.71 [#7566](https://github.com/habitat-sh/habitat/pull/7566) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.75 -->
+<!-- release_rollup -->
+
+<!-- latest_stable_release -->
+## [1.5.71](https://github.com/habitat-sh/habitat/tree/1.5.71) (2020-03-19)
+[Full Changelog](https://github.com/habitat-sh/habitat/compare/1.5.50...1.5.71)
+
+#### Bug Fixes
+- Make better use of `Instant::elapsed()` for safer timing operations [#7533](https://github.com/habitat-sh/habitat/pull/7533) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.58 -->
+
+#### New Features & Enhancements
+- Add service `--update-condition` enabling service rollback [#7513](https://github.com/habitat-sh/habitat/pull/7513) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.56 -->
+
+#### Behavioral Changes
+- When follower services restart during a rolling update all packages newer than the package the leader updated to are automatically uninstalled. This ensures that the leader and followers are running the same package. [#7556](https://github.com/habitat-sh/habitat/pull/7556) ([davidMcneil](https://github.com/davidMcneil))
+
+#### Merged Pull Requests
+- Correct some e2e behavior [#7564](https://github.com/habitat-sh/habitat/pull/7564) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.5.74 -->
+- Use unique container name to bats unit tests [#7567](https://github.com/habitat-sh/habitat/pull/7567) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.5.74 -->
+- Add testing steps for core-plans refresh [#7565](https://github.com/habitat-sh/habitat/pull/7565) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.5.73 -->
+- Update links to docs.chef.io [#7559](https://github.com/habitat-sh/habitat/pull/7559) ([IanMadd](https://github.com/IanMadd)) <!-- 1.5.72 -->
+- Update CODEOWNERS [#7562](https://github.com/habitat-sh/habitat/pull/7562) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.71 -->
+- Update changelog with new rolling update logic [#7561](https://github.com/habitat-sh/habitat/pull/7561) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.70 -->
+- Fix rolling update when using track-channel update condition [#7556](https://github.com/habitat-sh/habitat/pull/7556) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.69 -->
+- only stop the studio container at the end of the docker studio supervisor test [#7560](https://github.com/habitat-sh/habitat/pull/7560) ([mwrock](https://github.com/mwrock)) <!-- 1.5.68 -->
+-  fix failing test where windows and linux expect different error codes [#7557](https://github.com/habitat-sh/habitat/pull/7557) ([mwrock](https://github.com/mwrock)) <!-- 1.5.67 -->
+- fix powershell builds when giving a path not ending in a slash [#7553](https://github.com/habitat-sh/habitat/pull/7553) ([mwrock](https://github.com/mwrock)) <!-- 1.5.66 -->
+- Habitat API docs [#6729](https://github.com/habitat-sh/habitat/pull/6729) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.5.65 -->
+- allow plan context to be rooted in target folder [#7548](https://github.com/habitat-sh/habitat/pull/7548) ([mwrock](https://github.com/mwrock)) <!-- 1.5.64 -->
+- Remove one-off release tool [#7546](https://github.com/habitat-sh/habitat/pull/7546) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.63 -->
+- Fix at-once update test [#7543](https://github.com/habitat-sh/habitat/pull/7543) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.62 -->
+- Fix pwsh binlink dir for e2e tests [#7542](https://github.com/habitat-sh/habitat/pull/7542) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.61 -->
+- http-client: use env_proxy from git [#7532](https://github.com/habitat-sh/habitat/pull/7532) ([stevendanna](https://github.com/stevendanna)) <!-- 1.5.60 -->
+- Miscellaneous Butterfly timing refactorings [#7540](https://github.com/habitat-sh/habitat/pull/7540) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.59 -->
+- [CI] Silently continue on errors to remove the Habitat cache [#7539](https://github.com/habitat-sh/habitat/pull/7539) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.57 -->
+- Always write out service PID files [#7526](https://github.com/habitat-sh/habitat/pull/7526) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.55 -->
 - Update changelog post 1.5.50 [#7521](https://github.com/habitat-sh/habitat/pull/7521) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.5.54 -->
 - Cargo Update [#7519](https://github.com/habitat-sh/habitat/pull/7519) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.53 -->
 - Rustfmt and Nightly Rust Bump to nightly-2020-03-03 [#7518](https://github.com/habitat-sh/habitat/pull/7518) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.52 -->
 - Automated update of Habitat Documentation [#7517](https://github.com/habitat-sh/habitat/pull/7517) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.51 -->
-<!-- release_rollup -->
 
-<!-- latest_stable_release -->
 ## [1.5.50](https://github.com/habitat-sh/habitat/tree/1.5.50) (2020-03-03)
 [Full Changelog](https://github.com/habitat-sh/habitat/compare/1.5.29...1.5.50)
 

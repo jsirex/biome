@@ -5,9 +5,38 @@
 bio origin key generate $env:HAB_ORIGIN
 
 Describe "Studio build" {
-    It "builds a simple package" {
-        bio pkg build test/fixtures/minimal-package
-        $LASTEXITCODE | Should -Be 0
+    foreach($plan in @(
+            "plan-in-root",
+            "plan-in-biome",
+            "plan-in-target",
+            "plan-in-biome-target"
+        )) {
+        It "builds $plan" {
+            bio pkg build test/fixtures/$plan
+            $LASTEXITCODE | Should -Be 0
+        }
+    }
+
+    It "does not build plan-in-root-and-biome" {
+        bio pkg build test/fixtures/plan-in-root-and-biome
+        $LASTEXITCODE | Should -Not -Be 0
+    }
+
+    It "does not build plan-in-none" {
+        bio pkg build test/fixtures/plan-in-none
+        $LASTEXITCODE | Should -Not -Be 0
+    }
+
+    It "builds plan in target if also in root" {
+        bio pkg build test/fixtures/plan-in-root-and-target
+        if($IsLinux) {
+            # This changes the format of last_build from `var=value` to `$var='value'`
+            # so that powershell can parse and source the script
+            Get-Content "results/last_build.env" | ForEach-Object { Add-Content "results/last_build.ps1" -Value "`$$($_.Replace("=", '="'))`"" }
+        }
+        . ./results/last_build.ps1
+
+        $pkg_name | Should -Be "target_plan"
     }
 }
 
