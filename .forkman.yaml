@@ -49,6 +49,12 @@ patterns:
   pkg_origin=core: pkg_origin=biome
   '$pkg_origin = "core"': '$pkg_origin = "biome"'
   '$pkg_origin="core"': '$pkg_origin="biome"'
+
+  # Future translation
+  pkg_origin=habitat: pkg_origin=biome
+  '$pkg_origin = "habitat"': '$pkg_origin = "biome"'
+  '$pkg_origin="habitat"': '$pkg_origin="biome"'
+
   pkg_name=hab: pkg_name=bio
   pkg_path_for hab: pkg_path_for bio
 
@@ -71,7 +77,6 @@ patterns:
 
   'GITHUB_ORG := habitat-sh': 'GITHUB_ORG := biome-sh'
   'DOCKER_ORG := habitat': 'DOCKER_ORG := biomesh'
-
 
   habitat/devshell: biomesh/devshell
 
@@ -112,7 +117,6 @@ patterns:
 
   # builder compatibility
   habitat-builder-artifact-store: habitat-builder-artifact-store
-
 
   # Builder DB compatibility
   hab_client: hab_client
