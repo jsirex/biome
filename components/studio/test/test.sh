@@ -15,7 +15,7 @@ sudo bio pkg install core/busybox-static biome/bio biome/bio-backline
 
 # Current studio has the expectation that busybox and bio live in the libexec directroy
 # These two lines should be removed at a later date to validate this is no longer a requirement
-# While not explicily mentioned, resolving biome-sh/biome#6509 will likely remove this 
+# While not explicily mentioned, resolving habitat-sh/habitat#6509 will likely remove this 
 # explicit requirement.
 cp "$(bio pkg path core/busybox-static)"/bin/busybox libexec/busybox
 cp "$(bio pkg path biome/bio)"/bin/bio libexec/bio

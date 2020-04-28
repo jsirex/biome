@@ -8,13 +8,13 @@ ARG CHANNEL=stable
 ENV HAB_LICENSE=accept-no-persist
 
 # Bootstrap us enough to get a `bio` binary on the box, but then clear
-# out the /bio directory. The `bio` binary isn't necessarily the one
+# out the /hab directory. The `bio` binary isn't necessarily the one
 # that we want in the final image.
 RUN apk add bash \
-  && wget https://raw.githubusercontent.com/biome-sh/biome/master/components/bio/install.sh \
+  && wget https://raw.githubusercontent.com/habitat-sh/habitat/master/components/bio/install.sh \
   && bash install.sh \
   && mv /hab/pkgs/biome/bio/*/*/bin/bio /bin/ \
-  && rm -Rf /bio
+  && rm -Rf /hab
 
 # Install only what's needed to run the Supervisor
 # TODO: need a way to parameterize busybox
@@ -48,7 +48,7 @@ ENV HAB_LICENSE=accept-no-persist
 
 # Copy everything we need from the build image
 COPY --from=build_image /tmp/rootfs/ /
-COPY --from=build_image /bio /bio
+COPY --from=build_image /hab /hab
 COPY --from=build_image /hab/bin /bin
 COPY etc/ /etc
 ENTRYPOINT ["bio", "sup"]

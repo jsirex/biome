@@ -1,5 +1,5 @@
-# This endures that given a 'bio' user, a plan with no pkg_svc_user will
-# not produce a service that will be run by the hab user. This used to be
+# This endures that given a 'hab' user, a plan with no pkg_svc_user will
+# not produce a service that will be run by the bio user. This used to be
 # the case but we are no longer using the bio account by default on windows.
 # see https://github.com/habitat-sh/habitat/issues/6847
 $username = "bio"
@@ -63,6 +63,6 @@ Describe "with svc_user" {
     It "runs hook as current user" {
         # the dummy run hook simply runs ping continuously
         $proc = Get-Process ping -IncludeUserName
-        $proc.UserName | Should -Be "$env:computername\bio"
+        $proc.UserName | Should -Be "$env:computername\hab"
     }
 }

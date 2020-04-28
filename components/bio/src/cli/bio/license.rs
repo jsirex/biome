@@ -4,6 +4,6 @@ use structopt::StructOpt;
 #[structopt(no_version)]
 /// Commands relating to Biome license agreements
 pub enum License {
-    /// Accept the Chef Binary Distribution Agreement without prompting
+    /// Accept the Biome Binary Distribution Agreement without prompting
     Accept,
 }

@@ -1,13 +1,6 @@
 use crate::{allow_std_io::AllowStdIo,
             error::{Error,
                     Result},
-            bio_core::{crypto::keys::box_key_pair::WrappedSealedBox,
-                       fs::AtomicWriter,
-                       package::{Identifiable,
-                                 PackageArchive,
-                                 PackageIdent,
-                                 PackageTarget},
-                       ChannelIdent},
             bio_http::ApiClient,
             response,
             BuildOnUpload,
@@ -23,6 +16,15 @@ use crate::{allow_std_io::AllowStdIo,
 use broadcast::BroadcastWriter;
 use bytes::BytesMut;
 use futures::stream::TryStreamExt;
+use biome_core::{crypto::keys::box_key_pair::WrappedSealedBox,
+                   fs::{AtomicWriter,
+                        Permissions,
+                        DEFAULT_CACHED_ARTIFACT_PERMISSIONS},
+                   package::{Identifiable,
+                             PackageArchive,
+                             PackageIdent,
+                             PackageTarget},
+                   ChannelIdent};
 use percent_encoding::{percent_encode,
                        AsciiSet,
                        CONTROLS};
@@ -177,6 +179,7 @@ impl BuilderAPIClient {
                           rb: RequestBuilder,
                           dst_path: &'a Path,
                           token: Option<&'a str>,
+                          permissions: Permissions,
                           progress: Option<Box<dyn DisplayProgress>>)
                           -> Result<PathBuf> {
         debug!("Downloading file to path: {}", dst_path.display());
@@ -186,7 +189,7 @@ impl BuilderAPIClient {
         fs::create_dir_all(&dst_path)?;
         let file_name = response::get_header(&resp, X_FILENAME)?;
         let dst_file_path = dst_path.join(file_name);
-        let w = AtomicWriter::new(&dst_file_path)?;
+        let w = AtomicWriter::new_with_permissions(&dst_file_path, permissions)?;
         let content_length = response::get_header(&resp, CONTENT_LENGTH);
         let mut body = Cursor::new(resp.bytes().await?);
         // Blocking IO is used because of `DisplayProgress` which relies on the `Write` trait.
@@ -461,6 +464,7 @@ impl BuilderAPIClient {
                           .get(&format!("depot/origins/{}/encryption_key", origin)),
                       dst_path.as_ref(),
                       Some(token),
+                      Permissions::Standard,
                       progress)
             .await
     }
@@ -608,7 +612,7 @@ impl BuilderAPIClient {
     /// Accepts an origin member invitation
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L883
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L883
     ///
     ///  # Arguments
     ///    * Origin: &str - origin name where membership invitation exists
@@ -639,7 +643,7 @@ impl BuilderAPIClient {
     ///  After ignoring, the user will no longer see the invitation
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L903
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L903
     ///
     ///  # Arguments
     ///    * Origin: &str - origin name where membership invitation exists
@@ -672,7 +676,7 @@ impl BuilderAPIClient {
     ///  account without having to know the origin.
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L614
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L614
     ///
     ///  # Arguments
     ///    * Token: &str - bearer token for authentication/authorization
@@ -718,7 +722,7 @@ impl BuilderAPIClient {
     ///  invitations for a given origin.
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L881
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L881
     ///
     ///  # Arguments
     ///    * Origin: &str - origin name where membership invitation exists
@@ -747,7 +751,7 @@ impl BuilderAPIClient {
     ///  Rescind an invitation that hasn't already been ignored. The invitation will be deleted.
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L893
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L893
     ///
     ///  # Arguments
     ///    * Origin: &str - origin name where membership invitation exists
@@ -779,7 +783,7 @@ impl BuilderAPIClient {
     ///  and listed under a user's direct invitations.
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L812
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L812
     ///
     ///  # Arguments
     ///    * Origin: &str - origin name where membership invitation exists
@@ -844,6 +848,7 @@ impl BuilderAPIClient {
                           .get(&format!("depot/origins/{}/keys/{}", origin, revision)),
                       dst_path.as_ref(),
                       None,
+                      Permissions::Standard,
                       progress)
             .await
     }
@@ -865,6 +870,7 @@ impl BuilderAPIClient {
                           .get(&format!("depot/origins/{}/secret_keys/latest", origin)),
                       dst_path.as_ref(),
                       Some(token),
+                      Permissions::Standard,
                       progress)
             .await
     }
@@ -1006,8 +1012,11 @@ impl BuilderAPIClient {
         let req_builder = self.0.get_with_custom_url(&package_download(ident), |u| {
                                     u.set_query(Some(&format!("target={}", target)))
                                 });
-
-        self.download(req_builder, dst_path.as_ref(), token, progress)
+        self.download(req_builder,
+                      dst_path.as_ref(),
+                      token,
+                      DEFAULT_CACHED_ARTIFACT_PERMISSIONS,
+                      progress)
             .await
             .map(PackageArchive::new)
     }

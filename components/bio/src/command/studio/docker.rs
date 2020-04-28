@@ -95,6 +95,7 @@ pub fn start_docker_studio(_ui: &mut UI, args: &[OsString]) -> Result<()> {
                             String::from("HAB_ORIGIN"),
                             String::from("HAB_ORIGIN_KEYS"),
                             String::from("HAB_STUDIO_BACKLINE_PKG"),
+                            String::from("HAB_STUDIO_NOPROFILE"),
                             String::from("HAB_STUDIO_NOSTUDIORC"),
                             String::from("HAB_STUDIO_SUP"),
                             String::from("HAB_UPDATE_STRATEGY_FREQUENCY_MS"),
@@ -275,7 +276,7 @@ fn run_container<I, J, S, T>(docker_cmd: PathBuf,
             cmd_args.push("--env".into());
             cmd_args.push(format!("{}={}", var.as_ref(), val).into());
         } else if var.as_ref() == "HAB_LICENSE" && license::license_exists() {
-            debug!("Hab license already accepted. Setting container env var: \
+            debug!("Biome license already accepted. Setting container env var: \
                     HAB_LICENSE=accept-no-persist");
             cmd_args.push("--env".into());
             cmd_args.push("HAB_LICENSE=accept-no-persist".to_string().into());

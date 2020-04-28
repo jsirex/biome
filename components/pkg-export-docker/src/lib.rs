@@ -1,36 +1,12 @@
 #[macro_use]
 extern crate clap;
-use biome_common as common;
-use biome_core as hcore;
-
+#[macro_use]
+extern crate failure_derive;
 #[macro_use]
 extern crate log;
-
-use rusoto_credential as aws_creds;
-
 #[macro_use]
 extern crate serde_json;
 
-use failure;
-#[macro_use]
-extern crate failure_derive;
-
-mod accounts;
-mod build;
-#[cfg(unix)]
-mod chmod;
-pub mod cli;
-mod docker;
-mod error;
-#[cfg(unix)]
-pub mod rootfs;
-mod util;
-
-use crate::{aws_creds::StaticProvider,
-            common::{ui::{UIWriter,
-                          UI},
-                     PROGRAM_NAME},
-            hcore::url as hurl};
 pub use crate::{build::BuildSpec,
                 cli::{Cli,
                       PkgIdentArgOptions},
@@ -39,8 +15,13 @@ pub use crate::{build::BuildSpec,
                 error::{Error,
                         Result}};
 use clap::App;
-use rusoto_core::{request::*,
+use biome_common::{ui::{UIWriter,
+                          UI},
+                     PROGRAM_NAME};
+use biome_core::url::default_bldr_url;
+use rusoto_core::{request::HttpClient,
                   Region};
+use rusoto_credential::StaticProvider;
 use rusoto_ecr::{Ecr,
                  EcrClient,
                  GetAuthorizationTokenRequest};
@@ -48,6 +29,16 @@ use std::{env,
           fmt,
           result,
           str::FromStr};
+
+mod accounts;
+mod build;
+mod cli;
+mod docker;
+mod error;
+mod graph;
+#[cfg(unix)]
+mod rootfs;
+mod util;
 
 /// The version of this library and program when built.
 pub const VERSION: &str = include_str!(concat!(env!("OUT_DIR"), "/VERSION"));
@@ -142,7 +133,7 @@ pub struct Credentials {
 }
 
 impl Credentials {
-    pub fn new(registry_type: RegistryType, username: &str, password: &str) -> Result<Self> {
+    pub async fn new(registry_type: RegistryType, username: &str, password: &str) -> Result<Self> {
         match registry_type {
             RegistryType::Amazon => {
                 // The username and password should be valid IAM credentials
@@ -152,7 +143,7 @@ impl Credentials {
                 let client = EcrClient::new_with(HttpClient::new()?, provider, Region::UsWest2);
                 let auth_token_req = GetAuthorizationTokenRequest { registry_ids: None };
                 let token = client.get_authorization_token(auth_token_req)
-                                  .sync()
+                                  .await
                                   .map_err(Error::TokenFetchFailed)
                                   .and_then(|resp| {
                                       resp.authorization_data
@@ -215,7 +206,7 @@ pub async fn export<'a>(ui: &'a mut UI,
 pub async fn export_for_cli_matches(ui: &mut UI,
                                     matches: &clap::ArgMatches<'_>)
                                     -> Result<Option<DockerImage>> {
-    let default_url = hurl::default_bldr_url();
+    let default_url = default_bldr_url();
     let spec = BuildSpec::new_from_cli_matches(&matches, &default_url)?;
     let naming = Naming::new_from_cli_matches(&matches);
 
@@ -227,7 +218,7 @@ pub async fn export_for_cli_matches(ui: &mut UI,
                                            matches.value_of("REGISTRY_USERNAME")
                                                   .expect("Username not specified"),
                                            matches.value_of("REGISTRY_PASSWORD")
-                                                  .expect("Password not specified"))?;
+                                                  .expect("Password not specified")).await?;
         docker_image.push(ui, &credentials, naming.registry_url)?;
     }
     if matches.is_present("RM_IMAGE") {
@@ -249,6 +240,7 @@ pub fn cli<'a, 'b>() -> App<'a, 'b> {
                                        .add_tagging_args()
                                        .add_publishing_args()
                                        .add_memory_arg()
+                                       .add_layer_arg()
                                        .add_pkg_ident_arg(PkgIdentArgOptions { multiple: true });
     if cfg!(windows) {
         cli = cli.add_base_image_arg();

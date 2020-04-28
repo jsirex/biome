@@ -20,6 +20,40 @@
 //! * Verify it is un-altered
 //! * Unpack it
 
+use crate::{api_client::{self,
+                         BuilderAPIClient,
+                         Client,
+                         Error::APIError},
+            error::{Error,
+                    Result},
+            templating::{self,
+                         hooks::{Hook,
+                                 InstallHook},
+                         package::Pkg},
+            ui::{Status,
+                 UIWriter},
+            FeatureFlag};
+use glob;
+use biome_core::{self,
+                   crypto::{artifact,
+                            keys::parse_name_with_rev,
+                            SigKeyPair},
+                   fs::{cache_key_path,
+                        pkg_install_path,
+                        svc_hooks_path,
+                        AtomicWriter,
+                        DEFAULT_CACHED_ARTIFACT_PERMISSIONS},
+                   os::users,
+                   package::{list::temp_package_directory,
+                             FullyQualifiedPackageIdent,
+                             Identifiable,
+                             PackageArchive,
+                             PackageIdent,
+                             PackageInstall,
+                             PackageTarget},
+                   ChannelIdent};
+use reqwest::StatusCode;
+use retry::delay;
 use std::{convert::TryFrom,
           fs::{self,
                File},
@@ -32,41 +66,6 @@ use std::{convert::TryFrom,
           result::Result as StdResult,
           str::FromStr,
           time::Duration};
-
-use crate::{api_client::{self,
-                         BuilderAPIClient,
-                         Client,
-                         Error::APIError},
-            hcore::{self,
-                    crypto::{artifact,
-                             keys::parse_name_with_rev,
-                             SigKeyPair},
-                    fs::{cache_key_path,
-                         pkg_install_path,
-                         svc_hooks_path,
-                         AtomicWriter},
-                    os::users,
-                    package::{list::temp_package_directory,
-                              FullyQualifiedPackageIdent,
-                              Identifiable,
-                              PackageArchive,
-                              PackageIdent,
-                              PackageInstall,
-                              PackageTarget},
-                    ChannelIdent}};
-use glob;
-use reqwest::StatusCode;
-use retry::delay;
-
-use crate::{error::{Error,
-                    Result},
-            templating::{self,
-                         hooks::{Hook,
-                                 InstallHook},
-                         package::Pkg},
-            ui::{Status,
-                 UIWriter},
-            FeatureFlag};
 
 pub const RETRIES: usize = 5;
 pub const RETRY_WAIT: Duration = Duration::from_millis(3000);
@@ -116,7 +115,7 @@ pub enum InstallSource {
 }
 
 impl FromStr for InstallSource {
-    type Err = hcore::Error;
+    type Err = biome_core::Error;
 
     /// Create an `InstallSource` from either a package identifier
     /// string (e.g. "biome/bio"), or from the path to a local package.
@@ -142,7 +141,7 @@ impl FromStr for InstallSource {
         } else {
             if let Some(extension) = path.extension() {
                 if extension == "hart" {
-                    return Err(hcore::Error::FileNotFound(s.to_string()));
+                    return Err(biome_core::Error::FileNotFound(s.to_string()));
                 }
             }
 
@@ -357,7 +356,11 @@ pub async fn check_install_hooks<T, P>(ui: &mut T,
     where T: UIWriter,
           P: AsRef<Path>
 {
-    for dependency in package.tdeps()? {
+    let mut dependencies = package.tdeps()?;
+    // tdeps are ordered high to low so we reverse the list to ensure lower level deps
+    // are installed first
+    dependencies.reverse();
+    for dependency in dependencies {
         run_install_hook_unless_already_successful(
             ui,
             &PackageInstall::load(&dependency, Some(fs_root_path.as_ref()))?,
@@ -632,12 +635,6 @@ impl<'a> InstallTask<'a> {
                    .is_some()
             {
                 ui.status(Status::Using, dependency)?;
-                if self.install_hook_mode != InstallHookMode::Ignore {
-                    run_install_hook_unless_already_successful(
-                        ui,
-                        &PackageInstall::load(dependency, Some(self.fs_root_path))?,
-                    ).await?;
-                }
             } else {
                 artifacts_to_install.push(self.get_cached_artifact(
                     ui,
@@ -654,11 +651,12 @@ impl<'a> InstallTask<'a> {
         // Ensure all uninstalled artifacts get installed
         for artifact in artifacts_to_install.iter_mut() {
             self.unpack_artifact(ui, artifact)?;
-            if self.install_hook_mode != InstallHookMode::Ignore {
-                run_install_hook(ui,
-                                 &PackageInstall::load(&artifact.ident()?,
-                                                       Some(self.fs_root_path))?).await?;
-            }
+        }
+
+        if self.install_hook_mode != InstallHookMode::Ignore {
+            check_install_hooks(ui,
+                                &PackageInstall::load(ident.as_ref(), Some(self.fs_root_path))?,
+                                self.fs_root_path).await?;
         }
 
         ui.end(format!("Install of {} complete with {} new packages installed.",
@@ -933,7 +931,8 @@ impl<'a> InstallTask<'a> {
             debug!("copying artifact to cache, artifact_path={}, cached_path={}",
                    artifact_path.display(),
                    cache_path.display());
-            let w = AtomicWriter::new(&cache_path)?;
+            let w = AtomicWriter::new_with_permissions(&cache_path,
+                                                       DEFAULT_CACHED_ARTIFACT_PERMISSIONS)?;
             w.with_writer(|mut w| {
                  let mut f = File::open(artifact_path)?;
                  io::copy(&mut f, &mut w)
@@ -964,7 +963,7 @@ impl<'a> InstallTask<'a> {
         let artifact_target = artifact.target()?;
         let active_target = PackageTarget::active_target();
         if active_target != artifact_target {
-            return Err(Error::BiomeCore(hcore::Error::WrongActivePackageTarget(
+            return Err(Error::BiomeCore(biome_core::Error::WrongActivePackageTarget(
                 active_target,
                 artifact_target,
             )));

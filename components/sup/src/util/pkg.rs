@@ -3,8 +3,9 @@ use crate::{error::{Error,
             PRODUCT,
             VERSION};
 use bio::{command::pkg::{self,
-                         uninstall_impl},
-          error::Result as HabResult};
+                         uninstall_impl::{self,
+                                          UninstallSafety}},
+          error::Result as BioResult};
 use biome_api_client::BuilderAPIClient;
 use biome_common::{cli::FS_ROOT,
                      command::package::install::{self as install_cmd,
@@ -125,19 +126,41 @@ pub async fn install_channel_head(url: &str,
     install_no_ui(url, &channel_latest_ident.into(), channel).await
 }
 
+pub async fn uninstall_all_but_latest(ident: impl AsRef<PackageIdent>,
+                                      number_latest_to_keep: usize)
+                                      -> BioResult<usize> {
+    uninstall_impl::uninstall_all_but_latest(&mut NullUi::new(),
+                                             ident,
+                                             number_latest_to_keep,
+                                             &*FS_ROOT,
+                                             pkg::ExecutionStrategy::Run,
+                                             pkg::Scope::PackageAndDependencies,
+                                             &[],
+                                             UninstallSafety::Safe).await
+}
+
+/// Uninstall multiple packages.
+pub async fn uninstall_many(idents: &[impl AsRef<PackageIdent>]) -> BioResult<()> {
+    uninstall_impl::uninstall_many(&mut NullUi::new(),
+                                   idents,
+                                   &*FS_ROOT,
+                                   pkg::ExecutionStrategy::Run,
+                                   pkg::Scope::PackageAndDependencies,
+                                   &[],
+                                   UninstallSafety::Safe).await
+}
+
 /// Uninstall a package given a package identifier.
 ///
 /// Note: This will uninstall the package even if the service correlated with the package is
-/// "running". A package is considered "running" if it has a spec file. This can cause problems when
-/// trying to manage a service. For example, this prevents us from uninstalling a package during
-/// service rollback unless the `even_if_running` flag is set. Ultimately, this logic should be
-/// cleaned up.
-pub async fn uninstall(ident: impl AsRef<PackageIdent>) -> HabResult<()> {
+/// loaded by the Supervisor. This is needed for service rollback where the package we are
+/// uninstalling is the currently loaded package.
+pub async fn uninstall_even_if_loaded(ident: impl AsRef<PackageIdent>) -> BioResult<()> {
     uninstall_impl::uninstall(&mut NullUi::new(),
                               &ident.as_ref(),
                               &*FS_ROOT,
                               pkg::ExecutionStrategy::Run,
                               pkg::Scope::PackageAndDependencies,
                               &[],
-                              true).await
+                              UninstallSafety::Force).await
 }

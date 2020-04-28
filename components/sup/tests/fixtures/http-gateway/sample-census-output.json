@@ -130,7 +130,7 @@
           },
           "s3": {
             "backend": "aws",
-            "bucket_name": "habitat-builder-artifact-store.live",
+            "bucket_name": "biome-builder-artifact-store.live",
             "endpoint": "us-west-2",
             "key_id": "justkidding",
             "secret_key": "password123"

@@ -21,7 +21,7 @@ elif [[ "${TRAVIS_BRANCH}" = "master" ]]; then
 elif [[ "${TRAVIS_BRANCH}" =~ ^acceptance_deploy ]]; then
   echo "We are not on a PR and on an acceptance_deploy branch. Deploying to Acceptance."
   cd www
-  BUILDER_WEB_URL="https://bldr.acceptance.biome.sh" GITHUB_APP_URL="https://github.com/apps/habitat-builder-acceptance" make acceptance
+  BUILDER_WEB_URL="https://bldr.acceptance.habitat.sh" GITHUB_APP_URL="https://github.com/apps/habitat-builder-acceptance" make acceptance
 else
   echo "Not building web site."
 fi

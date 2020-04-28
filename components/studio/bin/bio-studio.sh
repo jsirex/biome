@@ -16,7 +16,7 @@
 # TESTING CHANGES
 # Documentation on testing local changes to this file and its friends in
 # ../libexec lives here:
-# https://github.com/biome-sh/biome/blob/master/BUILDING.md#testing-changes
+# https://github.com/habitat-sh/habitat/blob/master/BUILDING.md#testing-changes
 
 # # Internals
 
@@ -827,7 +827,7 @@ chroot_env() {
     env="$env HAB_NONINTERACTIVE=$HAB_NONINTERACTIVE"
   fi
   # If the bio license is set, then propagate that into the Studio's environment
-  if [ -f "/bio/accepted-licenses/biome" ] || [ -f "$HOME/.bio/accepted-licenses/biome" ]; then
+  if [ -f "/hab/accepted-licenses/biome" ] || [ -f "$HOME/.hab/accepted-licenses/biome" ]; then
     env="$env HAB_LICENSE=accept-no-persist"
   elif [ -n "${HAB_LICENSE:-}" ]; then
     env="$env HAB_LICENSE=$HAB_LICENSE"

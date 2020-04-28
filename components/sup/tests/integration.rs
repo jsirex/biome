@@ -18,7 +18,7 @@ lazy_static! {
 #[test]
 #[cfg_attr(feature = "ignore_integration_tests", ignore)]
 fn config_only_packages_restart_on_config_application() {
-    let bio_root = utils::HabRoot::new("config_only_packages_restart_on_config_application");
+    let bio_root = utils::BioRoot::new("config_only_packages_restart_on_config_application");
 
     let origin_name = "sup-integration-test";
     let package_name = "config-only";
@@ -54,7 +54,7 @@ fn config_only_packages_restart_on_config_application() {
 #[test]
 #[cfg_attr(feature = "ignore_integration_tests", ignore)]
 fn hook_only_packages_restart_on_config_application() {
-    let bio_root = utils::HabRoot::new("hook_only_packages_restart_on_config_application");
+    let bio_root = utils::BioRoot::new("hook_only_packages_restart_on_config_application");
 
     let origin_name = "sup-integration-test";
     let package_name = "no-configs-only-hooks";
@@ -90,7 +90,7 @@ fn hook_only_packages_restart_on_config_application() {
 #[test]
 #[cfg_attr(feature = "ignore_integration_tests", ignore)]
 fn config_files_change_but_hooks_do_not_still_restarts() {
-    let bio_root = utils::HabRoot::new("config_files_change_but_hooks_do_not_still_restarts");
+    let bio_root = utils::BioRoot::new("config_files_change_but_hooks_do_not_still_restarts");
 
     let origin_name = "sup-integration-test";
     let package_name = "config-changes-hooks-do-not";
@@ -134,7 +134,7 @@ hook_value = "default"
 #[test]
 #[cfg_attr(feature = "ignore_integration_tests", ignore)]
 fn hooks_change_but_config_files_do_not_still_restarts() {
-    let bio_root = utils::HabRoot::new("hooks_change_but_config_files_do_not_still_restarts");
+    let bio_root = utils::BioRoot::new("hooks_change_but_config_files_do_not_still_restarts");
 
     let origin_name = "sup-integration-test";
     let package_name = "hook-changes-config-does-not";
@@ -178,7 +178,7 @@ hook_value = "applied"
 #[test]
 #[cfg_attr(feature = "ignore_integration_tests", ignore)]
 fn applying_identical_configuration_results_in_no_changes_and_no_restart() {
-    let bio_root = utils::HabRoot::new(
+    let bio_root = utils::BioRoot::new(
         "applying_identical_configuration_results_in_no_changes_and_no_restart",
     );
 
@@ -224,7 +224,7 @@ hook_value = "default"
 #[test]
 #[cfg_attr(feature = "ignore_integration_tests", ignore)]
 fn install_hook_success() {
-    let bio_root = utils::HabRoot::new("install_hook_success");
+    let bio_root = utils::BioRoot::new("install_hook_success");
 
     let origin_name = "sup-integration-test";
     let package_name = "install-hook-succeeds";
@@ -263,7 +263,7 @@ fn install_hook_success() {
 #[cfg_attr(feature = "ignore_integration_tests", ignore)]
 fn package_with_successful_install_hook_in_dependency_is_loaded() {
     let bio_root =
-        utils::HabRoot::new("package_with_successful_install_hook_in_dependency_is_loaded");
+        utils::BioRoot::new("package_with_successful_install_hook_in_dependency_is_loaded");
 
     let origin_name = "sup-integration-test";
     let package_name = "install-hook-succeeds-with-dependency";
@@ -302,7 +302,7 @@ fn package_with_successful_install_hook_in_dependency_is_loaded() {
 #[test]
 #[cfg_attr(feature = "ignore_integration_tests", ignore)]
 fn install_hook_fails() {
-    let bio_root = utils::HabRoot::new("install_hook_fails");
+    let bio_root = utils::BioRoot::new("install_hook_fails");
 
     let origin_name = "sup-integration-test";
     let package_name = "install-hook-fails";
@@ -342,7 +342,7 @@ fn install_hook_fails() {
 #[cfg_attr(feature = "ignore_integration_tests", ignore)]
 fn package_with_failing_install_hook_in_dependency_is_not_loaded() {
     let bio_root =
-        utils::HabRoot::new("package_with_failing_install_hook_in_dependency_is_not_loaded");
+        utils::BioRoot::new("package_with_failing_install_hook_in_dependency_is_not_loaded");
 
     let origin_name = "sup-integration-test";
     let package_name = "install-hook-fails-with-dependency";

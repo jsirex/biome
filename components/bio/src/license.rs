@@ -1,10 +1,10 @@
 //! This module provides the logic necessary to implement a license prompt into
 //! the bio CLI. When a user runs bio for the first time, they will be prompted
-//! to accept the Chef license agreement. If they choose not to, then bio will
+//! to accept the Biome license agreement. If they choose not to, then bio will
 //! exit and they will be unable to use the tool.
 //!
 //! Choosing to accept the license will write a file to either
-//! /bio/accepted-licenses/biome (if run as root) or
+//! /hab/accepted-licenses/biome (if run as root) or
 //! ~/.hab/accepted-licenses/biome. The presence of this file will
 //! prevent further license prompts. The file itself contains various metadata
 //! that we collect, but it's important to note that the contents of this file
@@ -26,7 +26,7 @@
 //! acceptance.
 //!
 //! More detailed information on the license spec is available at
-//! https://github.com/chef/license-acceptance
+//! https://github.com/biome-sh/biome
 
 use crate::{common::ui::{self,
                          UIReader,
@@ -83,10 +83,10 @@ pub fn check_for_license_acceptance_and_prompt(ui: &mut UI) -> Result<()> {
     }
 
     ui.heading("+---------------------------------------------+")?;
-    ui.heading("            Chef License Acceptance")?;
+    ui.heading("            Biome License Acceptance")?;
     ui.br()?;
     ui.info("Before you can continue, 1 product license must be accepted.")?;
-    ui.info("View the license at https://www.chef.io/end-user-license-agreement")?;
+    ui.info("View the license at https://github.com/biome-sh/biome")?;
     ui.br()?;
     ui.info("License that needs accepting:")?;
     ui.br()?;
@@ -97,7 +97,7 @@ pub fn check_for_license_acceptance_and_prompt(ui: &mut UI) -> Result<()> {
         accept_license(ui)
     } else {
         ui.br()?;
-        ui.info("If you do not accept this license you will not be able to use Chef products.")?;
+        ui.info("If you do not accept this license you will not be able to use Biome products.")?;
         ui.br()?;
 
         if ui.prompt_yes_no("Do you accept the 1 product license?", Some(false))? {
@@ -133,7 +133,7 @@ fn superuser_license_root() -> PathBuf { PathBuf::from(&*FS_ROOT_PATH).join("hab
 
 fn user_license_root() -> PathBuf {
     if let Some(home) = dirs::home_dir() {
-        home.join(".bio")
+        home.join(".hab")
     } else {
         panic!("No home directory available. Unable to find a suitable place to write a license \
                 file.");

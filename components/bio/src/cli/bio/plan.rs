@@ -8,7 +8,7 @@ use structopt::StructOpt;
 /// Commands relating to plans and other app-specific configuration
 pub enum Plan {
     /// Generates common package specific configuration files. Executing without argument will
-    /// create a `biome` directory in your current folder for the plan. If `PKG_NAME` is
+    /// create a `habitat` directory in your current folder for the plan. If `PKG_NAME` is
     /// specified it will create a folder with that name. Environment variables (those starting
     /// with 'pkg_') that are set will be used in the generated plan
     Init {

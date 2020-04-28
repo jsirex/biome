@@ -31,7 +31,7 @@ You will need to build the studio and bio client packages for the same version.
 Navigate to the root of the biome repo and build the bio client
 
 ```
-cd /biome
+cd /habitat
 bio pkg build components/bio
 ```
 

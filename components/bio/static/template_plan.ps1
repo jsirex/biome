@@ -297,7 +297,7 @@ $pkg_upstream_url="{{ pkg_upstream_url }}"
 #
 # The default implementations (the Invoke-Default* functions) are defined in the
 # plan build script:
-# https://github.com/biome-sh/biome/tree/master/components/plan-build-ps1/bin/bio-plan-build.ps1
+# https://github.com/habitat-sh/habitat/tree/master/components/plan-build-ps1/bin/bio-plan-build.ps1
 
 # The default implmentation does nothing. You can use it to execute any
 # arbitrary commands before anything else happens.

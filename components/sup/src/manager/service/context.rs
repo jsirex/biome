@@ -629,7 +629,7 @@ two = 2
     /// things on a mutable reference.
     fn default_render_context<'a>() -> RenderContext<'a> {
         let system_info =
-            SystemInfo { version:           Cow::Owned("I AM A HABITAT VERSION".into()),
+            SystemInfo { version:           Cow::Owned("I AM A BIOME VERSION".into()),
                          member_id:         Cow::Owned("MEMBER_ID".into()),
                          ip:                Cow::Owned(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
                          hostname:          Cow::Owned("MY_HOSTNAME".into()),

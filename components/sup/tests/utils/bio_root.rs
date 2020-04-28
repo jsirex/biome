@@ -1,7 +1,7 @@
 //! Encapsulate the filesystem root that the Supervisor will see in
 //! our tests (corresponds to the `FS_ROOT` environment variable). At
 //! creation, it will generate a new, randomly-named temp directory on
-//! the (real) filesystem, which is deleted when the `HabRoot`
+//! the (real) filesystem, which is deleted when the `BioRoot`
 //! instance is dropped.
 //!
 //! Provides many functions for accessing important paths and files
@@ -24,16 +24,16 @@ use tempfile::{Builder,
                TempDir};
 
 #[derive(Debug)]
-pub struct HabRoot(TempDir);
+pub struct BioRoot(TempDir);
 
-impl HabRoot {
-    pub fn new(name: &str) -> HabRoot {
+impl BioRoot {
+    pub fn new(name: &str) -> BioRoot {
         let s = name.to_string();
         let t =
             Builder::new().prefix(&s)
                           .tempdir()
                           .unwrap_or_else(|_| panic!("Could not create temporary directory {}", s));
-        HabRoot(t)
+        BioRoot(t)
     }
 
     /// Directory to which "expanded package" files should be placed.
@@ -201,6 +201,6 @@ impl HabRoot {
     }
 }
 
-impl AsRef<Path> for HabRoot {
+impl AsRef<Path> for BioRoot {
     fn as_ref(&self) -> &Path { &self.0.path() }
 }

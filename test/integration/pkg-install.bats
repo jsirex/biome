@@ -34,7 +34,7 @@ setup() {
     desired_version="core/redis/3.2.4/20170514150022"
 
     # First, grab a hart file! Then set it aside and clean everything
-    # out of /bio. This way, we'll have a hart file, but nothing else,
+    # out of /hab. This way, we'll have a hart file, but nothing else,
     # which is exactly what we want.
     run ${bio} pkg install "${desired_version}"
     assert_success
@@ -53,7 +53,7 @@ setup() {
     # First, grab a hart file!
     run ${bio} pkg install "${desired_version}"
     assert_success
-    # We don't want to remove everything in /bio, because we want the
+    # We don't want to remove everything in /hab, because we want the
     # artifact cache to remain.
     remove_installed_packages
     empty_key_cache

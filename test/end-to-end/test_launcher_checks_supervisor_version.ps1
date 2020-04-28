@@ -3,7 +3,7 @@
 #
 # To override and test locally-built code, set overrides in the environment of
 # the script.
-# See https://github.com/biome-sh/biome/blob/master/BUILDING.md#testing-changes
+# See https://github.com/habitat-sh/habitat/blob/master/BUILDING.md#testing-changes
 
 Add-Type -TypeDefinition (Get-Content "$PSScriptroot/../../.expeditor/scripts/end_to_end/SupervisorRunner.cs" | Out-String)
 
@@ -39,6 +39,10 @@ function Test-LauncherFailure($version) {
 
     return ($supPid.ExitCode -ne 0)
 }
+
+# These tests will timeout unless the launcher and all of its dependencies
+# are already on disk.
+bio pkg install biome/bio-launcher --channel $HAB_BLDR_CHANNEL
 
 Describe "Launcher version check" {
     It "Exits with error when running an incompatible supervisor version" {

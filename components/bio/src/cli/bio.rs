@@ -40,7 +40,7 @@ use structopt::{clap::AppSettings,
             settings = &[AppSettings::GlobalVersion],
         )]
 #[allow(clippy::large_enum_variant)]
-pub enum Hab {
+pub enum Bio {
     #[structopt(no_version)]
     Bldr(Bldr),
     #[structopt(no_version)]

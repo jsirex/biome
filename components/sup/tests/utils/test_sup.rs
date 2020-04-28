@@ -100,11 +100,11 @@ fn random_port() -> u16 {
 ///
 /// Thus if the current executable is
 ///
-///    /home/me/biome/target/debug/deps/compilation-ccaf2f45c24e3840
+///    /home/me/habitat/target/debug/deps/compilation-ccaf2f45c24e3840
 ///
 /// and we look for `bio-sup`, we'll find it at
 ///
-///    /home/me/biome/target/debug/bio-sup
+///    /home/me/habitat/target/debug/bio-sup
 fn find_exe<B>(binary_name: B) -> PathBuf
     where B: AsRef<Path>
 {

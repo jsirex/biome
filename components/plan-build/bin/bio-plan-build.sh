@@ -1484,7 +1484,7 @@ _resolve_dependencies() {
 # `_resolve_dependencies()` function.
 #
 # Reference implementation:
-# https://github.com/biome-sh/biome/blob/3d63753468ace168bbbe4c52e600d408c4981b03/components/plan-build/bin/bio-plan-build.sh#L1584-L1638
+# https://github.com/habitat-sh/habitat/blob/3d63753468ace168bbbe4c52e600d408c4981b03/components/plan-build/bin/bio-plan-build.sh#L1584-L1638
 _set_build_path() {
   local paths=()
   local dir dep data
@@ -2395,44 +2395,67 @@ THIS_PROGRAM=$(abspath "$0")
 #   `./plan.sh`
 #   `./habitat/plan.sh`
 #   `./$pkg_target/plan.sh`
-#   `./biome/$pkg_target/plan.sh`
+#   `./habitat/$pkg_target/plan.sh`
 # In most cases, Plan authors should use the default location of `./plan.sh`
 # or `./habitat/plan.sh`.  The exception to this is when the $pkg_target
 # requires variations to the default `plan.sh`. Plan authors can create these
 # variants by placing a plan file in the appropriate $pkg_target directory
 # relative to the default plan.sh.
-
-# With plan variants, plans can exist in 4 places per $pkg_target relative to
-# the `$PLAN_CONTEXT` directory. Only two combinations are allowed:
 #
-#   `./plan.sh` AND `./$pkg_target/plan.sh`
-#   OR
-#   `./habitat/plan.sh` AND `./biome/$pkg_target/plan.sh`
-# Consider all other combination of two plans invalid and abort if found.
+# A plan found in the target folder will take precedence above a non-target
+# folder. We currently allow a plan to exist both inside and outside of a
+# target folder to support some core plans that have a Linux kernel 2 plan
+# in a target folder and a Linux plan outside. Today we will warn in this
+# condition but we should change those plans and then make this an error
+# prompting a failure. If we find an invalid combination or are unable to
+# find a plan.sh, abort with a message to the user with the failure case.
+target_paths=()
+paths=()
+final_paths=()
+candidate_target_paths=(
+  "$PLAN_CONTEXT/$pkg_target/plan.sh"
+  "$PLAN_CONTEXT/habitat/$pkg_target/plan.sh"
+)
+candidate_paths=(
+  "$PLAN_CONTEXT/plan.sh"
+  "$PLAN_CONTEXT/habitat/plan.sh"
+)
 
-# ** Internal ** Relative to the current plan context,  check for a variant
-#   that matches the current $pkg_target, and update $PLAN_CONTEXT if found.
-_check_for_plan_variant() {
-  if [[ -f "$PLAN_CONTEXT/$pkg_target/plan.sh" ]]; then
-    PLAN_CONTEXT="$PLAN_CONTEXT/$pkg_target"
+# Lets notate all of the existing plan paths
+for path in "${candidate_target_paths[@]}"; do
+  if [[ -f $path ]]; then
+    target_paths+=("$path")
   fi
-}
+done
 
-# Look for a plan.sh relative to the $PLAN_CONTEXT. If we find an invalid
-#   combination or are unable to find a plan.sh,  abort with a message to the
-#   user with the failure case.
-if [[ -f "$PLAN_CONTEXT/plan.sh" ]]; then
-  if [[ -f "$PLAN_CONTEXT/habitat/plan.sh" ]]; then
-    places="$PLAN_CONTEXT/plan.sh and $PLAN_CONTEXT/habitat/plan.sh"
-    exit_with "A plan file was found at $places. Only one is allowed at a time" 42
+for path in "${candidate_paths[@]}"; do
+  if [[ -f $path ]]; then
+    paths+=("$path")
   fi
-  _check_for_plan_variant
-elif [[ -f "$PLAN_CONTEXT/habitat/plan.sh" ]]; then
-  PLAN_CONTEXT="$PLAN_CONTEXT/habitat"
-  _check_for_plan_variant
+done
+
+if [[ ${#paths[@]} -gt 0 && ${#target_paths[@]} -gt 0 ]]; then
+    warn "There is a plan.sh inside $pkg_target and outside as well. Using the plan in $pkg_target."
+    warn "It is advisable to either remove the plan that is outside $pkg_target"
+    warn "or move that plan to its own target folder if it is intended for a different target."
+fi
+
+# lets figure out what the final set of paths we are evaluating
+# because target paths take precedence over non-target paths, we
+# will use those if any were used
+if [[ ${#target_paths[@]} -gt 0 ]]; then
+  final_paths=( "${target_paths[@]}" )
 else
-  places="$PLAN_CONTEXT/plan.sh or $PLAN_CONTEXT/habitat/plan.sh"
-  exit_with "Plan file not found at $places" 42
+  final_paths=( "${paths[@]}" )
+fi
+
+if [[ ${#final_paths[@]} -gt 1 ]]; then
+  exit_with "A Plan file was found in the following paths: $(join_by ',' "${final_paths[@]}"). Only one is allowed at a time" 42
+elif [[ ${#final_paths[@]} -eq 0 ]]; then
+  all_paths=( "${candidate_paths[@]}" "${candidate_target_paths[@]}" )
+  exit_with "Plan file not found in any of these paths: $(join_by ',' "${all_paths[@]}")" 42
+else
+  PLAN_CONTEXT="$(dirname "${final_paths[0]}")"
 fi
 
 # Change into the `$PLAN_CONTEXT` directory for proper resolution of relative

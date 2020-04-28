@@ -32,7 +32,7 @@ The Biome Supervisor logs will be located in `$env:systemdrive\hab\svc\windows-s
 
 ## Configuring the Biome service
 
-You may configure the Biome service using its configuration file located at `$env:systemdrive\hab\svc\windows-service\HabService.dll.config`. Here you can configure arguments to be passed to `bio run` and whether to include debug verbosity in the logs.
+You may configure the Biome service using its configuration file located at `$env:systemdrive\hab\svc\windows-service\BioService.dll.config`. Here you can configure arguments to be passed to `bio run` and whether to include debug verbosity in the logs.
 
 The settings located in the `appSettings` section of the configuration file may include:
 

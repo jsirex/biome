@@ -44,7 +44,7 @@ pub fn start(ui: &mut UI,
         Some(name) => (name.clone(), name),
         // The name of the current working directory.
         None => {
-            ("biome".into(),
+            ("habitat".into(),
              canonicalize(".").ok()
                               .and_then(|path| {
                                   path.components().last().and_then(|val| {

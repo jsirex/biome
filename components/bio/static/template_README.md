@@ -36,7 +36,7 @@ What topologies does this plan support?
 
 *(This is only required for service packages, not [binary wrapper packages](https://www.habitat.sh/docs/best-practices/#binary-wrapper-packages))*
 
-Check out [the Biome docs on standalone](https://www.habitat.sh/docs/using-biome/#standalone) for more details on what the standalone topology is and what it does.
+Check out [the Biome docs on standalone](https://www.habitat.sh/docs/using-habitat/#standalone) for more details on what the standalone topology is and what it does.
 
 If this plan can be used with the standalone topology, how do you do it?
 
@@ -48,7 +48,7 @@ Checkout [the core/postgresql](https://github.com/habitat-sh/core-plans/tree/mas
 
 If this plan can be used with the leader/follower topology, how do you do it?
 
-Check out [the Biome docs on Leader-Follower](https://www.habitat.sh/docs/using-biome/#leader-follower-topology) for more details on what the leader-follower topology is and what it does.
+Check out [the Biome docs on Leader-Follower](https://www.habitat.sh/docs/using-habitat/#leader-follower-topology) for more details on what the leader-follower topology is and what it does.
 
 Checkout [the core/postgresql](https://github.com/habitat-sh/core-plans/tree/master/postgresql) README for a good example of this (look under the Clustering heading)
 
@@ -58,13 +58,13 @@ Checkout [the core/postgresql](https://github.com/habitat-sh/core-plans/tree/mas
 
 What update strategies would work best for this plan?
 
-Checkout [the update strategy documentation](https://www.habitat.sh/docs/using-biome/#update-strategy) for information on the strategies Biome supports.
+Checkout [the update strategy documentation](https://www.habitat.sh/docs/using-habitat/#update-strategy) for information on the strategies Biome supports.
 
 ### Configuration Updates
 
 *(This is only required for service packages, not [binary wrapper packages](https://www.habitat.sh/docs/best-practices/#binary-wrapper-packages))*
 
-Checkout the [configuration update](https://www.habitat.sh/docs/using-biome/#configuration-updates) documentation for more information on what configuration updates are and how they are executed.
+Checkout the [configuration update](https://www.habitat.sh/docs/using-habitat/#configuration-updates) documentation for more information on what configuration updates are and how they are executed.
 
 Link to the plan's default.toml file to list all the configurable values of the plan.
 

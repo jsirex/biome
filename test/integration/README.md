@@ -18,7 +18,7 @@ git submodule update
 
 These tests exercise various aspects of the `bio` CLI tool, and makes
 real requests against the [Builder](https://bldr.habitat.sh)
-service. It also assumes full control of the local `/bio` directory
+service. It also assumes full control of the local `/hab` directory
 (not a mocked directory!) and regularly wipes its contents, so be
 aware of this if you plan to run the tests directly on your local
 workstation.

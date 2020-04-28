@@ -17,7 +17,6 @@ param (
     [switch]$q,
     [switch]$v,
     [switch]$R,
-    [switch]$D,
     [string]$command,
     [string]$commandVal,
     [string]$k,
@@ -63,15 +62,16 @@ SUBCOMMANDS:
     version   Prints version information
 
 ENVIRONMENT VARIABLES:
-    HAB_LICENSE       Set to 'accept' or 'accept-no-persist' to accept the Biome license
-    HAB_ORIGIN        Propagates this variable into any studios
-    HAB_ORIGIN_KEYS   Installs secret keys (\`-k' option overrides)
-    HAB_STUDIOS_HOME  Sets a home path for all Studios (default: /hab/studios)
-    HAB_STUDIO_ROOT   Sets a Studio root (\`-r' option overrides)
-    NO_SRC_PATH       If set, do not mount source path (\`-n' flag overrides)
-    QUIET             Prints less output (\`-q' flag overrides)
-    SRC_PATH          Sets the source path (\`-s' option overrides)
-    VERBOSE           Prints more verbose output (\`-v' flag overrides)
+    HAB_LICENSE           Set to 'accept' or 'accept-no-persist' to accept the Biome license
+    HAB_ORIGIN            Propagates this variable into any studios
+    HAB_ORIGIN_KEYS       Installs secret keys (\`-k' option overrides)
+    HAB_STUDIOS_HOME      Sets a home path for all Studios (default: /hab/studios)
+    HAB_STUDIO_NOPROFILE  Disables sourcing a \`.studio_profile.ps1' in \`studio enter'
+    HAB_STUDIO_ROOT       Sets a Studio root (\`-r' option overrides)
+    NO_SRC_PATH           If set, do not mount source path (\`-n' flag overrides)
+    QUIET                 Prints less output (\`-q' flag overrides)
+    SRC_PATH              Sets the source path (\`-s' option overrides)
+    VERBOSE               Prints more verbose output (\`-v' flag overrides)
 
 SUBCOMMAND HELP:
     $program <SUBCOMMAND> -h
@@ -222,7 +222,7 @@ function New-Studio {
 
     $pathArray = @(
         "$PSScriptRoot\powershell",
-        "$PSScriptRoot\bio",
+        "$PSScriptRoot\hab",
         "$PSScriptRoot\7zip",
         "$PSScriptRoot",
         "$env:WINDIR\system32",
@@ -239,7 +239,7 @@ function New-Studio {
         $env:HAB_ORIGIN_KEYS.Split(" ") | ForEach-Object {
             $sk = & bio origin key export $_ --type=secret | Out-String
             if($LASTEXITCODE -eq 0) {
-                # bio key import does not like carriage returns
+                # bio origin key import does not like carriage returns
                 $secret_keys += $sk.Replace("`r", "")
             } else {
                 Write-Warning "Error exporting $_ key"
@@ -268,7 +268,7 @@ function New-Studio {
             }
             $pk = & bio origin key export $_ --type=public | Out-String
             if($LASTEXITCODE -eq 0) {
-                # bio key import does not like carriage returns
+                # bio origin key import does not like carriage returns
                 $public_keys += $pk.Replace("`r", "")
             } else {
                 Write-Warning "Tried to import '$_' public origin key, but key was not found"
@@ -422,6 +422,11 @@ function Enter-Studio {
 
         New-PSDrive -Name "Biome" -PSProvider FileSystem -Root $env:HAB_STUDIO_ENTER_ROOT | Out-Null
         Set-Location "Biome:\src"
+
+        if((Test-Path studio_profile.ps1) -and (!$env:HAB_STUDIO_NOPROFILE)) {
+            Write-Host "--> Detected and loading studio_profile.ps1"
+            . .\studio_profile.ps1
+        }
     }
 
     if($shouldStartStudio -and (Test-Path "$env:HAB_STUDIO_ENTER_ROOT\hab\sup\default\LOCK")) {
@@ -552,7 +557,7 @@ if($k) {
     $env:HAB_ORIGIN_KEYS = $env:HAB_ORIGIN
 }
 
-if ((Test-Path "$env:USERPROFILE\.bio\accepted-licenses\biome") -or (Test-Path "$env:SYSTEMDRIVE\bio\accepted-licenses\biome")) {
+if ((Test-Path "$env:USERPROFILE\.hab\accepted-licenses\biome") -or (Test-Path "$env:SYSTEMDRIVE\hab\accepted-licenses\biome")) {
     $env:HAB_LICENSE = "accept-no-persist"
 }
 
@@ -568,17 +573,22 @@ if(!(Test-InContainer)) {
 }
 
 try {
-    switch ($command) {
-        "new" { New-Studio }
-        "run" { Invoke-StudioRun $commandVal }
-        "rm" { Remove-Studio }
-        "enter" { Enter-Studio }
-        "build" { Invoke-StudioBuild $commandVal $R }
-        "version" { Write-Host "$program $version" }
-        "help" { Write-Help }
-        default {
-            Write-Help
-            Write-Error "Invalid Argument $command"
+    if ($args.Count -gt 0) {
+        Write-Help
+        Write-Error "Invalid Argument '$args'"
+    } else {
+        switch ($command) {
+            "new" { New-Studio }
+            "run" { Invoke-StudioRun $commandVal }
+            "rm" { Remove-Studio }
+            "enter" { Enter-Studio }
+            "build" { Invoke-StudioBuild $commandVal $R }
+            "version" { Write-Host "$program $version" }
+            "help" { Write-Help }
+            default {
+                Write-Help
+                Write-Error "Invalid Command '$command'"
+            }
         }
     }
 } finally { $VerbosePreference = $currentVerbose }

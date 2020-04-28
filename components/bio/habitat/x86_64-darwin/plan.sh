@@ -25,7 +25,7 @@ do_prepare() {
   build_line "Setting CARGO_TARGET_DIR=$CARGO_TARGET_DIR"
 
   # Our dependencies are coming from an Omnibus toolchain in
-  # https://github.com/biome-sh/release-engineering/tree/master/components/bootstrap/x86_64-darwin/mac-bootstrapper
+  # https://github.com/habitat-sh/release-engineering/tree/master/components/bootstrap/x86_64-darwin/mac-bootstrapper
   # (private for now, but will be opened soon)
   la_ldflags="-L/opt/mac-bootstrapper/embedded/lib -lz"
   la_ldflags="$la_ldflags -L/opt/mac-bootstrapper/embedded/lib -llzma"
