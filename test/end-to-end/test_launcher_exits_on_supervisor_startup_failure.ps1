@@ -1,7 +1,7 @@
 # A simple test that the launcher doesn't go into a tight loop restarting the
 # supervisor if the supervisor fails to start up. To override and test
 # locally-built code, set overrides in the environment of the script.
-# See https://github.com/biome-sh/biome/blob/master/BUILDING.md#testing-changes
+# See https://github.com/habitat-sh/habitat/blob/master/BUILDING.md#testing-changes
 
 Add-Type -TypeDefinition (Get-Content "$PSScriptroot/../../.expeditor/scripts/end_to_end/SupervisorRunner.cs" | Out-String)
 
@@ -11,7 +11,7 @@ New-Item $env:TESTING_FS_ROOT -ItemType Directory -Force
 # Installing the launcher here because TESTING_FS_ROOT is an imperfect
 # abstraction that needs to be removed. It turns out that even if
 # TESTING_FS_ROOT is in place, we still look for the launcher in
-# `/bio` when we start up.
+# `/hab` when we start up.
 #
 # Once we remove TESTING_FS_ROOT completely, we'll need to rethink how
 # this test works, since we can't really make `/` read-only

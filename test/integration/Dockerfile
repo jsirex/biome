@@ -4,7 +4,7 @@ FROM ubuntu:18.04
 #  tests.
 #
 # jq and curl are used by our custom BATS helper functions; busybox
-# and the various lib* are needed by the bio binaries themselves; the
+# and the various lib* are needed by the hab binaries themselves; the
 # intended usecase is to exercise the individual binaries built by
 # cargo, and not Biome-packaged binaries (which of course include
 # all dependencies).

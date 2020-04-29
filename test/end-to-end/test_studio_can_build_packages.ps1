@@ -7,7 +7,7 @@ bio origin key generate $env:HAB_ORIGIN
 Describe "Studio build" {
     foreach($plan in @(
             "plan-in-root",
-            "plan-in-biome",
+            "plan-in-habitat",
             "plan-in-target",
             "plan-in-biome-target"
         )) {
@@ -17,8 +17,8 @@ Describe "Studio build" {
         }
     }
 
-    It "does not build plan-in-root-and-biome" {
-        bio pkg build test/fixtures/plan-in-root-and-biome
+    It "does not build plan-in-root-and-habitat" {
+        bio pkg build test/fixtures/plan-in-root-and-habitat
         $LASTEXITCODE | Should -Not -Be 0
     }
 

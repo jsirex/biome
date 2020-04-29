@@ -382,7 +382,7 @@ fn compare(app1: &mut App, app2: &mut App, path: &str) {
 fn test_bio_help() {
     let mut bio1 = cli::get(no_feature_flags()).after_help("");
     // Remove the subcommand aliases
-    bio1.p.subcommands.truncate(hab1.p.subcommands.len() - 7);
+    bio1.p.subcommands.truncate(bio1.p.subcommands.len() - 7);
     let mut bio2 = cli::get(config_file_enabled()).after_help("");
     compare(&mut bio1, &mut bio2, "bio");
 }

@@ -3,7 +3,7 @@
 #
 # To override and test locally-built code, set overrides in the environment of
 # the script.
-# See https://github.com/biome-sh/biome/blob/master/BUILDING.md#testing-changes
+# See https://github.com/habitat-sh/habitat/blob/master/BUILDING.md#testing-changes
 
 Add-Type -TypeDefinition (Get-Content "$PSScriptroot/../../.expeditor/scripts/end_to_end/SupervisorRunner.cs" | Out-String)
 

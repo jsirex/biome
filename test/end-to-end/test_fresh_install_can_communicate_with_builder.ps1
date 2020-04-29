@@ -9,11 +9,11 @@ Describe "Clean bio installation" {
         Test-Path /hab/cache/ssl | Should -Be $false
     }
     It "has no user ssl cache" {
-        su bio -c "test ! -d ~/.hab/cache/ssl"
-        $LASTEXITCODE | should -Be 0
+        su hab -c "test ! -d ~/.hab/cache/ssl"
+        $LASTEXITCODE | Should -Be 0
     }
     It "can talk to builder" {
         bio pkg install core/redis --channel stable
-        $LASTEXITCODE | should -Be 0
+        $LASTEXITCODE | Should -Be 0
     }
 }

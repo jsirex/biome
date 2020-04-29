@@ -314,7 +314,7 @@ impl Service {
     // svc_user was specified just like we do on linux. That is problematic
     // and not a ubiquitous pattern for windows. The default user is now
     // always the current user. However, packages built on those older
-    // versions included a SVC_USER metafile with the 'bio' user by default.
+    // versions included a SVC_USER metafile with the 'hab' user by default.
     // So to protect for scenarios where a user has launched an older package,
     // is on windows and has a 'bio' account on the system BUT never intended
     // to run hooks under that account and therefore has not passed a

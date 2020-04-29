@@ -1,12 +1,13 @@
-ARG BIO_VERSION=0.85.0
-ARG BIO_TARGET=x86_64-linux
-FROM biomesh/bio-$BIO_TARGET:$BIO_VERSION as bio
+ARG BIO_VERSION
+ARG PACKAGE_TARGET=x86_64-linux
+FROM biomesh/bio-$PACKAGE_TARGET:$BIO_VERSION as bio
 ENV PATH=${PATH}:/hab/bin
 ARG BLDR_CHANNEL=stable
+ARG BLDR_URL=https://bldr.habitat.sh
 # ARG HAB_LICENSE=no-accept
-RUN bio pkg install -c ${BLDR_CHANNEL} biome/bio-backline \
-  && bio pkg binlink core/bash -d /hab/bin \
-  && bio pkg binlink biome/bio -d /hab/bin
+RUN bio pkg install -c ${BLDR_CHANNEL} -u ${BLDR_URL} biome/bio-backline \
+    && bio pkg binlink core/bash -d /hab/bin \
+    && bio pkg binlink biome/bio -d /hab/bin
 
 FROM scratch
 COPY --from=bio /hab/pkgs /hab/pkgs

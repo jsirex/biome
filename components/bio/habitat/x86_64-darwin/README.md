@@ -47,7 +47,7 @@ brew install wget
 We install bio via the `curl|bash` method:
 
 ``` sh
-curl https://raw.githubusercontent.com/biome-sh/biome/master/components/bio/install.sh | sudo bash
+curl https://raw.githubusercontent.com/habitat-sh/habitat/master/components/bio/install.sh | sudo bash
 ```
 
 ### Install Builder Origin Keys

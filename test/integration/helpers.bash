@@ -20,7 +20,7 @@ if [ -z "${HAB_BIN_DIR}" ]; then
     echo "Must set HAB_BIN_DIR variable to a location that contains bio, bio-sup, and bio-launch binaries!"
     exit 1
 fi
-bio="${HAB_BIN_DIR}/bio"
+hab="${HAB_BIN_DIR}/bio"
 export HAB_SUP_BINARY="${HAB_BIN_DIR}/bio-sup"
 export HAB_LAUNCH_BINARY="${HAB_BIN_DIR}/bio-launch"
 
@@ -139,7 +139,7 @@ stop_supervisor() {
     launcher_is_not_alive
 }
 
-# Ensure a clean slate in `/bio` for each test
+# Ensure a clean state in `/hab` for each test
 reset_bio_root() {
     empty_artifact_cache
     empty_key_cache

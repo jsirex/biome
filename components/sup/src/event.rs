@@ -7,7 +7,7 @@
 //! background. Thereafter, you can pass "event" structs to the
 //! `event` function, which will publish the event to the stream.
 //!
-//! All events are published under the "biome" subject.
+//! All events are published under the "habitat" subject.
 //!
 //! [1]:https://github.com/nats-io/nats-server
 

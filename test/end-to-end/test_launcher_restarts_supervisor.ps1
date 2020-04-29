@@ -2,7 +2,7 @@
 # The one optional argument set the exit code of the supervisor (default: 1).
 # By default this runs against the installed biome binaries. To override and
 # test locally-built code, set overrides in the environment of the script.
-# See https://github.com/biome-sh/biome/blob/master/BUILDING.md#testing-changes
+# See https://github.com/habitat-sh/habitat/blob/master/BUILDING.md#testing-changes
 
 Describe "Exited Supervisor" {
     $exit_file = New-TemporaryFile

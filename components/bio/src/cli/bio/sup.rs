@@ -306,7 +306,7 @@ pub struct SupRun {
                 env = EventStreamConnectMethod::ENVVAR)]
     event_stream_connect_timeout: u64,
     /// The event stream connection string (host:port) used by this Supervisor to send events to
-    /// Chef Automate. This enables the event stream and requires --event-stream-application,
+    /// Cinc Automate. This enables the event stream and requires --event-stream-application,
     /// --event-stream-environment, and --event-stream-token also be set
     #[structopt(name = "EVENT_STREAM_URL",
                 long = "event-stream-url",
@@ -317,7 +317,7 @@ pub struct SupRun {
     /// The name of the site where this Supervisor is running for event stream purposes
     #[structopt(name = "EVENT_STREAM_SITE", long = "event-stream-site")]
     event_stream_site: Option<String>,
-    /// The authentication token for connecting the event stream to Chef Automate
+    /// The authentication token for connecting the event stream to Cinc Automate
     #[structopt(name = "EVENT_STREAM_TOKEN",
                 long = "event-stream-token",
                 env = AutomateAuthToken::ENVVAR,
@@ -328,7 +328,7 @@ pub struct SupRun {
                 long = "event-meta",
                 validator = EventStreamMetadata::validate)]
     event_meta: Vec<String>,
-    /// The path to Chef Automate's event stream certificate in PEM format used to establish a TLS
+    /// The path to Cinc Automate's event stream certificate in PEM format used to establish a TLS
     /// connection
     #[structopt(name = "EVENT_STREAM_SERVER_CERTIFICATE",
                 long = "event-stream-server-certificate",
@@ -338,6 +338,15 @@ pub struct SupRun {
     /// process (default: set in plan)
     #[structopt(name = "SHUTDOWN_TIMEOUT", long = "shutdown-timeout")]
     shutdown_timeout: Option<ShutdownTimeout>,
+    /// Automatically cleanup old packages.
+    ///
+    /// The Supervisor will automatically cleanup old packages only keeping the
+    /// `NUM_LATEST_PACKAGES_TO_KEEP` latest packages. If this argument is not specified, no
+    /// automatic package cleanup is performed.
+    #[structopt(name = "NUM_LATEST_PACKAGES_TO_KEEP",
+                long = "keep-latest-packages",
+                env = "HAB_KEEP_LATEST_PACKAGES")]
+    keep_latest_packages: Option<usize>,
 }
 
 #[derive(StructOpt)]

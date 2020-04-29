@@ -2,7 +2,7 @@
 
 # TESTING CHANGES
 # Documentation on testing local changes to this lives here:
-# https://github.com/biome-sh/biome/blob/master/BUILDING.md#testing-changes
+# https://github.com/habitat-sh/habitat/blob/master/BUILDING.md#testing-changes
 
 # Setting the user file-creation mask (umask) to 022 ensures that newly created
 # files and directories are only writable by their owner, but are readable and
@@ -39,7 +39,7 @@ record() {
       >&2 echo "Usage: record <SESSION> [CMD [ARG ..]]"
       return 1
     fi
-    for plan_dir in "$1" "$1/biome"; do
+    for plan_dir in "$1" "$1/habitat"; do
       if [ -f "$plan_dir/plan.sh" ]; then
         # shellcheck disable=1090,2154
         name=$(. "$plan_dir/plan.sh" 2>/dev/null && echo "$pkg_name")

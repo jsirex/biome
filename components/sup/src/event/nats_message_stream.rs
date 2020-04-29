@@ -46,7 +46,7 @@ impl NatsMessageStream {
         // Configure the client connect message
         client.connect_mut()
               .await
-              .name(format!("hab_client_{}", supervisor_id))
+              .name(format!("bio_client_{}", supervisor_id))
               .verbose(true)
               .token(token.to_string());
 

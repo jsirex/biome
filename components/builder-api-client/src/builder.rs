@@ -612,7 +612,7 @@ impl BuilderAPIClient {
     /// Accepts an origin member invitation
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L883
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L883
     ///
     ///  # Arguments
     ///    * Origin: &str - origin name where membership invitation exists
@@ -643,7 +643,7 @@ impl BuilderAPIClient {
     ///  After ignoring, the user will no longer see the invitation
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L903
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L903
     ///
     ///  # Arguments
     ///    * Origin: &str - origin name where membership invitation exists
@@ -676,7 +676,7 @@ impl BuilderAPIClient {
     ///  account without having to know the origin.
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L614
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L614
     ///
     ///  # Arguments
     ///    * Token: &str - bearer token for authentication/authorization
@@ -722,7 +722,7 @@ impl BuilderAPIClient {
     ///  invitations for a given origin.
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L881
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L881
     ///
     ///  # Arguments
     ///    * Origin: &str - origin name where membership invitation exists
@@ -751,7 +751,7 @@ impl BuilderAPIClient {
     ///  Rescind an invitation that hasn't already been ignored. The invitation will be deleted.
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L893
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L893
     ///
     ///  # Arguments
     ///    * Origin: &str - origin name where membership invitation exists
@@ -783,7 +783,7 @@ impl BuilderAPIClient {
     ///  and listed under a user's direct invitations.
     ///
     ///  # Builder API endpiont (api.raml permalink)
-    ///    * https://github.com/biome-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L812
+    ///    * https://github.com/habitat-sh/builder/blob/da72e9fb86e24d9076268b6b1c913b7531c83ed9/components/builder-api/doc/api.raml#L812
     ///
     ///  # Arguments
     ///    * Origin: &str - origin name where membership invitation exists

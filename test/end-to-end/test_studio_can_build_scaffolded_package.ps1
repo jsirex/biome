@@ -8,12 +8,12 @@ Function Invoke-WindowsPlanBuild($package) {
 
 Describe "package using scaffolding" {
     $dummy = Invoke-WindowsPlanBuild dummy
-    $dummyHabSvcUser = Invoke-WindowsPlanBuild dummy_bio_svc_user
+    $dummyBioSvcUser = Invoke-WindowsPlanBuild dummy_bio_svc_user
     $scaffolding = Invoke-WindowsPlanBuild scaffolding
     $consumer = Invoke-WindowsPlanBuild use_scaffolding
     It "inherits scaffolding dependencies" {
         bio pkg install "results/$($dummy.Artifact)"
-        bio pkg install "results/$($dummyHabSvcUser.Artifact)"
+        bio pkg install "results/$($dummyBioSvcUser.Artifact)"
         bio pkg install "results/$($scaffolding.Artifact)"
         bio pkg install "results/$($consumer.Artifact)"
         # scaffolding has dummy as runtime and dummy_bio_svc_user as build time deps

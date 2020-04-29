@@ -1,21 +1,65 @@
 Consider below original Chef Habitat Changelog
 
-# Upstream Habitat CHANGELOG
-
-<!-- latest_release 1.5.75 -->
-## [1.5.75](https://github.com/habitat-sh/habitat/tree/1.5.75) (2020-03-20)
+<!-- latest_release 1.6.2 -->
+## [1.6.2](https://github.com/habitat-sh/habitat/tree/1.6.2) (2020-04-24)
 
 #### Merged Pull Requests
-- Update changelog post 1.5.71 [#7566](https://github.com/habitat-sh/habitat/pull/7566) ([davidMcneil](https://github.com/davidMcneil))
+- New Documentation Component [#7544](https://github.com/habitat-sh/habitat/pull/7544) ([kagarmoe](https://github.com/kagarmoe))
 <!-- latest_release -->
-<!-- release_rollup since=1.5.71 -->
-### Changes since 1.5.71 release
+
+<!-- release_rollup since=1.6.0 -->
+### Changes since 1.6.0 release
 
 #### Merged Pull Requests
-- Update changelog post 1.5.71 [#7566](https://github.com/habitat-sh/habitat/pull/7566) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.75 -->
+- New Documentation Component [#7544](https://github.com/habitat-sh/habitat/pull/7544) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.2 -->
+- Update changelog post 1.6.0 [#7630](https://github.com/habitat-sh/habitat/pull/7630) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.1 -->
 <!-- release_rollup -->
 
 <!-- latest_stable_release -->
+## [1.6.0](https://github.com/habitat-sh/habitat/tree/1.6.0) (2020-04-20)
+[Full Changelog](https://github.com/habitat-sh/habitat/compare/1.5.86...1.6.0)
+
+#### New Features & Enhancements
+- Source studio_profile.ps1 in studio enter if present [#7618](https://github.com/habitat-sh/habitat/pull/7618) ([mwrock](https://github.com/mwrock)) <!-- 1.5.99 -->
+- Layered images from `hab pkg export docker` [#7596](https://github.com/habitat-sh/habitat/pull/7596) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.98 -->
+
+#### Bug Fixes
+- Prevent infinite loop on Windows after losing connection to Automate [#7616](https://github.com/habitat-sh/habitat/pull/7616) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.95 -->
+
+#### Merged Pull Requests
+- Bump version to 1.6.0 [#7629](https://github.com/habitat-sh/habitat/pull/7629) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.0 -->
+- fix profile e2e tests [#7625](https://github.com/habitat-sh/habitat/pull/7625) ([mwrock](https://github.com/mwrock)) <!-- 1.5.100 -->
+- sync stable acceptance packages with prod after release [#7617](https://github.com/habitat-sh/habitat/pull/7617) ([mwrock](https://github.com/mwrock)) <!-- 1.5.97 -->
+- append existing path to package path in hab pkg exec [#7615](https://github.com/habitat-sh/habitat/pull/7615) ([mwrock](https://github.com/mwrock)) <!-- 1.5.96 -->
+- dont need to put gh release link in forum post [#7614](https://github.com/habitat-sh/habitat/pull/7614) ([mwrock](https://github.com/mwrock)) <!-- 1.5.94 -->
+- cleanup adding interpreter paths and make it configurable [#7601](https://github.com/habitat-sh/habitat/pull/7601) ([mwrock](https://github.com/mwrock)) <!-- 1.5.93 -->
+- Cargo Update [#7609](https://github.com/habitat-sh/habitat/pull/7609) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.92 -->
+- Prepare e2e tests for powershell 7.0 [#7588](https://github.com/habitat-sh/habitat/pull/7588) ([mwrock](https://github.com/mwrock)) <!-- 1.5.91 -->
+- update changelog for 1.5.86 [#7610](https://github.com/habitat-sh/habitat/pull/7610) ([mwrock](https://github.com/mwrock)) <!-- 1.5.90 -->
+<!-- latest_stable_release -->
+
+## [1.5.86](https://github.com/habitat-sh/habitat/tree/1.5.86) (2020-04-08)
+[Full Changelog](https://github.com/habitat-sh/habitat/compare/1.5.71...1.5.86)
+
+#### New Features & Enhancements
+- Add `--keep-latest` to `hab pkg uninstall` [#7595](https://github.com/habitat-sh/habitat/pull/7595) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.84 -->
+- Automatic package cleanup with the `--keep-latest-packages` flag [#7582](https://github.com/habitat-sh/habitat/pull/7582) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.80 -->
+
+#### Merged Pull Requests
+- [Docs] Emphasize the necessity of TCP for Supervisor function [#7611](https://github.com/habitat-sh/habitat/pull/7611) ([christophermaier](https://github.com/christophermaier)) <!-- 1.5.89 -->
+- Rustfmt and Nightly Rust Bump to nightly-2020-04-08 [#7608](https://github.com/habitat-sh/habitat/pull/7608) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.88 -->
+- Automated update of Habitat Documentation [#7607](https://github.com/habitat-sh/habitat/pull/7607) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.87 -->
+- extend windows launcher build timeout to 45 minutes [#7606](https://github.com/habitat-sh/habitat/pull/7606) ([mwrock](https://github.com/mwrock)) <!-- 1.5.86 -->
+- tag windows 2019 studio image with latest [#7605](https://github.com/habitat-sh/habitat/pull/7605) ([mwrock](https://github.com/mwrock)) <!-- 1.5.85 -->
+- fix 2016 studio image [#7603](https://github.com/habitat-sh/habitat/pull/7603) ([mwrock](https://github.com/mwrock)) <!-- 1.5.83 -->
+- Fixes truncated CLI spaces [#7589](https://github.com/habitat-sh/habitat/pull/7589) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.5.82 -->
+- fix UDP port remaining open after supervisor terminates when a hook is still executing [#7597](https://github.com/habitat-sh/habitat/pull/7597) ([mwrock](https://github.com/mwrock)) <!-- 1.5.81 -->
+- Add Homebrew PR merge to post-release activities [#7587](https://github.com/habitat-sh/habitat/pull/7587) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.5.79 -->
+- fix linux test_pkg_install e2e test [#7586](https://github.com/habitat-sh/habitat/pull/7586) ([mwrock](https://github.com/mwrock)) <!-- 1.5.78 -->
+- Error if using `-d` when entering Windows studio [#7585](https://github.com/habitat-sh/habitat/pull/7585) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.77 -->
+- Move builder-worker post release step higher in the release readme [#7577](https://github.com/habitat-sh/habitat/pull/7577) ([mwrock](https://github.com/mwrock)) <!-- 1.5.76 -->
+- Update changelog post 1.5.71 [#7566](https://github.com/habitat-sh/habitat/pull/7566) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.5.75 -->
+
 ## [1.5.71](https://github.com/habitat-sh/habitat/tree/1.5.71) (2020-03-19)
 [Full Changelog](https://github.com/habitat-sh/habitat/compare/1.5.50...1.5.71)
 
@@ -385,7 +429,6 @@ Consider below original Chef Habitat Changelog
 - Audit `habitat_sup::manager::Manager` locking [#6940](https://github.com/habitat-sh/habitat/pull/6940) ([baumanj](https://github.com/baumanj))
 - Fix the rustfmt instructions and add helper script [#6946](https://github.com/habitat-sh/habitat/pull/6946) ([davidMcneil](https://github.com/davidMcneil))
 - Redo the locks inside the butterfly::server module. [#6941](https://github.com/habitat-sh/habitat/pull/6941) ([raskchanky](https://github.com/raskchanky))
-<!-- latest_stable_release -->
 
 ## [0.85.0](https://github.com/habitat-sh/habitat/tree/0.85.0) (2019-09-09)
 [Full Changelog](https://github.com/habitat-sh/habitat/compare/0.83.0...0.85.0)

@@ -1484,7 +1484,7 @@ _resolve_dependencies() {
 # `_resolve_dependencies()` function.
 #
 # Reference implementation:
-# https://github.com/biome-sh/biome/blob/3d63753468ace168bbbe4c52e600d408c4981b03/components/plan-build/bin/bio-plan-build.sh#L1584-L1638
+# https://github.com/habitat-sh/habitat/blob/3d63753468ace168bbbe4c52e600d408c4981b03/components/plan-build/bin/bio-plan-build.sh#L1584-L1638
 _set_build_path() {
   local paths=()
   local dir dep data
@@ -2395,7 +2395,7 @@ THIS_PROGRAM=$(abspath "$0")
 #   `./plan.sh`
 #   `./habitat/plan.sh`
 #   `./$pkg_target/plan.sh`
-#   `./biome/$pkg_target/plan.sh`
+#   `./habitat/$pkg_target/plan.sh`
 # In most cases, Plan authors should use the default location of `./plan.sh`
 # or `./habitat/plan.sh`.  The exception to this is when the $pkg_target
 # requires variations to the default `plan.sh`. Plan authors can create these

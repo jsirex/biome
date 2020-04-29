@@ -8,7 +8,7 @@ param (
 
 # # License and Copyright
 # ```
-# Copyright: Copyright (c) 2017 Chef Software, Inc.
+# Biome project based on Chef Habitat's code © 2016 – 2020 Chef Software, Inc
 # License: Apache License, Version 2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +37,7 @@ $script:originalPath = (Get-Location).Path
 if (Test-Path Env:\HAB_ROOT_PATH) {
     $script:HAB_ROOT_PATH = "$env:HAB_ROOT_PATH"
 } else {
-    $script:HAB_ROOT_PATH = "\bio"
+    $script:HAB_ROOT_PATH = "\hab"
 }
 $resolvedRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($HAB_ROOT_PATH)
 # The default path where source artifacts are downloaded, extracted, & compiled
@@ -233,7 +233,7 @@ function Invoke-DefaultBegin {
 # `_resolve_dependencies()` function.
 #
 # Reference implementation:
-# https://github.com/biome-sh/biome/blob/3d63753468ace168bbbe4c52e600d408c4981b03/components/plan-build/bin/bio-plan-build.sh#L1584-L1638
+# https://github.com/habitat-sh/habitat/blob/3d63753468ace168bbbe4c52e600d408c4981b03/components/plan-build/bin/bio-plan-build.sh#L1584-L1638
 function Set-BuildPath {
     $paths=@()
 
@@ -307,7 +307,7 @@ function Invoke-After {
 function Invoke-DefaultAfter {
 }
 
-function Set-HabBin {
+function Set-BioBin {
     if ($env:NO_INSTALL_DEPS) {
         Write-BuildLine "`$env:NO_INSTALL_DEPS set: no package dependencies will be installed"
     }
@@ -1427,7 +1427,7 @@ function Save-Artifact {
     # entire tree, bio pkg install is able to successfully install the
     # generated hart file.
     $tempRoot = Join-Path $env:temp ([System.IO.Path]::GetRandomFileName())
-    $tempBase = Join-Path $tempRoot "bio"
+    $tempBase = Join-Path $tempRoot "hab"
     $tempPkg = "$tempBase\pkgs\$pkg_origin\$pkg_name\$pkg_version"
     if (Test-Path $tempBase) { Remove-Item $tempBase -Recurse -Force }
     New-Item $tempPkg -ItemType Directory -Force | Out-Null
@@ -1690,7 +1690,7 @@ try {
     # Enure that the origin key is available for package signing
     Assert-OriginKeyPresent
 
-    Set-HabBin
+    Set-BioBin
 
     # Download and resolve the depdencies
     # Create initial package arrays

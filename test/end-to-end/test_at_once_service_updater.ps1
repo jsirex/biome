@@ -6,7 +6,9 @@
 $env:HAB_AUTH_TOKEN = $env:PIPELINE_HAB_AUTH_TOKEN
 
 $supLog = New-TemporaryFile
-Start-Supervisor -LogFile $supLog -Timeout 45 | Out-Null
+Start-Supervisor -LogFile $supLog -Timeout 45 -SupArgs @( `
+        "--keep-latest-packages=1"
+) | Out-Null
 $testChannel="at-once-$([DateTime]::Now.Ticks)"
 $pkg="biome-testing/nginx"
 $initialRelease="biome-testing/nginx/1.17.4/20191115184838"
@@ -24,7 +26,19 @@ Describe "at-once update and rollback" {
         bio pkg promote $updatedRelease $testChannel
 
         It "updates release" {
+            Wait-CommandLinesOfOutput "bio pkg list $pkg" 2
             Wait-Release -Ident $updatedRelease
+            # The first package should eventually be automatically uninstalled
+            Wait-CommandLinesOfOutput "bio pkg list $pkg" 1
+            bio pkg list $pkg | Should -Be $updatedRelease
+        }
+    }
+
+    Context "demote update" {
+        bio pkg demote $updatedRelease $testChannel
+
+        It "rollback release" {
+            Wait-Release -Ident $initialRelease
         }
     }
 

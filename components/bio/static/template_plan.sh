@@ -351,7 +351,7 @@ pkg_upstream_url="{{ pkg_upstream_url }}"
 #
 # The default implementations (the do_default_* functions) are defined in the
 # plan build script:
-# https://github.com/biome-sh/biome/tree/master/components/plan-build/bin/bio-plan-build.sh
+# https://github.com/habitat-sh/habitat/tree/master/components/plan-build/bin/bio-plan-build.sh
 
 # The default implmentation does nothing. You can use it to execute any
 # arbitrary commands before anything else happens.

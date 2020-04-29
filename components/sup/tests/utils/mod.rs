@@ -18,7 +18,7 @@ pub mod test_sup;
 
 // Re-export the key structs of this package for ergonomics.
 pub use self::{fixture_root::FixtureRoot,
-               bio_root::HabRoot,
+               bio_root::BioRoot,
                test_sup::TestSup};
 
 /// Sleep for the specified number of seconds!
@@ -30,7 +30,7 @@ pub fn setup_package_files(origin_name: &str,
                            package_name: &str,
                            service_group: &str,
                            fixture_root: &FixtureRoot,
-                           bio_root: &HabRoot) {
+                           bio_root: &BioRoot) {
     let origin_name = origin_name.to_string();
     let package_name = package_name.to_string();
     let service_group = service_group.to_string();
@@ -112,7 +112,7 @@ pub fn copy_dir<S, D>(source_dir: S, dest_dir: D)
 /// In an effort to execute a package when running test suites as a non-root user, the current
 /// username and the user's primary groupname will be used. If a fixture contains one or both of
 /// these metafiles, default values will *not* be used.
-fn write_default_svc_user_and_group_metafiles<S, T>(bio_root: &HabRoot, pkg_origin: S, pkg_name: T)
+fn write_default_svc_user_and_group_metafiles<S, T>(bio_root: &BioRoot, pkg_origin: S, pkg_name: T)
     where S: AsRef<Path>,
           T: AsRef<Path>
 {

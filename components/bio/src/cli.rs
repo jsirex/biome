@@ -2,7 +2,7 @@ mod bio;
 
 use crate::{cli::bio::{sup::{PartialSupRun,
                              Sup},
-                       Hab},
+                       Bio},
             command::studio};
 
 use clap::{App,
@@ -92,7 +92,7 @@ fn overide_bio_sup_run_defaults_with_config_file(bio_sup_run: &mut App<'static, 
 
 pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
     if feature_flags.contains(FeatureFlag::CONFIG_FILE) {
-        let mut bio = Hab::clap();
+        let mut bio = Bio::clap();
         // Get a reference to the bio sup run subcommand. This is currently the only subcommand with
         // config file support.
         let bio_sup = get_subcommand_mut(&mut bio, "sup");
@@ -130,7 +130,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (@setting ArgRequiredElseHelp)
             (@setting SubcommandRequiredElseHelp)
             (@subcommand accept =>
-                (about: "Accept the Chef Binary Distribution Agreement without prompting"))
+                (about: "Accept the Biome Binary Distribution Agreement without prompting"))
         )
         (@subcommand cli =>
             (about: "Commands relating to Biome runtime config")
@@ -694,6 +694,8 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
                 (@arg PKG_IDENT: +required +takes_value {valid_ident}
                     "A package identifier (ex: core/redis, core/busybox-static/1.42.2)")
                 (@arg DRYRUN: -d --dryrun "Just show what would be uninstalled, don't actually do it")
+                (@arg KEEP_LATEST: --("keep-latest") +takes_value {valid_numeric::<usize>}
+                    "Only keep this number of latest packages uninstalling all others")
                 (@arg EXCLUDE: --exclude +takes_value +multiple {valid_ident}
                     "Identifier of one or more packages that should not be uninstalled. \
                     (ex: core/redis, core/busybox-static/1.42.2/21120102031201)")
@@ -825,7 +827,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (@setting SubcommandRequiredElseHelp)
             (@subcommand init =>
                 (about: "Generates common package specific configuration files. Executing without \
-                    argument will create a `biome` directory in your current folder for the \
+                    argument will create a `habitat` directory in your current folder for the \
                     plan. If `PKG_NAME` is specified it will create a folder with that name. \
                     Environment variables (those starting with 'pkg_') that are set will be used \
                     in the generated plan")
@@ -1065,7 +1067,7 @@ fn sub_pkg_build() -> App<'static, 'static> {
         "Sets the source path (default: $PWD)")
     (@arg PLAN_CONTEXT: +required +takes_value
         "A directory containing a plan file \
-        or a `biome/` directory which contains the plan file")
+        or a `habitat/` directory which contains the plan file")
     (arg: arg_cache_key_path())
     );
     // Only a truly native/local Studio can be reused--the Docker implementation will always be
@@ -1277,6 +1279,26 @@ fn sub_sup_run(_feature_flags: FeatureFlag) -> App<'static, 'static> {
                              `127.0.0.1`")
     );
 
+    // clap_app macro does not allow setting short and long help seperately
+    let sub =
+        sub.arg(Arg::with_name("NUM_LATEST_PACKAGES_TO_KEEP").long("keep-latest-packages")
+                                                             .takes_value(true)
+                                                             .validator(valid_numeric::<usize>)
+                                                             .env("HAB_KEEP_LATEST_PACKAGES")
+                                                             .help("Automatically cleanup old \
+                                                                    packages")
+                                                             .long_help("Automatically cleanup \
+                                                                         old packages.\n\nThe \
+                                                                         Supervisor will \
+                                                                         automatically cleanup \
+                                                                         old packages only \
+                                                                         keeping the `NUM_LATEST_PACKAGES_TO_KEEP` latest \
+                                                                         packages. If this \
+                                                                         argument is not \
+                                                                         specified, no \
+                                                                         automatic package \
+                                                                         cleanup is performed."));
+
     // The clap_app macro does not allow "-" in possible values
     let sub = sub.arg(Arg::with_name("UPDATE_CONDITION").long("update-condition")
                                                         .takes_value(true)
@@ -1448,7 +1470,7 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
                                                    .validator(valid_numeric::<u64>))
        .arg(Arg::with_name("EVENT_STREAM_URL").help("The event stream connection string \
                                                      (host:port) used by this Supervisor to send \
-                                                     events to Chef Automate. This enables \
+                                                     events to Cinc Automate. This enables \
                                                      the event stream and requires \
                                                      --event-stream-application, \
                                                      --event-stream-environment, and \
@@ -1470,7 +1492,7 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
                                                .validator(non_empty))
        .arg(Arg::with_name(AutomateAuthToken::ARG_NAME).help("The authentication token for \
                                                               connecting the event stream to \
-                                                              Chef Automate")
+                                                              Cinc Automate")
                                                        .long("event-stream-token")
                                                        .required(false)
                                                        .takes_value(true)
@@ -1483,7 +1505,7 @@ fn add_event_stream_options(app: App<'static, 'static>) -> App<'static, 'static>
                                                          .takes_value(true)
                                                          .multiple(true)
                                                          .validator(EventStreamMetadata::validate))
-       .arg(Arg::with_name("EVENT_STREAM_SERVER_CERTIFICATE").help("The path to Chef Automate's \
+       .arg(Arg::with_name("EVENT_STREAM_SERVER_CERTIFICATE").help("The path to Cinc Automate's \
                                                                     event stream certificate in \
                                                                     PEM format used to establish \
                                                                     a TLS connection")

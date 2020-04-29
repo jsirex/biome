@@ -10,7 +10,7 @@ extern crate log;
 use clap::{ArgMatches,
            Shell};
 use env_logger;
-
+use futures::stream::StreamExt;
 use bio::{cli::{self,
                 parse_optional_arg},
           command::{self,
@@ -27,7 +27,6 @@ use bio::{cli::{self,
           ORIGIN_ENVVAR,
           PRODUCT,
           VERSION};
-
 use biome_api_client::BuildOnUpload;
 use biome_common::{self as common,
                      cli::{cache_key_path_from_matches,
@@ -45,8 +44,6 @@ use biome_common::{self as common,
                      FeatureFlag};
 #[cfg(windows)]
 use biome_core::crypto::dpapi::encrypt;
-
-use futures::stream::StreamExt;
 use biome_core::{crypto::{init,
                             keys::PairType,
                             BoxKeyPair,
@@ -722,6 +719,7 @@ async fn sub_pkg_uninstall(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     } else {
         command::pkg::ExecutionStrategy::Run
     };
+    let mode = command::pkg::uninstall::UninstallMode::from(m);
     let scope = if m.is_present("NO_DEPS") {
         command::pkg::Scope::Package
     } else {
@@ -729,7 +727,13 @@ async fn sub_pkg_uninstall(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     };
     let excludes = excludes_from_matches(&m);
 
-    command::pkg::uninstall::start(ui, &ident, &*FS_ROOT, execute_strategy, scope, &excludes).await
+    command::pkg::uninstall::start(ui,
+                                   &ident,
+                                   &*FS_ROOT,
+                                   execute_strategy,
+                                   mode,
+                                   scope,
+                                   &excludes).await
 }
 
 async fn sub_bldr_channel_create(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
@@ -942,7 +946,7 @@ fn sub_pkg_path(m: &ArgMatches<'_>) -> Result<()> {
 fn sub_pkg_list(m: &ArgMatches<'_>) -> Result<()> {
     let listing_type = ListingType::from(m);
 
-    command::pkg::list::start(&listing_type, &*FS_ROOT)
+    command::pkg::list::start(&listing_type)
 }
 
 fn sub_pkg_provides(m: &ArgMatches<'_>) -> Result<()> {

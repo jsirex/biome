@@ -1,18 +1,18 @@
 #!/bin/sh -e
 
 BIO_VERSION=$(cat ../../VERSION)
-BIO_TARGET=x86_64-linux
+PACKAGE_TARGET=x86_64-linux
 
 docker build \
-       -t biomesh/bio-"$BIO_TARGET":"$BIO_VERSION" \
+       -t biomesh/bio-"$PACKAGE_TARGET":"$BIO_VERSION" \
        --no-cache \
        --build-arg BIO_VERSION="$BIO_VERSION" \
-       --build-arg BIO_TARGET="$BIO_TARGET" \
+       --build-arg PACKAGE_TARGET="$PACKAGE_TARGET" \
        .
 
 docker build \
-       -t biomesh/default-studio-"$BIO_TARGET":"$BIO_VERSION" \
+       -t biomesh/default-studio-"$PACKAGE_TARGET":"$BIO_VERSION" \
        --no-cache \
        --build-arg BIO_VERSION="$BIO_VERSION" \
-       --build-arg BIO_TARGET="$BIO_TARGET" \
+       --build-arg PACKAGE_TARGET="$PACKAGE_TARGET" \
        ./default

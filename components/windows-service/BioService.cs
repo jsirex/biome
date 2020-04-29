@@ -8,9 +8,9 @@ using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using System.Xml;
 
-namespace HabService
+namespace BioService
 {
-    public partial class HabService : ServiceBase
+    public partial class BioService : ServiceBase
     {
         [DllImport("kernel32.dll", SetLastError = true)]
         static extern bool AttachConsole(uint dwProcessId);
@@ -37,7 +37,7 @@ namespace HabService
         }
 
         private Process proc = null;
-        private static readonly log4net.ILog log = log4net.LogManager.GetLogger(typeof(HabService));
+        private static readonly log4net.ILog log = log4net.LogManager.GetLogger(typeof(BioService));
 
         /// <summary>
         /// The main entry point for the service.
@@ -58,14 +58,14 @@ namespace HabService
             ServiceBase[] ServicesToRun;
             ServicesToRun = new ServiceBase[]
             {
-                new HabService()
+                new BioService()
             };
             Run(ServicesToRun);
         }
 
-        public HabService()
+        public BioService()
         {
-            ServiceName = "HabService";
+            ServiceName = "BioService";
             CanStop = true;
             AutoLog = true;
         }

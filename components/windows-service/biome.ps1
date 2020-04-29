@@ -1,4 +1,4 @@
-function Install-HabService {
+function Install-BioService {
     if($null -ne (Get-Service Biome -ErrorAction SilentlyContinue)) {
         Write-Error "The Biome service is already installed. Please run 'bio pkg exec biome/windows-service uninstall' first if you wish to reinstall."
         return
@@ -21,7 +21,7 @@ function Install-HabService {
 
     Copy-Item "$PSScriptRoot\*" $svcPath -Force
 
-    &$env:systemroot\system32\sc.exe create Biome binpath= "$svcPath\HabService.exe" start= auto
+    &$env:systemroot\system32\sc.exe create Biome binpath= "$svcPath\BioService.exe" start= auto
     if($LASTEXITCODE -ne 0) {
         Write-Error "Failed to install the Biome Service!"
     } else {
@@ -30,7 +30,7 @@ function Install-HabService {
     }
 }
 
-function Uninstall-HabService {
+function Uninstall-BioService {
     if($null -eq (Get-Service Biome -ErrorAction SilentlyContinue)) {
         Write-Error "The Biome service is not installed."
         return

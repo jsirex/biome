@@ -13,7 +13,7 @@ pub fn start(filename: &str,
              -> Result<()> {
     let mut found = HashSet::new();
     // count the # of directories in the path to the package dir
-    // ex: /bio/pkg == 2
+    // ex: /hab/pkg == 2
     let prefix_count = Path::new(PKG_PATH).components().count();
     // the location of installed packages
     let pkg_root = fs_root_path.join(PKG_PATH);
