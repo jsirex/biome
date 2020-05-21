@@ -76,7 +76,7 @@ build_cf_image() {
   tmp_dir="$(mktemp -t -d "${program}-XXXX")"
 
   dockerize_out="${tmp_dir}/dockerize-out"
-  bio-pkg-export-docker "${bio_package}" | tee "${dockerize_out}"
+  bio-pkg-export-container "${bio_package}" | tee "${dockerize_out}"
 
   docker_tag_array=$(dockerize_tags "${dockerize_out}")
   cf_docker_tag_array=("${docker_tag_array[@]/:/:cf-}")

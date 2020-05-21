@@ -1,12 +1,18 @@
 use super::util::{AuthToken,
                   BldrUrl,
                   CacheKeyPath,
+                  ConfigOptAuthToken,
+                  ConfigOptBldrUrl,
+                  ConfigOptCacheKeyPath,
+                  ConfigOptFullyQualifiedPkgIdent,
+                  ConfigOptPkgIdent,
                   FullyQualifiedPkgIdent,
                   PkgIdent};
 use crate::cli::{dir_exists,
                  file_exists,
                  valid_ident_or_toml_file,
                  valid_origin};
+use configopt::ConfigOpt;
 use biome_common::{cli::{BINLINK_DIR_ENVVAR,
                            DEFAULT_BINLINK_DIR,
                            PACKAGE_TARGET_ENVVAR},
@@ -21,7 +27,7 @@ use structopt::{clap::{AppSettings,
                        ArgGroup},
                 StructOpt};
 
-#[derive(StructOpt, Debug)]
+#[derive(ConfigOpt, StructOpt, Debug)]
 #[structopt(group = ArgGroup::with_name("prefix").required(true), no_version)]
 pub struct List {
     /// List all installed packages
@@ -38,7 +44,7 @@ pub struct List {
     pkg_ident: Option<PackageIdent>,
 }
 
-#[derive(StructOpt)]
+#[derive(ConfigOpt, StructOpt)]
 #[structopt(no_version)]
 #[allow(clippy::large_enum_variant)]
 /// Commands relating to Biome packages
@@ -228,7 +234,7 @@ pub enum Pkg {
     },
     /// Exports the package to the specified format
     Export {
-        /// The export format (ex: cf, docker, mesos, or tar)
+        /// The export format (ex: cf, container, mesos, or tar)
         #[structopt(name = "FORMAT")]
         format:    String,
         /// A package identifier (ex: core/redis, core/busybox-static/1.42.2) or filepath to a
@@ -237,7 +243,7 @@ pub enum Pkg {
         pkg_ident: PackageIdent,
         #[structopt(flatten)]
         bldr_url:  BldrUrl,
-        /// Retrieve the container's package from the specified release channel
+        /// Retrieve the package-to-export from the specified release channel
         #[structopt(name = "CHANNEL",
             short = "c",
             long = "channel",

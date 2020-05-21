@@ -9,7 +9,8 @@ use crate::{accounts::{EtcGroupEntry,
             BUSYBOX_IDENT,
             CACERTS_IDENT,
             VERSION};
-use clap;
+use clap::{self,
+           ArgMatches};
 #[cfg(unix)]
 use failure::SyncFailure;
 #[cfg(unix)]
@@ -27,18 +28,21 @@ use biome_common::{command::package::install::{InstallHookMode,
 use biome_core::util::docker;
 use biome_core::{env,
                    fs::{cache_artifact_path,
-                        cache_key_path,
                         CACHE_ARTIFACT_PATH,
-                        CACHE_KEY_PATH},
-                   package::{PackageArchive,
+                        CACHE_KEY_PATH,
+                        CACHE_KEY_PATH_POSTFIX},
+                   package::{FullyQualifiedPackageIdent,
+                             PackageArchive,
                              PackageIdent,
                              PackageInstall},
+                   url::default_bldr_url,
                    ChannelIdent};
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
 #[cfg(windows)]
 use std::os::windows::fs::symlink_dir as symlink;
 use std::{collections::HashMap,
+          convert::TryFrom,
           fs as stdfs,
           path::{Path,
                  PathBuf},
@@ -63,7 +67,7 @@ const DEFAULT_USER_AND_GROUP_ID: u32 = 42;
 const DEFAULT_HAB_UID: u32 = 84;
 const DEFAULT_HAB_GID: u32 = 84;
 
-fn default_docker_base_image() -> Result<String> {
+fn default_base_image() -> Result<String> {
     #[cfg(unix)]
     {
         Ok(DEFAULT_BASE_IMAGE.to_string())
@@ -82,62 +86,78 @@ fn default_docker_base_image() -> Result<String> {
 /// When a `BuildSpec` is created, a `BuildRoot` is returned which can be used to produce exported
 /// images, archives, etc.
 #[derive(Debug)]
-pub struct BuildSpec<'a> {
+pub struct BuildSpec {
     /// A string representation of a Biome Package Identifer for the Biome CLI package.
-    pub bio:                &'a str,
+    pub bio:                String,
     /// A string representation of a Biome Package Identifer for the Biome Launcher package.
-    pub bio_launcher:       &'a str,
+    pub bio_launcher:       String,
     /// A string representation of a Biome Package Identifer for the Biome Supervisor package.
-    pub bio_sup:            &'a str,
+    pub bio_sup:            String,
     /// The Builder URL which is used to install all service and extra Biome packages.
-    pub url:                &'a str,
+    pub url:                String,
     /// The Biome release channel which is used to install all service and extra Biome
     /// packages.
     pub channel:            ChannelIdent,
     /// The Builder URL which is used to install all base Biome packages.
-    pub base_pkgs_url:      &'a str,
+    pub base_pkgs_url:      String,
     /// The Biome release channel which is used to install all base Biome packages.
     pub base_pkgs_channel:  ChannelIdent,
     /// A list of either Biome Package Identifiers or local paths to Biome Artifact files which
     /// will be installed.
-    pub idents_or_archives: Vec<&'a str>,
+    pub idents_or_archives: Vec<String>,
     /// The Builder Auth Token to use in the request
-    pub auth:               Option<&'a str>,
-    /// Base image used in From of dockerfile
+    pub auth:               Option<String>,
+    /// Base image used in Dockerfile
     pub base_image:         String,
     /// Whether or not to create an image with a single layer for each
     /// Biome package.
     pub multi_layer:        bool,
 }
 
-impl<'a> BuildSpec<'a> {
-    /// Creates a `BuildSpec` from cli arguments.
-    pub fn new_from_cli_matches(m: &'a clap::ArgMatches<'_>, default_url: &'a str) -> Result<Self> {
-        Ok(BuildSpec { bio:                m.value_of("HAB_PKG").unwrap_or(DEFAULT_HAB_IDENT),
+impl TryFrom<&ArgMatches<'_>> for BuildSpec {
+    type Error = crate::error::Error;
+
+    fn try_from(m: &ArgMatches<'_>) -> std::result::Result<Self, Self::Error> {
+        // TODO (CM): incorporate this into our CLAP definition better
+        let default_url = default_bldr_url();
+
+        Ok(BuildSpec { bio:                m.value_of("HAB_PKG")
+                                            .unwrap_or(DEFAULT_HAB_IDENT)
+                                            .to_string(),
                        bio_launcher:       m.value_of("HAB_LAUNCHER_PKG")
-                                            .unwrap_or(DEFAULT_LAUNCHER_IDENT),
-                       bio_sup:            m.value_of("HAB_SUP_PKG").unwrap_or(DEFAULT_SUP_IDENT),
-                       url:                m.value_of("BLDR_URL").unwrap_or(&default_url),
+                                            .unwrap_or(DEFAULT_LAUNCHER_IDENT)
+                                            .to_string(),
+                       bio_sup:            m.value_of("HAB_SUP_PKG")
+                                            .unwrap_or(DEFAULT_SUP_IDENT)
+                                            .to_string(),
+                       url:                m.value_of("BLDR_URL")
+                                            .unwrap_or(&default_url)
+                                            .to_string(),
                        channel:            m.value_of("CHANNEL")
                                             .map(ChannelIdent::from)
                                             .unwrap_or_default(),
-                       base_pkgs_url:      m.value_of("BASE_PKGS_BLDR_URL").unwrap_or(&default_url),
+                       base_pkgs_url:      m.value_of("BASE_PKGS_BLDR_URL")
+                                            .unwrap_or(&default_url)
+                                            .to_string(),
                        base_pkgs_channel:  m.value_of("BASE_PKGS_CHANNEL")
                                             .map(ChannelIdent::from)
                                             .unwrap_or_default(),
-                       auth:               m.value_of("BLDR_AUTH_TOKEN"),
+                       auth:               m.value_of("BLDR_AUTH_TOKEN").map(ToString::to_string),
                        idents_or_archives: m.values_of("PKG_IDENT_OR_ARTIFACT")
                                             .expect("No package specified")
-                                            .collect(),
-                       base_image:         m.value_of("BASE_IMAGE")
                                             .map(str::to_string)
-                                            .unwrap_or_else(|| {
-                                                default_docker_base_image().expect("No base image \
-                                                                                    supported")
-                                            }),
+                                            .collect(),
+                       base_image:
+                           m.value_of("BASE_IMAGE")
+                            .map(str::to_string)
+                            .unwrap_or_else(|| {
+                                default_base_image().expect("No base image supported")
+                            }),
                        multi_layer:        m.is_present("MULTI_LAYER"), })
     }
+}
 
+impl BuildSpec {
     /// Creates a `BuildRoot` for the given specification.
     ///
     /// # Errors
@@ -206,8 +226,8 @@ impl<'a> BuildSpec<'a> {
 
     fn create_symlink_to_key_cache(&self, ui: &mut UI, rootfs: &Path) -> Result<()> {
         ui.status(Status::Creating, "key cache symlink")?;
-        let src = cache_key_path(None::<&Path>);
-        let dst = rootfs.join(CACHE_KEY_PATH);
+        let src = &*CACHE_KEY_PATH;
+        let dst = rootfs.join(CACHE_KEY_PATH_POSTFIX);
         stdfs::create_dir_all(dst.parent().expect("parent directory exists"))?;
         debug!("Symlinking src: {} to dst: {}",
                src.display(),
@@ -218,9 +238,10 @@ impl<'a> BuildSpec<'a> {
     }
 
     async fn install_base_pkgs(&self, ui: &mut UI, rootfs: &Path) -> Result<BasePkgIdents> {
-        let bio = self.install_base_pkg(ui, self.bio, rootfs).await?;
-        let sup = self.install_base_pkg(ui, self.bio_sup, rootfs).await?;
-        let launcher = self.install_base_pkg(ui, self.bio_launcher, rootfs).await?;
+        let bio = self.install_base_pkg(ui, &self.bio, rootfs).await?;
+        let sup = self.install_base_pkg(ui, &self.bio_sup, rootfs).await?;
+        let launcher = self.install_base_pkg(ui, &self.bio_launcher, rootfs)
+                           .await?;
         let busybox = if cfg!(target_os = "linux") {
             Some(self.install_base_pkg(ui, BUSYBOX_IDENT, rootfs).await?)
         } else {
@@ -235,7 +256,10 @@ impl<'a> BuildSpec<'a> {
                            cacerts })
     }
 
-    async fn install_user_pkgs(&self, ui: &mut UI, rootfs: &Path) -> Result<Vec<PackageIdent>> {
+    async fn install_user_pkgs(&self,
+                               ui: &mut UI,
+                               rootfs: &Path)
+                               -> Result<Vec<FullyQualifiedPackageIdent>> {
         let mut idents = Vec::new();
         for ioa in self.idents_or_archives.iter() {
             idents.push(self.install_user_pkg(ui, ioa, rootfs).await?);
@@ -245,10 +269,14 @@ impl<'a> BuildSpec<'a> {
     }
 
     #[cfg(unix)]
-    fn link_user_pkgs(&self, ui: &mut UI, rootfs: &Path, user_pkgs: &[PackageIdent]) -> Result<()> {
+    fn link_user_pkgs(&self,
+                      ui: &mut UI,
+                      rootfs: &Path,
+                      user_pkgs: &[FullyQualifiedPackageIdent])
+                      -> Result<()> {
         let dst = util::bin_path();
         for pkg in user_pkgs.iter() {
-            bio::command::pkg::binlink::binlink_all_in_pkg(ui, &pkg, &dst, rootfs, true)
+            bio::command::pkg::binlink::binlink_all_in_pkg(ui, pkg.as_ref(), &dst, rootfs, true)
                 .map_err(SyncFailure::new)?;
         }
         Ok(())
@@ -257,14 +285,16 @@ impl<'a> BuildSpec<'a> {
     #[cfg(unix)]
     fn link_binaries(&self, ui: &mut UI, rootfs: &Path, base_pkgs: &BasePkgIdents) -> Result<()> {
         let dst = util::bin_path();
+
         bio::command::pkg::binlink::binlink_all_in_pkg(ui,
-                                                       &base_pkgs.busybox
-                                                                 .clone()
-                                                                 .expect("No busybox in idents"),
+                                                       base_pkgs.busybox
+                                                                .as_ref()
+                                                                .expect("No busybox in idents")
+                                                                .as_ref(),
                                                        &dst,
                                                        rootfs,
                                                        true).map_err(SyncFailure::new)?;
-        bio::command::pkg::binlink::start(ui, &base_pkgs.bio, "bio", &dst, rootfs, true)
+        bio::command::pkg::binlink::start(ui, base_pkgs.bio.as_ref(), "bio", &dst, rootfs, true)
             .map_err(SyncFailure::new)?;
         Ok(())
     }
@@ -272,7 +302,7 @@ impl<'a> BuildSpec<'a> {
     #[cfg(unix)]
     fn link_cacerts(&self, ui: &mut UI, rootfs: &Path, base_pkgs: &BasePkgIdents) -> Result<()> {
         ui.status(Status::Creating, "cacerts symlink into /etc")?;
-        let src = util::pkg_path_for(&base_pkgs.cacerts, rootfs)?.join("ssl");
+        let src = util::pkg_path_for(base_pkgs.cacerts.as_ref(), rootfs)?.join("ssl");
         let dst = rootfs.join("etc").join("ssl");
         stdfs::create_dir_all(dst.parent().expect("parent directory exists"))?;
         debug!("Symlinking src: {} to dst: {}",
@@ -291,7 +321,7 @@ impl<'a> BuildSpec<'a> {
 
     fn remove_symlink_to_key_cache(&self, ui: &mut UI, rootfs: &Path) -> Result<()> {
         ui.status(Status::Deleting, "artifact key symlink")?;
-        stdfs::remove_dir_all(rootfs.join(CACHE_KEY_PATH))?;
+        stdfs::remove_dir_all(rootfs.join(CACHE_KEY_PATH_POSTFIX))?;
 
         Ok(())
     }
@@ -300,10 +330,10 @@ impl<'a> BuildSpec<'a> {
                               ui: &mut UI,
                               ident_or_archive: &str,
                               fs_root_path: &Path)
-                              -> Result<PackageIdent> {
+                              -> Result<FullyQualifiedPackageIdent> {
         self.install(ui,
                      ident_or_archive,
-                     self.base_pkgs_url,
+                     &self.base_pkgs_url,
                      &self.base_pkgs_channel,
                      fs_root_path,
                      None)
@@ -314,13 +344,13 @@ impl<'a> BuildSpec<'a> {
                               ui: &mut UI,
                               ident_or_archive: &str,
                               fs_root_path: &Path)
-                              -> Result<PackageIdent> {
+                              -> Result<FullyQualifiedPackageIdent> {
         self.install(ui,
                      ident_or_archive,
-                     self.url,
+                     &self.url,
                      &self.channel,
                      fs_root_path,
-                     self.auth)
+                     self.auth.as_deref())
             .await
     }
 
@@ -331,7 +361,7 @@ impl<'a> BuildSpec<'a> {
                      channel: &ChannelIdent,
                      fs_root_path: &Path,
                      token: Option<&str>)
-                     -> Result<PackageIdent> {
+                     -> Result<FullyQualifiedPackageIdent> {
         let install_source: InstallSource = ident_or_archive.parse()?;
         let package_install =
             biome_common::command::package::install::start(ui,
@@ -350,7 +380,16 @@ impl<'a> BuildSpec<'a> {
                                                      // ignore-local mode
                                                      &LocalPackageUsage::default(),
                                                      InstallHookMode::Ignore).await?;
-        Ok(package_install.into())
+
+        // TODO (CM): Ideally, the typing of PackageInstall would be
+        // such that we'd automatically get a
+        // FullyQualifiedPackageIdent, but that's a change that will
+        // have larger impact on the code base. For now, we can handle
+        // the conversion locally, and then remove that once the
+        // broader refactoring has occurred.
+        let ident: PackageIdent = package_install.into();
+        Ok(FullyQualifiedPackageIdent::try_from(ident).expect("should always be a \
+                                                               fully-qualified identifier"))
     }
 }
 
@@ -410,7 +449,7 @@ pub struct BuildRootContext {
     channel:         ChannelIdent,
     /// The path to the root of the file system.
     rootfs:          PathBuf,
-    /// Base image used in From of dockerfile
+    /// Base image used in Dockerfile
     base_image:      String,
     /// Whether or not to create an image with a single layer for each
     /// Biome package.
@@ -428,7 +467,7 @@ impl BuildRootContext {
     /// * If an artifact file cannot be read or if a Package Identifier cannot be determined
     /// * If a Package Identifier cannot be parsed from an string representation
     /// * If package metadata cannot be read
-    pub fn from_spec<P: Into<PathBuf>>(spec: &BuildSpec<'_>, rootfs: P) -> Result<Self> {
+    pub fn from_spec<P: Into<PathBuf>>(spec: &BuildSpec, rootfs: P) -> Result<Self> {
         let rootfs = rootfs.into();
         let mut idents = Vec::new();
         let mut tdeps = Vec::new();
@@ -514,9 +553,9 @@ impl BuildRootContext {
     /// # Errors
     ///
     /// * If the primary service package could not be loaded from disk
-    pub fn installed_primary_svc_ident(&self) -> Result<PackageIdent> {
+    pub fn installed_primary_svc_ident(&self) -> Result<FullyQualifiedPackageIdent> {
         let pkg_install = self.primary_svc()?;
-        Ok(pkg_install.ident().clone())
+        Ok(FullyQualifiedPackageIdent::try_from(pkg_install.ident()).expect("We should always have a fully-qualified package identifier at this point"))
     }
 
     /// Returns the list of package port exposes over all service packages.
@@ -685,7 +724,7 @@ impl BuildRootContext {
     /// Returns the root file system which is used to export an image.
     pub fn rootfs(&self) -> &Path { self.rootfs.as_ref() }
 
-    /// Returns the base image for the dockerfile From
+    /// Returns the base image used in the Dockerfile
     pub fn base_image(&self) -> &str { self.base_image.as_str() }
 
     pub fn multi_layer(&self) -> bool { self.multi_layer }
@@ -708,15 +747,15 @@ impl BuildRootContext {
 #[derive(Debug)]
 pub struct BasePkgIdents {
     /// Installed package identifer for the Biome CLI package.
-    pub bio:      PackageIdent,
+    pub bio:      FullyQualifiedPackageIdent,
     /// Installed package identifer for the Supervisor package.
-    pub sup:      PackageIdent,
+    pub sup:      FullyQualifiedPackageIdent,
     /// Installed package identifer for the Launcher package.
-    pub launcher: PackageIdent,
+    pub launcher: FullyQualifiedPackageIdent,
     /// Installed package identifer for the Busybox package.
-    pub busybox:  Option<PackageIdent>,
+    pub busybox:  Option<FullyQualifiedPackageIdent>,
     /// Installed package identifer for the CA certs package.
-    pub cacerts:  PackageIdent,
+    pub cacerts:  FullyQualifiedPackageIdent,
 }
 
 /// A service identifier representing a Biome package which contains a runnable service.
@@ -754,25 +793,26 @@ mod test {
     use super::*;
     use clap::ArgMatches;
     use biome_core::{fs,
-                       package::PackageTarget};
+                       package::{FullyQualifiedPackageIdent,
+                                 PackageTarget}};
 
     /// Generate Clap ArgMatches for the exporter from a vector of arguments.
     fn arg_matches<'a>(args: &[&str]) -> ArgMatches<'a> {
-        let app = crate::cli();
+        let app = crate::cli::cli();
         app.get_matches_from(args)
     }
 
-    fn build_spec<'a>() -> BuildSpec<'a> {
-        BuildSpec { bio:                "bio",
-                    bio_launcher:       "bio_launcher",
-                    bio_sup:            "bio_sup",
-                    url:                "url",
+    fn build_spec() -> BuildSpec {
+        BuildSpec { bio:                "bio".to_string(),
+                    bio_launcher:       "bio_launcher".to_string(),
+                    bio_sup:            "bio_sup".to_string(),
+                    url:                "url".to_string(),
                     channel:            ChannelIdent::from("channel"),
-                    base_pkgs_url:      "base_pkgs_url",
+                    base_pkgs_url:      "base_pkgs_url".to_string(),
                     base_pkgs_channel:  ChannelIdent::from("base_pkgs_channel"),
                     idents_or_archives: Vec::new(),
-                    auth:               Some("heresafakeauthtokenduh"),
-                    base_image:         String::from("scratch"),
+                    auth:               Some("heresafakeauthtokenduh".to_string()),
+                    base_image:         "scratch".to_string(),
                     multi_layer:        false, }
     }
 
@@ -817,7 +857,7 @@ mod test {
             self
         }
 
-        pub fn install(&self) -> PackageIdent {
+        pub fn install(&self) -> FullyQualifiedPackageIdent {
             let mut ident = PackageIdent::from_str(&self.ident).unwrap();
             if ident.version.is_none() {
                 ident.version = Some("1.2.3".into());
@@ -844,7 +884,8 @@ mod test {
             if self.is_svc {
                 util::write_file(prefix.join("run"), "").unwrap();
             }
-            ident
+            FullyQualifiedPackageIdent::try_from(ident).expect("this must always be \
+                                                                fully-qualified")
         }
     }
 
@@ -871,9 +912,9 @@ mod test {
             let mut ui = UI::with_sinks();
             build_spec().create_symlink_to_key_cache(&mut ui, rootfs.path())
                         .unwrap();
-            let link = rootfs.path().join(CACHE_KEY_PATH);
+            let link = rootfs.path().join(CACHE_KEY_PATH_POSTFIX);
 
-            assert_eq!(cache_key_path(None::<&Path>), link.read_link().unwrap());
+            assert_eq!(*CACHE_KEY_PATH, link.read_link().unwrap());
         }
 
         #[cfg(unix)]
@@ -885,17 +926,15 @@ mod test {
             build_spec().link_binaries(&mut ui, rootfs.path(), &base_pkgs)
                         .unwrap();
 
-            assert_eq!(fs::pkg_install_path(base_pkgs.busybox.as_ref().unwrap(),
-                                                   None::<&Path>).join("bin/busybox"),
+            assert_eq!(fs::pkg_install_path(base_pkgs.busybox.as_ref().unwrap().as_ref(),
+                                            None::<&Path>).join("bin/busybox"),
                        rootfs.path().join("bin/busybox").read_link().unwrap(),
                        "busybox program is symlinked into /bin");
-            assert_eq!(
-                fs::pkg_install_path(&base_pkgs.busybox.unwrap(), None::<&Path>)
-                    .join("bin/sh"),
-                rootfs.path().join("bin/sh").read_link().unwrap(),
-                "busybox's sh program is symlinked into /bin"
-            );
-            assert_eq!(fs::pkg_install_path(&base_pkgs.bio, None::<&Path>).join("bin/bio"),
+            assert_eq!(fs::pkg_install_path(base_pkgs.busybox.as_ref().unwrap().as_ref(),
+                                            None::<&Path>).join("bin/sh"),
+                       rootfs.path().join("bin/sh").read_link().unwrap(),
+                       "busybox's sh program is symlinked into /bin");
+            assert_eq!(fs::pkg_install_path(base_pkgs.bio.as_ref(), None::<&Path>).join("bin/bio"),
                        rootfs.path().join("bin/bio").read_link().unwrap(),
                        "bio program is symlinked into /bin");
         }
@@ -909,7 +948,7 @@ mod test {
             build_spec().link_cacerts(&mut ui, rootfs.path(), &base_pkgs)
                         .unwrap();
 
-            assert_eq!(fs::pkg_install_path(&base_pkgs.cacerts, None::<&Path>).join("ssl"),
+            assert_eq!(fs::pkg_install_path(base_pkgs.cacerts.as_ref(), None::<&Path>).join("ssl"),
                        rootfs.path().join("etc/ssl").read_link().unwrap(),
                        "cacerts are symlinked into /etc/ssl");
         }
@@ -924,35 +963,35 @@ mod test {
         }
 
         #[cfg(not(windows))]
-        fn fake_bio_install<P: AsRef<Path>>(rootfs: P) -> PackageIdent {
+        fn fake_bio_install<P: AsRef<Path>>(rootfs: P) -> FullyQualifiedPackageIdent {
             FakePkg::new("acme/bio", rootfs.as_ref()).add_bin("bio")
                                                      .install()
         }
 
         #[cfg(not(windows))]
-        fn fake_sup_install<P: AsRef<Path>>(rootfs: P) -> PackageIdent {
+        fn fake_sup_install<P: AsRef<Path>>(rootfs: P) -> FullyQualifiedPackageIdent {
             FakePkg::new("acme/bio-sup", rootfs.as_ref()).add_bin("bio-sup")
                                                          .install()
         }
 
         #[cfg(not(windows))]
-        fn fake_launcher_install<P: AsRef<Path>>(rootfs: P) -> PackageIdent {
+        fn fake_launcher_install<P: AsRef<Path>>(rootfs: P) -> FullyQualifiedPackageIdent {
             FakePkg::new("acme/bio-launcher", rootfs.as_ref()).add_bin("bio-launch")
                                                               .install()
         }
 
         #[cfg(not(windows))]
-        fn fake_busybox_install<P: AsRef<Path>>(rootfs: P) -> PackageIdent {
+        fn fake_busybox_install<P: AsRef<Path>>(rootfs: P) -> FullyQualifiedPackageIdent {
             FakePkg::new("acme/busybox", rootfs.as_ref()).add_bin("busybox")
                                                          .add_bin("sh")
                                                          .install()
         }
 
         #[cfg(not(windows))]
-        fn fake_cacerts_install<P: AsRef<Path>>(rootfs: P) -> PackageIdent {
+        fn fake_cacerts_install<P: AsRef<Path>>(rootfs: P) -> FullyQualifiedPackageIdent {
             let ident = FakePkg::new("acme/cacerts", rootfs.as_ref()).install();
 
-            let prefix = fs::pkg_install_path(&ident, Some(rootfs));
+            let prefix = fs::pkg_install_path(ident.as_ref(), Some(rootfs));
             util::write_file(prefix.join("ssl/cacert.pem"), "").unwrap();
             ident
         }
@@ -976,7 +1015,9 @@ mod test {
                                                              .install();
 
             let mut spec = build_spec();
-            spec.idents_or_archives = vec!["acme/libby", "acme/runna", "acme/jogga"];
+            spec.idents_or_archives = vec!["acme/libby".to_string(),
+                                           "acme/runna".to_string(),
+                                           "acme/jogga".to_string()];
             let ctx = BuildRootContext::from_spec(&spec, rootfs.path()).unwrap();
 
             assert_eq!(vec![&PackageIdent::from_str("acme/runna").unwrap(),
@@ -1015,8 +1056,7 @@ mod test {
             let matches =
                 arg_matches(&[&*PROGRAM_NAME, "acme/my_pkg", "--base-image", "some/image"]);
 
-            let build_spec =
-                BuildSpec::new_from_cli_matches(&matches, "https://bldr.habitat.sh").unwrap();
+            let build_spec = BuildSpec::try_from(&matches).unwrap();
             let ctx = BuildRootContext::from_spec(&build_spec, rootfs.path()).unwrap();
 
             let (users, groups) = ctx.svc_users_and_groups().unwrap();
@@ -1042,8 +1082,7 @@ mod test {
             let matches =
                 arg_matches(&[&*PROGRAM_NAME, "acme/my_pkg", "--base-image", "some/image"]);
 
-            let build_spec =
-                BuildSpec::new_from_cli_matches(&matches, "https://bldr.habitat.sh").unwrap();
+            let build_spec = BuildSpec::try_from(&matches).unwrap();
             let ctx = BuildRootContext::from_spec(&build_spec, rootfs.path()).unwrap();
 
             let (users, groups) = ctx.svc_users_and_groups().unwrap();

@@ -7,7 +7,7 @@ function New-CustomTag {
 
 # Export a core/redis container image.
 #
-# $extra_args are options for `bio pkg export docker` to influence
+# $extra_args are options for `bio pkg export container` to influence
 # container creation. (e.g., pass "--multi-layer" to create a
 #multi-layer image.)
 function New-Image() {
@@ -16,8 +16,8 @@ function New-Image() {
         [Parameter(Mandatory=$false)][string]$extra_args
     )
 
-    # NOTE: the docker exporter is installed in setup_environment.{sh,ps1}
-    Write-Host (bio pkg export docker core/nginx --tag-custom=$tag $extra_args | Out-String)
+    # NOTE: the container exporter is installed in setup_environment.{sh,ps1}
+    Write-Host (bio pkg export container core/nginx --tag-custom=$tag $extra_args | Out-String)
     "core/nginx:$tag"
 }
 
@@ -32,7 +32,7 @@ function Start-Container() {
         [Parameter(Mandatory=$true)][string]$image,
         [Parameter(Mandatory=$false)][string]$extra_args
     )
-    $name="e2e-docker-export-container"
+    $name="e2e-container-export-container"
     # We're using a non-standard port because we will also execute these
     # tests as a non-root user, and non-root users don't get to listen
     # on port 80.
@@ -55,7 +55,25 @@ function Confirm-ContainerBehavior() {
     [string]$headers.Server | Should -BeLike "nginx/*"
 }
 
-Describe "bio pkg export docker" {
+# This is just to ensure that our deprecated `bio pkg export docker`
+# alias still functions, until we decide to remove it.
+Describe "Old 'bio pkg export docker' alias" {
+    BeforeAll {
+        $tag = New-CustomTag
+        Write-Host (bio pkg export docker core/nginx --tag-custom=$tag | Out-String)
+        $script:image = "core/nginx:$tag"
+    }
+
+    AfterAll {
+        docker rmi $script:image
+    }
+
+    It "still works" {
+        docker inspect $script:image | Should -Not -Be $null
+    }
+}
+
+Describe "bio pkg export container" {
     BeforeAll {
         $tag = New-CustomTag
         $script:image = New-Image $tag
@@ -99,7 +117,7 @@ Describe "bio pkg export docker" {
     }
 }
 
-Describe "bio pkg export docker --multi-layer" {
+Describe "bio pkg export container --multi-layer" {
     BeforeAll {
         $tag = New-CustomTag
         $script:image = New-Image $tag "--multi-layer"
@@ -140,6 +158,17 @@ Describe "bio pkg export docker --multi-layer" {
             It "works!" {
                 Confirm-ContainerBehavior $script:container
             }
+        }
+    }
+}
+
+if ($IsLinux) {
+    # TODO: Try to run the container when we have a core/podman package
+    Describe "bio pkg export container --engine=buildah" {
+        It "Runs successfully" {
+            $tag = New-CustomTag
+            bio pkg export container core/nginx --engine=buildah --tag-custom="$tag"
+            bio pkg exec core/buildah buildah rmi "core/nginx:$tag"
         }
     }
 }

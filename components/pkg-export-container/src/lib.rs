@@ -7,35 +7,39 @@ extern crate log;
 #[macro_use]
 extern crate serde_json;
 
+use crate::naming::Naming;
 pub use crate::{build::BuildSpec,
-                cli::{Cli,
-                      PkgIdentArgOptions},
-                docker::{DockerBuildRoot,
-                         DockerImage},
+                cli::cli,
+                container::{BuildContext,
+                            ContainerImage},
+                engine::{fail_if_buildah_and_multilayer,
+                         Engine},
                 error::{Error,
                         Result}};
-use clap::App;
-use biome_common::{ui::{UIWriter,
-                          UI},
-                     PROGRAM_NAME};
-use biome_core::url::default_bldr_url;
+use biome_common::ui::{Status,
+                         UIWriter,
+                         UI};
 use rusoto_core::{request::HttpClient,
                   Region};
 use rusoto_credential::StaticProvider;
 use rusoto_ecr::{Ecr,
                  EcrClient,
                  GetAuthorizationTokenRequest};
-use std::{env,
+use std::{convert::TryFrom,
+          env,
           fmt,
+          path::Path,
           result,
           str::FromStr};
-
 mod accounts;
 mod build;
 mod cli;
-mod docker;
+mod container;
+mod engine;
 mod error;
 mod graph;
+mod naming;
+mod os;
 #[cfg(unix)]
 mod rootfs;
 mod util;
@@ -47,47 +51,6 @@ pub const VERSION: &str = include_str!(concat!(env!("OUT_DIR"), "/VERSION"));
 const BUSYBOX_IDENT: &str = "core/busybox-static";
 /// The Biome Package Identifier string for SSL certificate authorities (CA) certificates package.
 const CACERTS_IDENT: &str = "core/cacerts";
-
-/// An image naming policy.
-///
-/// This is a value struct which captures the naming and tagging intentions for an image.
-#[derive(Debug)]
-pub struct Naming<'a> {
-    /// An optional custom image name which would override a computed default value.
-    pub custom_image_name:   Option<&'a str>,
-    /// Whether or not to tag the image with a latest value.
-    pub latest_tag:          bool,
-    /// Whether or not to tag the image with a value containing a version from a Package
-    /// Identifier.
-    pub version_tag:         bool,
-    /// Whether or not to tag the image with a value containing a version and release from a
-    /// Package Identifier.
-    pub version_release_tag: bool,
-    /// An optional custom tag value for the image.
-    pub custom_tag:          Option<&'a str>,
-    /// A URL to a custom Docker registry to publish to. This will be used as part of every tag
-    /// before pushing.
-    pub registry_url:        Option<&'a str>,
-    /// The type of registry we're publishing to. Ex: Amazon, Docker, Google, Azure.
-    pub registry_type:       RegistryType,
-}
-
-impl<'a> Naming<'a> {
-    /// Creates a `Naming` from cli arguments.
-    pub fn new_from_cli_matches(m: &'a clap::ArgMatches<'_>) -> Self {
-        let registry_type =
-            value_t!(m.value_of("REGISTRY_TYPE"), RegistryType).unwrap_or(RegistryType::Docker);
-        let registry_url = m.value_of("REGISTRY_URL");
-
-        Naming { custom_image_name: m.value_of("IMAGE_NAME"),
-                 latest_tag: !m.is_present("NO_TAG_LATEST"),
-                 version_tag: !m.is_present("NO_TAG_VERSION"),
-                 version_release_tag: !m.is_present("NO_TAG_VERSION_RELEASE"),
-                 custom_tag: m.value_of("TAG_CUSTOM"),
-                 registry_url,
-                 registry_type }
-    }
-}
 
 #[derive(Clone, Copy, Debug)]
 pub enum RegistryType {
@@ -122,6 +85,10 @@ impl fmt::Display for RegistryType {
         };
         write!(f, "{}", disp)
     }
+}
+
+impl Default for RegistryType {
+    fn default() -> Self { RegistryType::Docker }
 }
 
 /// A credentials username and password pair.
@@ -166,34 +133,8 @@ impl Credentials {
     }
 }
 
-/// Exports a Docker image to a Docker engine from a build specification and naming policy.
-///
-/// # Errors
-///
-/// * If a generic and temporary build root directory cannot be created containing a root
-/// file system
-/// * If additional Docker-related files cannot be created in the root file system
-/// * If building the Docker image fails
-/// * If destroying the temporary build root directory fails
-pub async fn export<'a>(ui: &'a mut UI,
-                        build_spec: BuildSpec<'a>,
-                        naming: &'a Naming<'a>,
-                        memory: Option<&'a str>)
-                        -> Result<DockerImage> {
-    ui.begin(format!("Building a runnable Docker image with: {}",
-                     build_spec.idents_or_archives.join(", ")))?;
-    let build_root = DockerBuildRoot::from_build_root(build_spec.create(ui).await?, ui)?;
-    let image = build_root.export(ui, naming, memory)?;
-    build_root.destroy(ui)?;
-    ui.end(format!("Docker image '{}' created with tags: {}",
-                   image.name(),
-                   image.tags().join(", ")))?;
-
-    Ok(image)
-}
-
-/// Creates a build specification and naming policy from Cli arguments, and then exports a Docker
-/// image to a Docker engine from them.
+/// Creates a build specification and naming policy from CLI
+/// arguments, and then creates a container image from them.
 ///
 /// # Errors
 ///
@@ -205,13 +146,28 @@ pub async fn export<'a>(ui: &'a mut UI,
 /// * The image (tags) cannot be removed.
 pub async fn export_for_cli_matches(ui: &mut UI,
                                     matches: &clap::ArgMatches<'_>)
-                                    -> Result<Option<DockerImage>> {
-    let default_url = default_bldr_url();
-    let spec = BuildSpec::new_from_cli_matches(&matches, &default_url)?;
-    let naming = Naming::new_from_cli_matches(&matches);
+                                    -> Result<Option<ContainerImage>> {
+    os::ensure_proper_docker_platform()?;
 
-    let docker_image = export(ui, spec, &naming, matches.value_of("MEMORY_LIMIT")).await?;
-    docker_image.create_report(ui, env::current_dir()?.join("results"))?;
+    fail_if_buildah_and_multilayer(matches)?;
+
+    let spec = BuildSpec::try_from(matches)?;
+    let naming = Naming::from(matches);
+    let engine: Box<dyn Engine> = TryFrom::try_from(matches)?;
+    let memory = matches.value_of("MEMORY_LIMIT");
+
+    ui.begin(format!("Building a container image with: {}",
+                     spec.idents_or_archives.join(", ")))?;
+
+    let build_context = BuildContext::from_build_root(spec.create(ui).await?, ui)?;
+    let container_image = build_context.export(ui, &naming, memory, engine.as_ref())?;
+
+    build_context.destroy(ui)?;
+    ui.end(format!("Container image '{}' created with tags: {}",
+                   container_image.name(),
+                   container_image.tags().join(", ")))?;
+
+    container_image.create_report(ui, env::current_dir()?.join("results"))?;
 
     if matches.is_present("PUSH_IMAGE") {
         let credentials = Credentials::new(naming.registry_type,
@@ -219,31 +175,85 @@ pub async fn export_for_cli_matches(ui: &mut UI,
                                                   .expect("Username not specified"),
                                            matches.value_of("REGISTRY_PASSWORD")
                                                   .expect("Password not specified")).await?;
-        docker_image.push(ui, &credentials, naming.registry_url)?;
+        push_image(ui,
+                   engine.as_ref(),
+                   &container_image,
+                   &credentials,
+                   naming.registry_url.as_deref())?;
     }
     if matches.is_present("RM_IMAGE") {
-        docker_image.rm(ui)?;
-
+        remove_image(ui, engine.as_ref(), &container_image)?;
         Ok(None)
     } else {
-        Ok(Some(docker_image))
+        Ok(Some(container_image))
     }
 }
 
-/// Create the Clap CLI for the Docker exporter
-pub fn cli<'a, 'b>() -> App<'a, 'b> {
-    let name: &str = &*PROGRAM_NAME;
-    let about = "Creates (and optionally pushes) a Docker image from a set of Biome packages";
+fn remove_image(ui: &mut UI, engine: &dyn Engine, image: &ContainerImage) -> Result<()> {
+    ui.begin(format!("Cleaning up local Docker image '{}' with all tags",
+                     image.name()))?;
 
-    let mut cli = Cli::new(name, about).add_base_packages_args()
-                                       .add_builder_args()
-                                       .add_tagging_args()
-                                       .add_publishing_args()
-                                       .add_memory_arg()
-                                       .add_layer_arg()
-                                       .add_pkg_ident_arg(PkgIdentArgOptions { multiple: true });
-    if cfg!(windows) {
-        cli = cli.add_base_image_arg();
+    for identifier in image.expanded_identifiers() {
+        ui.status(Status::Deleting, format!("local image '{}'", identifier))?;
+        engine.remove_image(&identifier)?;
     }
-    cli.app
+
+    ui.end(format!("Local Docker image '{}' with tags: {} cleaned up",
+                   image.name(),
+                   image.tags().join(", "),))?;
+    Ok(())
+}
+
+fn push_image(ui: &mut UI,
+              engine: &dyn Engine,
+              image: &ContainerImage,
+              credentials: &Credentials,
+              registry_url: Option<&str>)
+              -> Result<()> {
+    ui.begin(format!("Pushing Docker image '{}' with all tags to remote registry",
+                     image.name()))?;
+
+    // TODO (CM): UGH
+    // This is just until we can sort out a better place for the
+    // config file. The Engine will probably handle it.
+    let workdir = image.workdir();
+
+    create_docker_config_file(credentials, registry_url, workdir)?;
+
+    for image_tag in image.expanded_identifiers() {
+        ui.status(Status::Uploading,
+                  format!("image '{}' to remote registry", image_tag))?;
+        engine.push_image(&image_tag, workdir)?;
+        ui.status(Status::Uploaded, format!("image '{}'", image_tag))?;
+    }
+
+    ui.end(format!("Docker image '{}' published with tags: {}",
+                   image.name(),
+                   image.tags().join(", "),))?;
+    Ok(())
+}
+
+fn create_docker_config_file(credentials: &Credentials,
+                             registry_url: Option<&str>,
+                             workdir: &Path)
+                             -> Result<()> {
+    std::fs::create_dir_all(workdir)?; // why wouldn't this already exist?
+    let config = workdir.join("config.json");
+
+    let registry = match registry_url {
+        Some(url) => url,
+        None => "https://index.docker.io/v1/",
+    };
+
+    debug!("Using registry: {:?}", registry);
+    let json = json!({
+        "auths": {
+            registry: {
+                "auth": credentials.token
+            }
+        }
+    });
+
+    util::write_file(&config, &serde_json::to_string(&json).unwrap())?;
+    Ok(())
 }

@@ -12,6 +12,7 @@ use crate::error::{Error,
 use base64;
 use chrono::Utc;
 use regex::Regex;
+use serde::Deserialize;
 use std::{collections::HashSet,
           fmt,
           fs::{self,
@@ -50,7 +51,7 @@ impl fmt::Display for KeyType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize)]
 pub enum PairType {
     Public,
     Secret,
@@ -99,8 +100,8 @@ impl Drop for TmpKeyfile {
 /// the keys may not be present due to the loading context. For example, the act of verifying a
 /// signed message or artifact only requires the public key to be present, whereas the act of
 /// signing will require the secret key to be present.
-#[derive(Clone)]
-pub struct KeyPair<P, S> {
+#[derive(Clone, PartialEq)]
+pub struct KeyPair<P: PartialEq, S: PartialEq> {
     /// The name of the key, ex: "biome"
     pub name:   String,
     /// The revision of the key, which is a timestamp, ex: "201604051449"
@@ -111,7 +112,7 @@ pub struct KeyPair<P, S> {
     pub secret: Option<S>,
 }
 
-impl<P, S> KeyPair<P, S> {
+impl<P: PartialEq, S: PartialEq> KeyPair<P, S> {
     /// Creates a new `KeyPair`.
     pub fn new(name: String, rev: String, p: Option<P>, s: Option<S>) -> KeyPair<P, S> {
         KeyPair { name,
@@ -216,7 +217,7 @@ fn check_filename(keyname: &str,
 }
 
 /// Take a key name (ex "biome"), and find all revisions of that
-/// keyname in the default_cache_key_path().
+/// keyname in the `cache_key_path`.
 fn get_key_revisions<P>(keyname: &str,
                         cache_key_path: P,
                         pair_type: Option<&PairType>,

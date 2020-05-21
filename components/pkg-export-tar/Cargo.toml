@@ -15,7 +15,7 @@ doc = false
 
 [dependencies]
 base64 = "*"
-clap = { version = "*", features = ["suggestions", "color", "unstable"] }
+clap = { git = "https://github.com/habitat-sh/clap.git", branch = "v2-master", features = ["suggestions", "color", "unstable"] }
 env_logger = "*"
 biome_common = { path = "../common" }
 biome_core = { path = "../core" }

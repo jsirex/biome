@@ -29,8 +29,7 @@ use bio::{cli::{self,
           VERSION};
 use biome_api_client::BuildOnUpload;
 use biome_common::{self as common,
-                     cli::{cache_key_path_from_matches,
-                           FS_ROOT},
+                     cli::cache_key_path_from_matches,
                      command::package::install::{InstallHookMode,
                                                  InstallMode,
                                                  InstallSource,
@@ -50,7 +49,8 @@ use biome_core::{crypto::{init,
                             SigKeyPair},
                    env::{self as henv,
                          Config as _},
-                   fs::cache_artifact_path,
+                   fs::{cache_artifact_path,
+                        FS_ROOT_PATH},
                    os::process::ShutdownTimeout,
                    package::{target,
                              PackageIdent,
@@ -351,7 +351,7 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
 
 fn sub_cli_setup(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let cache_key_path = cache_key_path_from_matches(&m);
-    init();
+    init()?;
 
     command::cli::setup::start(ui, &cache_key_path)
 }
@@ -384,7 +384,7 @@ async fn sub_origin_key_download(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> 
                                           revision,
                                           with_secret,
                                           with_encryption,
-                                          token.as_ref().map(String::as_str),
+                                          token.as_deref(),
                                           &cache_key_path).await
 }
 
@@ -392,7 +392,7 @@ fn sub_origin_key_export(m: &ArgMatches<'_>) -> Result<()> {
     let origin = m.value_of("ORIGIN").unwrap(); // Required via clap
     let pair_type = PairType::from_str(m.value_of("PAIR_TYPE").unwrap_or("public"))?;
     let cache_key_path = cache_key_path_from_matches(&m);
-    init();
+    init()?;
 
     command::origin::key::export::start(origin, pair_type, &cache_key_path)
 }
@@ -400,7 +400,7 @@ fn sub_origin_key_export(m: &ArgMatches<'_>) -> Result<()> {
 fn sub_origin_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let origin = origin_param_or_env(&m)?;
     let cache_key_path = cache_key_path_from_matches(&m);
-    init();
+    init()?;
 
     command::origin::key::generate::start(ui, &origin, &cache_key_path)
 }
@@ -408,7 +408,7 @@ fn sub_origin_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 fn sub_origin_key_import(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let mut content = String::new();
     let cache_key_path = cache_key_path_from_matches(&m);
-    init();
+    init()?;
     io::stdin().read_to_string(&mut content)?;
 
     // Trim the content to lose line feeds added by Powershell pipeline
@@ -420,7 +420,7 @@ async fn sub_origin_key_upload(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let token = auth_token_param_or_env(&m)?;
     let cache_key_path = cache_key_path_from_matches(&m);
 
-    init();
+    init()?;
 
     if m.is_present("ORIGIN") {
         let origin = m.value_of("ORIGIN").unwrap();
@@ -569,9 +569,11 @@ fn sub_pkg_binlink(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let force = m.is_present("FORCE");
     match m.value_of("BINARY") {
         Some(binary) => {
-            command::pkg::binlink::start(ui, &ident, &binary, dest_dir, &FS_ROOT, force)
+            command::pkg::binlink::start(ui, &ident, &binary, dest_dir, &FS_ROOT_PATH, force)
         }
-        None => command::pkg::binlink::binlink_all_in_pkg(ui, &ident, dest_dir, &FS_ROOT, force),
+        None => {
+            command::pkg::binlink::binlink_all_in_pkg(ui, &ident, dest_dir, &FS_ROOT_PATH, force)
+        }
     }
 }
 
@@ -581,7 +583,7 @@ async fn sub_pkg_build(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let src = m.value_of("SRC_PATH");
     let keys_string = match m.values_of("HAB_ORIGIN_KEYS") {
         Some(keys) => {
-            init();
+            init()?;
             let cache_key_path = cache_key_path_from_matches(&m);
             for key in keys.clone() {
                 // Validate that all secret keys are present
@@ -605,14 +607,14 @@ async fn sub_pkg_build(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 fn sub_pkg_config(m: &ArgMatches<'_>) -> Result<()> {
     let ident = PackageIdent::from_str(m.value_of("PKG_IDENT").unwrap())?;
 
-    common::command::package::config::start(&ident, &*FS_ROOT)?;
+    common::command::package::config::start(&ident, &*FS_ROOT_PATH)?;
     Ok(())
 }
 
 fn sub_pkg_binds(m: &ArgMatches<'_>) -> Result<()> {
     let ident = PackageIdent::from_str(m.value_of("PKG_IDENT").unwrap())?;
 
-    common::command::package::binds::start(&ident, &*FS_ROOT)?;
+    common::command::package::binds::start(&ident, &*FS_ROOT_PATH)?;
     Ok(())
 }
 
@@ -629,7 +631,7 @@ fn sub_pkg_dependencies(m: &ArgMatches<'_>) -> Result<()> {
     } else {
         command::pkg::DependencyRelation::Requires
     };
-    command::pkg::dependencies::start(&ident, scope, direction, &*FS_ROOT)
+    command::pkg::dependencies::start(&ident, scope, direction, &*FS_ROOT_PATH)
 }
 
 async fn sub_pkg_download(ui: &mut UI,
@@ -657,7 +659,7 @@ async fn sub_pkg_download(ui: &mut UI,
     let verify = verify_from_matches(m);
     let ignore_missing_seeds = ignore_missing_seeds_from_matches(m);
 
-    init();
+    init()?;
 
     command::pkg::download::start(ui,
                                   &url,
@@ -665,7 +667,7 @@ async fn sub_pkg_download(ui: &mut UI,
                                   VERSION,
                                   &package_sets,
                                   download_dir.as_ref(),
-                                  token.as_ref().map(String::as_str),
+                                  token.as_deref(),
                                   verify,
                                   ignore_missing_seeds).await?;
     Ok(())
@@ -674,7 +676,7 @@ async fn sub_pkg_download(ui: &mut UI,
 fn sub_pkg_env(m: &ArgMatches<'_>) -> Result<()> {
     let ident = PackageIdent::from_str(m.value_of("PKG_IDENT").unwrap())?;
 
-    command::pkg::env::start(&ident, &*FS_ROOT)
+    command::pkg::env::start(&ident, &*FS_ROOT_PATH)
 }
 
 fn sub_pkg_exec(m: &ArgMatches<'_>, cmd_args: &[OsString]) -> Result<()> {
@@ -694,7 +696,7 @@ async fn sub_pkg_export(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 }
 
 fn sub_pkg_hash(m: &ArgMatches<'_>) -> Result<()> {
-    init();
+    init()?;
     match m.value_of("SOURCE") {
         Some(source) => {
             // hash single file
@@ -729,7 +731,7 @@ async fn sub_pkg_uninstall(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 
     command::pkg::uninstall::start(ui,
                                    &ident,
-                                   &*FS_ROOT,
+                                   &*FS_ROOT_PATH,
                                    execute_strategy,
                                    mode,
                                    scope,
@@ -908,7 +910,7 @@ async fn sub_pkg_install(ui: &mut UI,
         InstallHookMode::default()
     };
 
-    init();
+    init()?;
 
     for install_source in install_sources.iter() {
         let pkg_install =
@@ -918,9 +920,9 @@ async fn sub_pkg_install(ui: &mut UI,
                                                      install_source,
                                                      PRODUCT,
                                                      VERSION,
-                                                     &*FS_ROOT,
-                                                     &cache_artifact_path(Some(&*FS_ROOT)),
-                                                     token.as_ref().map(String::as_str),
+                                                     &*FS_ROOT_PATH,
+                                                     &cache_artifact_path(Some(&*FS_ROOT_PATH)),
+                                                     token.as_deref(),
                                                      &install_mode,
                                                      &local_package_usage,
                                                      install_hook_mode).await?;
@@ -930,7 +932,7 @@ async fn sub_pkg_install(ui: &mut UI,
             command::pkg::binlink::binlink_all_in_pkg(ui,
                                                       pkg_install.ident(),
                                                       &dest_dir,
-                                                      &FS_ROOT,
+                                                      &FS_ROOT_PATH,
                                                       force)?;
         }
     }
@@ -940,7 +942,7 @@ async fn sub_pkg_install(ui: &mut UI,
 fn sub_pkg_path(m: &ArgMatches<'_>) -> Result<()> {
     let ident = PackageIdent::from_str(m.value_of("PKG_IDENT").unwrap())?;
 
-    command::pkg::path::start(&ident, &*FS_ROOT)
+    command::pkg::path::start(&ident, &*FS_ROOT_PATH)
 }
 
 fn sub_pkg_list(m: &ArgMatches<'_>) -> Result<()> {
@@ -955,7 +957,7 @@ fn sub_pkg_provides(m: &ArgMatches<'_>) -> Result<()> {
     let full_releases = m.is_present("FULL_RELEASES");
     let full_paths = m.is_present("FULL_PATHS");
 
-    command::pkg::provides::start(&filename, &*FS_ROOT, full_releases, full_paths)
+    command::pkg::provides::start(&filename, &*FS_ROOT_PATH, full_releases, full_paths)
 }
 
 async fn sub_pkg_search(m: &ArgMatches<'_>) -> Result<()> {
@@ -966,17 +968,14 @@ async fn sub_pkg_search(m: &ArgMatches<'_>) -> Result<()> {
                  .parse()
                  .expect("valid LIMIT");
     let token = maybe_auth_token(&m);
-    command::pkg::search::start(&search_term,
-                                &url,
-                                limit,
-                                token.as_ref().map(String::as_str)).await
+    command::pkg::search::start(&search_term, &url, limit, token.as_deref()).await
 }
 
 fn sub_pkg_sign(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let src = Path::new(m.value_of("SOURCE").unwrap()); // Required via clap
     let dst = Path::new(m.value_of("DEST").unwrap()); // Required via clap
     let cache_key_path = cache_key_path_from_matches(&m);
-    init();
+    init()?;
     let pair = SigKeyPair::get_latest_pair_for(&origin_param_or_env(&m)?,
                                                &cache_key_path,
                                                Some(&PairType::Secret))?;
@@ -1057,14 +1056,14 @@ async fn sub_pkg_delete(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 fn sub_pkg_verify(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let src = Path::new(m.value_of("SOURCE").unwrap()); // Required via clap
     let cache_key_path = cache_key_path_from_matches(&m);
-    init();
+    init()?;
 
     command::pkg::verify::start(ui, &src, &cache_key_path)
 }
 
 fn sub_pkg_header(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let src = Path::new(m.value_of("SOURCE").unwrap()); // Required via clap
-    init();
+    init()?;
 
     command::pkg::header::start(ui, &src)
 }
@@ -1072,7 +1071,7 @@ fn sub_pkg_header(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 fn sub_pkg_info(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let src = Path::new(m.value_of("SOURCE").unwrap()); // Required via clap
     let to_json = m.is_present("TO_JSON");
-    init();
+    init()?;
 
     command::pkg::info::start(ui, &src, to_json)
 }
@@ -1101,10 +1100,7 @@ async fn sub_pkg_channels(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let token = maybe_auth_token(&m);
     let target = target_from_matches(m)?;
 
-    command::pkg::channels::start(ui,
-                                  &url,
-                                  (&ident, target),
-                                  token.as_ref().map(String::as_str)).await
+    command::pkg::channels::start(ui, &url, (&ident, target), token.as_deref()).await
 }
 
 async fn sub_svc_set(m: &ArgMatches<'_>) -> Result<()> {
@@ -1386,10 +1382,7 @@ async fn sub_sup_depart(m: &ArgMatches<'_>) -> Result<()> {
     msg.member_id = Some(m.value_of("MEMBER_ID").unwrap().to_string());
 
     ui.begin(format!("Permanently marking {} as departed",
-                     msg.member_id
-                        .as_ref()
-                        .map(String::as_str)
-                        .unwrap_or("UNKNOWN")))
+                     msg.member_id.as_deref().unwrap_or("UNKNOWN")))
       .unwrap();
     ui.status(Status::Applying, format!("via peer {}", listen_ctl_addr))
       .unwrap();
@@ -1419,7 +1412,7 @@ fn sub_sup_secret_generate() -> Result<()> {
 }
 
 fn sub_supportbundle(ui: &mut UI) -> Result<()> {
-    init();
+    init()?;
 
     command::supportbundle::start(ui)
 }
@@ -1427,7 +1420,7 @@ fn sub_supportbundle(ui: &mut UI) -> Result<()> {
 fn sub_ring_key_export(m: &ArgMatches<'_>) -> Result<()> {
     let ring = m.value_of("RING").unwrap(); // Required via clap
     let cache_key_path = cache_key_path_from_matches(&m);
-    init();
+    init()?;
 
     command::ring::key::export::start(ring, &cache_key_path)
 }
@@ -1435,7 +1428,7 @@ fn sub_ring_key_export(m: &ArgMatches<'_>) -> Result<()> {
 fn sub_ring_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let ring = m.value_of("RING").unwrap(); // Required via clap
     let cache_key_path = cache_key_path_from_matches(&m);
-    init();
+    init()?;
 
     command::ring::key::generate::start(ui, ring, &cache_key_path)
 }
@@ -1443,7 +1436,7 @@ fn sub_ring_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 fn sub_ring_key_import(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let mut content = String::new();
     let cache_key_path = cache_key_path_from_matches(&m);
-    init();
+    init()?;
     io::stdin().read_to_string(&mut content)?;
 
     // Trim the content to lose line feeds added by Powershell pipeline
@@ -1454,7 +1447,7 @@ fn sub_service_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let org = org_param_or_env(&m)?;
     let service_group = ServiceGroup::from_str(m.value_of("SERVICE_GROUP").unwrap())?;
     let cache_key_path = cache_key_path_from_matches(&m);
-    init();
+    init()?;
 
     command::service::key::generate::start(ui, &org, &service_group, &cache_key_path)
 }
@@ -1462,7 +1455,7 @@ fn sub_service_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 fn sub_user_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let user = m.value_of("USER").unwrap(); // Required via clap
     let cache_key_path = cache_key_path_from_matches(&m);
-    init();
+    init()?;
 
     command::user::key::generate::start(ui, user, &cache_key_path)
 }
@@ -1478,8 +1471,14 @@ async fn exec_subcommand_if_called(ui: &mut UI) -> Result<()> {
     let third = args.next().unwrap_or_default();
 
     match (first.as_str(), second.as_str(), third.as_str()) {
+        ("pkg", "export", "container") => {
+            command::pkg::export::container::start(ui, &args_after_first(4)).await
+        }
         ("pkg", "export", "docker") => {
-            command::pkg::export::docker::start(ui, &args_after_first(4)).await
+            ui.warn("'bio pkg export docker' is now a deprecated alias for 'bio pkg \
+                             export container'. Please update your automation and processes \
+                             accordingly.".to_string())?;
+            command::pkg::export::container::start(ui, &args_after_first(4)).await
         }
         ("pkg", "export", "cf") => command::pkg::export::cf::start(ui, &args_after_first(4)).await,
         ("pkg", "export", "tar") => {

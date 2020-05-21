@@ -13,7 +13,6 @@ cc = "*"
 [dependencies]
 base64 = "*"
 chrono = "*"
-configopt = { git = "https://github.com/davidMcneil/configopt" }
 dirs = "*"
 dns-lookup = "*"
 errno = "*"
@@ -21,7 +20,7 @@ hex = "*"
 lazy_static = "*"
 libarchive = "*"
 libc = "*"
-libsodium-sys = "0.0.16"
+libsodium-sys = "*"
 log = "*"
 os_info = "*"
 rand = "*"
@@ -30,15 +29,17 @@ rust-crypto = "*"
 serde = "*"
 serde_derive = "*"
 serde_json = "*"
-sodiumoxide = "0.0.16"
+sodiumoxide = "*"
 tempfile = "*"
 toml = { version = "*", default-features = false }
 typemap = "*"
 url = "*"
 
 [target.'cfg(not(windows))'.dependencies]
-users = "*"
-
+# Pulling from git until
+# https://github.com/nix-rust/nix/commit/3c2107bdc221a90b02d3f7118dd96f3496762cd0
+# is released, which will be the next release after v0.17.0
+nix = {  git = "https://github.com/nix-rust/nix.git", rev = "3c2107bdc221a90b02d3f7118dd96f3496762cd0" }
 [target.'cfg(target_os = "linux")'.dependencies]
 caps = "*"
 

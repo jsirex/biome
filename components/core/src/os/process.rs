@@ -25,7 +25,6 @@ pub use self::windows::{become_command,
                         Pid};
 use crate::{error::Error,
             util::serde_string};
-use configopt::ConfigOptToString;
 use serde_derive::{Deserialize,
                    Serialize};
 use std::{fmt,
@@ -36,7 +35,7 @@ use std::{fmt,
 /// This type encapsulates the number of seconds we should wait after
 /// send a shutdown signal to a process before we kill it.
 #[derive(Deserialize, Serialize, Eq, PartialEq, Debug, Clone, Copy, Hash)]
-#[serde(from = "u32")]
+#[serde(from = "u32", into = "u32")]
 pub struct ShutdownTimeout(u32);
 
 impl Default for ShutdownTimeout {
@@ -66,8 +65,6 @@ impl From<ShutdownTimeout> for u32 {
 impl From<ShutdownTimeout> for Duration {
     fn from(timeout: ShutdownTimeout) -> Self { Duration::from_secs(timeout.0.into()) }
 }
-
-impl ConfigOptToString for ShutdownTimeout {}
 
 // This defines a handful of Unix signals that we want to deal with,
 // but we are making it available on Windows as well for situations

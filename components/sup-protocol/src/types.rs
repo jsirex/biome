@@ -12,7 +12,6 @@ use crate::{core::{self,
             net::{self,
                   ErrCode,
                   NetErr}};
-use configopt::ConfigOptToString;
 use std::{fmt,
           str::FromStr};
 
@@ -56,8 +55,6 @@ impl fmt::Display for BindingMode {
         write!(f, "{}", value)
     }
 }
-
-impl ConfigOptToString for BindingMode {}
 
 impl fmt::Display for PackageIdent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -253,7 +250,7 @@ impl Into<core::service::ServiceGroup> for ServiceGroup {
     fn into(self) -> core::service::ServiceGroup {
         core::service::ServiceGroup::new(self.service,
                                          self.group,
-                                         self.organization.as_ref().map(String::as_str)).unwrap()
+                                         self.organization.as_deref()).unwrap()
     }
 }
 
@@ -262,9 +259,9 @@ impl Identifiable for PackageIdent {
 
     fn name(&self) -> &str { &self.name }
 
-    fn version(&self) -> Option<&str> { self.version.as_ref().map(String::as_str) }
+    fn version(&self) -> Option<&str> { self.version.as_deref() }
 
-    fn release(&self) -> Option<&str> { self.release.as_ref().map(String::as_str) }
+    fn release(&self) -> Option<&str> { self.release.as_deref() }
 }
 
 impl Topology {
@@ -291,8 +288,6 @@ impl FromStr for Topology {
 impl fmt::Display for Topology {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.as_str()) }
 }
-
-impl ConfigOptToString for Topology {}
 
 impl UpdateStrategy {
     fn as_str(&self) -> &str {
@@ -321,8 +316,6 @@ impl fmt::Display for UpdateStrategy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.as_str()) }
 }
 
-impl ConfigOptToString for UpdateStrategy {}
-
 impl UpdateCondition {
     pub const VARIANTS: &'static [&'static str] = &["latest", "track-channel"];
 
@@ -349,8 +342,6 @@ impl FromStr for UpdateCondition {
 impl fmt::Display for UpdateCondition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.as_str()) }
 }
-
-impl ConfigOptToString for UpdateCondition {}
 
 #[cfg(test)]
 mod test {

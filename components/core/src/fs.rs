@@ -31,7 +31,7 @@ pub const CACHE_PATH: &str = "hab/cache";
 /// The default download root path for package artifacts, used on package installation
 pub const CACHE_ARTIFACT_PATH: &str = "hab/cache/artifacts";
 /// The default path where cryptographic keys are stored
-pub const CACHE_KEY_PATH: &str = "hab/cache/keys";
+pub const CACHE_KEY_PATH_POSTFIX: &str = "hab/cache/keys";
 /// The default path where source artifacts are downloaded, extracted, & compiled
 pub const CACHE_SRC_PATH: &str = "hab/cache/src";
 /// The default path where SSL-related artifacts are placed
@@ -45,10 +45,11 @@ pub const LAUNCHER_ROOT_PATH: &str = "hab/launcher";
 pub const PKG_PATH: &str = "hab/pkgs";
 #[cfg(target_os = "windows")]
 pub const PKG_PATH: &str = "hab\\pkgs";
-/// The environment variable pointing to the filesystem root. This exists for internal
-/// Biome team usage and is not intended to be used by Biome consumers.
-/// Using this variable could lead to broken Supervisor services and it should
-/// be used with extreme caution.
+/// The environment variable pointing to the filesystem root. This exists for internal Biome team
+/// usage and is not intended to be used by Biome consumers. Using this variable could lead to
+/// broken Supervisor services and should be used with extreme caution. The services may break due
+/// to absolute paths in package binaries and libraries. Valid use cases include limited  testing or
+/// creating new self-contained root filesystems for tarballs or containers.
 pub const FS_ROOT_ENVVAR: &str = "FS_ROOT";
 pub const SYSTEMDRIVE_ENVVAR: &str = "SYSTEMDRIVE";
 /// The file where user-defined configuration for each service is found.
@@ -96,11 +97,28 @@ impl Default for Permissions {
 }
 
 lazy_static::lazy_static! {
-    /// The default filesystem root path.
-    ///
-    /// WARNING: On Windows this variable mutates on first call if an environment variable with
-    ///          the key of `FS_ROOT_ENVVAR` is set.
-    pub static ref FS_ROOT_PATH: PathBuf = fs_root_path();
+    /// The default filesystem root path to base all commands from. This is lazily generated on
+    /// first call and reflects on the presence and value of the environment variable keyed as
+    /// `FS_ROOT_ENVVAR`. This should be the only use of `FS_ROOT_ENVAR`. The environment variable will not
+    /// be referenced, exported, or consumed anywhere else in the system to ensure that it is **ONLY**
+    /// used internally in test suites. See `FS_ROOT_ENVVAR` documentation.
+    pub static ref FS_ROOT_PATH: PathBuf = {
+        if cfg!(target_os = "windows") {
+            match (henv::var(FS_ROOT_ENVVAR), henv::var(SYSTEMDRIVE_ENVVAR)) {
+                (Ok(path), _) => PathBuf::from(path),
+                (Err(_), Ok(system_drive)) => PathBuf::from(format!("{}{}", system_drive, "\\")),
+                (Err(_), Err(_)) => unreachable!(
+                    "Windows should always have a SYSTEMDRIVE \
+                    environment variable."
+                ),
+            }
+        } else if let Ok(root) = henv::var(FS_ROOT_ENVVAR) {
+            PathBuf::from(root)
+        } else {
+            PathBuf::from("/")
+        }
+    };
+
 
     /// The root path containing all runtime service directories and files
     pub static ref SVC_ROOT: PathBuf = {
@@ -135,16 +153,19 @@ lazy_static::lazy_static! {
         }
     };
 
-    static ref MY_CACHE_KEY_PATH: PathBuf = {
+    static ref MY_CACHE_KEY_PATH_POSTFIX: PathBuf = {
         if am_i_root() {
-            PathBuf::from(CACHE_KEY_PATH)
+            PathBuf::from(CACHE_KEY_PATH_POSTFIX)
         } else {
             match dirs::home_dir() {
-                Some(home) => home.join(format!(".{}", CACHE_KEY_PATH)),
-                None => PathBuf::from(CACHE_KEY_PATH),
+                Some(home) => home.join(format!(".{}", CACHE_KEY_PATH_POSTFIX)),
+                None => PathBuf::from(CACHE_KEY_PATH_POSTFIX),
             }
         }
     };
+
+    /// The path to the keys cache rooted at `FS_ROOT_PATH`
+    pub static ref CACHE_KEY_PATH: PathBuf = cache_key_path(&*FS_ROOT_PATH);
 
     static ref MY_CACHE_SRC_PATH: PathBuf = {
         if am_i_root() {
@@ -188,14 +209,9 @@ pub fn cache_artifact_path<T>(fs_root_path: Option<T>) -> PathBuf
     }
 }
 
-/// Returns the path to the keys cache, optionally taking a custom filesystem root.
-pub fn cache_key_path<T>(fs_root_path: Option<T>) -> PathBuf
-    where T: AsRef<Path>
-{
-    match fs_root_path {
-        Some(fs_root_path) => fs_root_path.as_ref().join(&*MY_CACHE_KEY_PATH),
-        None => Path::new(&*FS_ROOT_PATH).join(&*MY_CACHE_KEY_PATH),
-    }
+/// Returns the path to the keys cache with a custom filesystem root.
+pub fn cache_key_path(root_path: impl AsRef<Path>) -> PathBuf {
+    root_path.as_ref().join(&*MY_CACHE_KEY_PATH_POSTFIX)
 }
 
 /// Returns the path to the src cache, optionally taking a custom filesystem root.
@@ -662,51 +678,6 @@ fn find_command_with_pathext(candidate: &PathBuf) -> Option<PathBuf> {
 ///
 /// See, for example, Linux capabilities.
 pub fn am_i_root() -> bool { *EUID == 0u32 }
-
-/// Returns a `PathBuf` which represents the filesystem root for Biome.
-///
-/// **Note** with the current exception of behavior on Windows (see below), an absolute default
-/// path of `"/"` should always be returned. This function is used to populate a one-time static
-/// value which cannot be altered for the execution length of a program. Packages in Biome may
-/// contain binaries and libraries having dependent libraries which are located in absolute paths
-/// meaning that changing the value from this function will render existing packages un-runnable in
-/// the Supervisor. Furthermore as a rule in this codebase, external environment variables should
-/// *not* influence the behavior of inner libraries--any environment variables should be detected
-/// in a program at CLI parsing time and explicitly passed to inner module functions.
-///
-/// There is one exception to this rule which is supported for testing only--primarily exercising
-/// the Supervisor behavior. It allows setting a testing-only environment variable to influence the
-/// file system root for the duration of a running program.  Note that when using such an
-/// environment varible, any existing/actual Biome packages may not run correctly due to the
-/// presence of absolute paths in package binaries and libraries. The environment variable will not
-/// be referenced, exported, or consumed anywhere else in the system to ensure that it is *only*
-/// used internally in test suites.
-///
-/// Please contact a project maintainer or current owner with any questions. Thanks!
-fn fs_root_path() -> PathBuf {
-    // This behavior must never be expected, used, or counted on in production. This is explicitly
-    // unsupported.
-    if let Ok(path) = henv::var("TESTING_FS_ROOT") {
-        writeln!(io::stderr(),
-                 "DEBUG: setting custom filesystem root for testing only (TESTING_FS_ROOT='{}')",
-                 &path).expect("Could not write to stderr");
-        return PathBuf::from(path);
-    }
-
-    // JW TODO: When Windows container studios are available the platform reflection should
-    // be removed.
-    if cfg!(target_os = "windows") {
-        match (henv::var(FS_ROOT_ENVVAR), henv::var(SYSTEMDRIVE_ENVVAR)) {
-            (Ok(path), _) => PathBuf::from(path),
-            (Err(_), Ok(system_drive)) => PathBuf::from(format!("{}{}", system_drive, "\\")),
-            (Err(_), Err(_)) => {
-                unreachable!("Windows should always have a SYSTEMDRIVE environment variable.")
-            }
-        }
-    } else {
-        PathBuf::from("/")
-    }
-}
 
 /// parent returns the parent directory of the given path, accounting
 /// for the fact that a relative path with no directory separator

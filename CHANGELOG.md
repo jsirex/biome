@@ -1,16 +1,55 @@
 # Habitat CHANGELOG
 
-<!-- latest_release 1.6.2 -->
-## [1.6.2](https://github.com/habitat-sh/habitat/tree/1.6.2) (2020-04-24)
+<!-- latest_release 1.6.34 -->
+## [1.6.34](https://github.com/habitat-sh/habitat/tree/1.6.34) (2020-05-20)
 
 #### Merged Pull Requests
-- New Documentation Component [#7544](https://github.com/habitat-sh/habitat/pull/7544) ([kagarmoe](https://github.com/kagarmoe))
+- Update rust and dependencies [#7575](https://github.com/habitat-sh/habitat/pull/7575) ([davidMcneil](https://github.com/davidMcneil))
 <!-- latest_release -->
 
 <!-- release_rollup since=1.6.0 -->
 ### Changes since 1.6.0 release
 
+#### Behavioral Changes
+- `hab pkg export docker` is now `hab pkg export container` [#7674](https://github.com/habitat-sh/habitat/pull/7674) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.21 -->
+
+#### New Features & Enhancements
+- Add Bulidah as an engine for unprivileged container builds [#7685](https://github.com/habitat-sh/habitat/pull/7685) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.28 -->
+- Config file support for `hab sup run` [#7658](https://github.com/habitat-sh/habitat/pull/7658) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.15 -->
+
 #### Merged Pull Requests
+- Update rust and dependencies [#7575](https://github.com/habitat-sh/habitat/pull/7575) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.34 -->
+- Add several `ok_***` macros for each logging level [#7700](https://github.com/habitat-sh/habitat/pull/7700) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.33 -->
+- Revert ZMQ Update [#7701](https://github.com/habitat-sh/habitat/pull/7701) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.32 -->
+- supervisor config doc [#7675](https://github.com/habitat-sh/habitat/pull/7675) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.31 -->
+- core: move from users to nix crate [#7620](https://github.com/habitat-sh/habitat/pull/7620) ([stevendanna](https://github.com/stevendanna)) <!-- 1.6.30 -->
+- Statically compile the Launcher on Linux [#7688](https://github.com/habitat-sh/habitat/pull/7688) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.29 -->
+- Upgrade ZMQ dependency off of our fork  [#7681](https://github.com/habitat-sh/habitat/pull/7681) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.27 -->
+- Fix minimum health check interval [#7683](https://github.com/habitat-sh/habitat/pull/7683) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.26 -->
+- Update sodiumoxide dependency [#7680](https://github.com/habitat-sh/habitat/pull/7680) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.25 -->
+- REFACTOR: Remove ImageBuilder struct [#7682](https://github.com/habitat-sh/habitat/pull/7682) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.24 -->
+- [REFACTOR] Introduce &quot;Engine&quot; abstraction to `hab pkg export container` [#7677](https://github.com/habitat-sh/habitat/pull/7677) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.23 -->
+- Cleanup health checking [#7676](https://github.com/habitat-sh/habitat/pull/7676) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.22 -->
+- Remove duplicated serialization logic in SvcMember [#7673](https://github.com/habitat-sh/habitat/pull/7673) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.20 -->
+- [REFACTOR] Use TryFrom for BuildSpec [#7669](https://github.com/habitat-sh/habitat/pull/7669) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.19 -->
+- [REFACTOR]  Factor out an Identified trait for DockerBuilder and DockerImage [#7668](https://github.com/habitat-sh/habitat/pull/7668) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.18 -->
+- [REFACTOR] Extract and consolidate naming data for Docker exporter [#7659](https://github.com/habitat-sh/habitat/pull/7659) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.17 -->
+- [REFACTOR] Remove some lifetimes to simplify Docker exporter [#7660](https://github.com/habitat-sh/habitat/pull/7660) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.16 -->
+- Correct bootstrap typo [#7665](https://github.com/habitat-sh/habitat/pull/7665) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.6.14 -->
+- Update MacOS Bootstrapper version [#7663](https://github.com/habitat-sh/habitat/pull/7663) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.6.13 -->
+- Bump jquery from 3.4.1 to 3.5.0 in /components/habitat-chef-io/themes/docs-new [#7656](https://github.com/habitat-sh/habitat/pull/7656) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.12 -->
+- [CI] Fix e2e test that broke after the core plans refresh [#7661](https://github.com/habitat-sh/habitat/pull/7661) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.11 -->
+- [REFACTOR] Use FullyQualifiedPackageIdent in Docker exporter [#7657](https://github.com/habitat-sh/habitat/pull/7657) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.10 -->
+- [REFACTOR] Docker Exporter CLI consolidation, cleanup [#7654](https://github.com/habitat-sh/habitat/pull/7654) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.10 -->
+- [REFACTOR] Push Windows Docker Engine check earlier [#7655](https://github.com/habitat-sh/habitat/pull/7655) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.10 -->
+- [TYPO] Gigabytes are &quot;gb&quot;, not &quot;bg&quot; [#7652](https://github.com/habitat-sh/habitat/pull/7652) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.9 -->
+- Cleanup `FS_ROOT` [#7642](https://github.com/habitat-sh/habitat/pull/7642) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.8 -->
+- Cargo Update [#7633](https://github.com/habitat-sh/habitat/pull/7633) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.7 -->
+- [CI] Ensure release pipeline is not poisoned by old dependencies [#7650](https://github.com/habitat-sh/habitat/pull/7650) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.6 -->
+- Post-refresh cleanup [#7648](https://github.com/habitat-sh/habitat/pull/7648) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.5 -->
+- Update configopt [#7600](https://github.com/habitat-sh/habitat/pull/7600) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.4 -->
+- Automated update of Habitat Documentation [#7632](https://github.com/habitat-sh/habitat/pull/7632) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.4 -->
+- Rustfmt and Nightly Rust Bump to nightly-2020-04-21 [#7631](https://github.com/habitat-sh/habitat/pull/7631) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.3 -->
 - New Documentation Component [#7544](https://github.com/habitat-sh/habitat/pull/7544) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.2 -->
 - Update changelog post 1.6.0 [#7630](https://github.com/habitat-sh/habitat/pull/7630) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.1 -->
 <!-- release_rollup -->

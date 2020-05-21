@@ -1,10 +1,13 @@
 use super::util::{CacheKeyPath,
+                  ConfigOptCacheKeyPath,
+                  ConfigOptRemoteSup,
                   RemoteSup};
 use crate::cli::file_exists;
+use configopt::ConfigOpt;
 use biome_core::service::ServiceGroup;
 use structopt::StructOpt;
 
-#[derive(StructOpt)]
+#[derive(ConfigOpt, StructOpt)]
 #[structopt(no_version)]
 /// Commands relating to Biome files
 pub enum File {
