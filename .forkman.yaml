@@ -70,6 +70,8 @@ patterns:
   habitat-sh/release-engineering: habitat-sh/release-engineering
   habitat-sh/habitat-example-plans: habitat-sh/habitat-example-plans
   habitat-sh/homebrew-habitat: habitat-sh/homebrew-habitat
+  habitat-sh/clap: habitat-sh/clap
+  habitat-sh/structopt: habitat-sh/structopt
 
   # Source code and raw content (direct links)
   'https://raw.githubusercontent.com/habitat-sh/habitat': 'https://raw.githubusercontent.com/habitat-sh/habitat'

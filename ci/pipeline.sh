@@ -15,7 +15,7 @@ PACKAGES=(
     components/backline
     components/studio
 
-    components/pkg-export-docker
+    components/pkg-export-container
     components/pkg-cfize
     components/pkg-export-tar
     components/pkg-mesosize
