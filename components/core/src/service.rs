@@ -1,6 +1,5 @@
 use crate::error::{Error,
                    Result};
-use configopt::ConfigOptToString;
 use regex::Regex;
 use serde_derive::{Deserialize,
                    Serialize};
@@ -256,7 +255,16 @@ impl FromStr for ServiceGroup {
 }
 
 /// Represents how far apart to run health checks for individual services
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug,
+         Clone,
+         Copy,
+         Ord,
+         PartialOrd,
+         PartialEq,
+         Eq,
+         Hash,
+         Serialize,
+         Deserialize)]
 pub struct HealthCheckInterval(Duration);
 
 impl HealthCheckInterval {
@@ -276,8 +284,6 @@ impl fmt::Display for HealthCheckInterval {
         write!(f, "({}s)", self.0.as_secs())
     }
 }
-
-impl ConfigOptToString for HealthCheckInterval {}
 
 impl Default for HealthCheckInterval {
     fn default() -> Self { Self::from(30) }

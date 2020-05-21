@@ -4,9 +4,9 @@ extern crate log;
 use env_logger;
 use biome_common::ui::{UIWriter,
                          UI};
-use biome_pkg_export_docker::{cli,
-                                export_for_cli_matches,
-                                Result};
+use biome_pkg_export_container::{cli,
+                                   export_for_cli_matches,
+                                   Result};
 
 #[tokio::main]
 async fn main() {

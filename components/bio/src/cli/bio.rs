@@ -13,26 +13,40 @@ mod svc;
 #[cfg(test)]
 mod tests;
 mod user;
-mod util;
+pub mod util;
 
-use self::{bldr::Bldr,
-           cli::Cli,
-           config::ServiceConfig,
-           file::File,
-           license::License,
-           origin::Origin,
-           pkg::Pkg,
-           plan::Plan,
-           ring::Ring,
-           studio::Studio,
-           sup::Sup,
-           svc::Svc,
-           user::User};
+use self::{bldr::{Bldr,
+                  ConfigOptBldr},
+           cli::{Cli,
+                 ConfigOptCli},
+           config::{ConfigOptServiceConfig,
+                    ServiceConfig},
+           file::{ConfigOptFile,
+                  File},
+           license::{ConfigOptLicense,
+                     License},
+           origin::{ConfigOptOrigin,
+                    Origin},
+           pkg::{ConfigOptPkg,
+                 Pkg},
+           plan::{ConfigOptPlan,
+                  Plan},
+           ring::{ConfigOptRing,
+                  Ring},
+           studio::{ConfigOptStudio,
+                    Studio},
+           sup::{ConfigOptSup,
+                 Sup},
+           svc::{ConfigOptSvc,
+                 Svc},
+           user::{ConfigOptUser,
+                  User}};
 use crate::VERSION;
+use configopt::ConfigOpt;
 use structopt::{clap::AppSettings,
                 StructOpt};
 
-#[derive(StructOpt)]
+#[derive(ConfigOpt, StructOpt)]
 #[structopt(name = "bio",
             version = VERSION,
             about = "\"A Biome is the natural environment for your services\" - Alan Turing",

@@ -1,24 +1,26 @@
 # shellcheck disable=2154
-pkg_name=bio-pkg-export-docker
+pkg_name=bio-pkg-export-container
 _pkg_distname=$pkg_name
 pkg_origin=biome
 pkg_maintainer="The Biome Maintainers <humans@biome.sh>"
 pkg_license=('Apache-2.0')
-# The result is a portable, static binary. However, we shell out to the
-# Docker command which we need at runtime.
-pkg_deps=(core/docker)
-pkg_build_deps=(core/musl
-                core/zlib-musl
-                core/xz-musl
-                core/bzip2-musl
-                core/libarchive-musl
-                core/openssl-musl
-                core/libsodium-musl
-                core/coreutils
-                core/rust/"$(cat "$SRC_PATH/../../rust-toolchain")"
-                core/gcc
-                core/make
-                core/protobuf)
+pkg_deps=(
+    core/buildah
+    core/docker
+)
+pkg_build_deps=(
+    core/musl
+    core/zlib-musl
+    core/xz-musl
+    core/bzip2-musl
+    core/libarchive-musl
+    core/openssl-musl
+    core/coreutils
+    core/rust/"$(cat "$SRC_PATH/../../rust-toolchain")"
+    core/gcc
+    core/make
+    core/protobuf
+)
 pkg_bin_dirs=(bin)
 
 bin=$_pkg_distname
@@ -75,8 +77,6 @@ do_prepare() {
   export OPENSSL_LIB_DIR=$(pkg_path_for openssl-musl)/lib
   export OPENSSL_INCLUDE_DIR=$(pkg_path_for openssl-musl)/include
   export OPENSSL_STATIC=true
-  export SODIUM_LIB_DIR=$(pkg_path_for libsodium-musl)/lib
-  export SODIUM_STATIC=true
 
   # Used to find libgcc_s.so.1 when compiling `build.rs` in dependencies. Since
   # this used only at build time, we will use the version found in the gcc

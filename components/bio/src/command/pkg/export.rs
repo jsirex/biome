@@ -4,7 +4,7 @@ use biome_core::{package::PackageIdent,
                    ChannelIdent};
 
 pub mod cf;
-pub mod docker;
+pub mod container;
 pub mod tar;
 
 mod export_common;
@@ -75,7 +75,7 @@ mod inner {
                        ident: &PackageIdent,
                        format: &ExportFormat)
                        -> Result<()> {
-        init();
+        init()?;
         let command = exec::command_from_min_pkg(ui, format.cmd(), format.pkg_ident()).await?;
 
         if let Some(cmd) = find_command(command.to_string_lossy().as_ref()) {

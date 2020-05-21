@@ -1,5 +1,5 @@
 [package]
-name = "biome_pkg_export_docker"
+name = "biome_pkg_export_container"
 version = "0.0.0"
 edition = "2018"
 authors = ["The Biome Maintainers <humans@biome.sh>"]
@@ -7,16 +7,16 @@ build = "build.rs"
 workspace = "../../"
 
 [lib]
-name = "biome_pkg_export_docker"
+name = "biome_pkg_export_container"
 
 [[bin]]
-name = "bio-pkg-export-docker"
+name = "bio-pkg-export-container"
 path = "src/main.rs"
 doc = false
 
 [dependencies]
 base64 = "*"
-clap = { version = "*", features = ["suggestions", "color", "unstable"] }
+clap = { git = "https://github.com/habitat-sh/clap.git", branch = "v2-master", features = ["suggestions", "color", "unstable"] }
 env_logger = "*"
 bio = { path = "../bio" }
 biome_common = { path = "../common" }

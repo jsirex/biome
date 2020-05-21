@@ -6,22 +6,15 @@ pkg_license=('Apache-2.0')
 pkg_description="Biome Cloud Foundry image exporter"
 pkg_upstream_url="https://github.com/biome-sh/biome"
 
-# Docker is actually also pulled in by bio-pkg-export-docker, but we
+# Docker is actually also pulled in by bio-pkg-export-container, but we
 # explicitly call it here, so it's a dependency. Docker doesn't have
 # any dependencies, so we can unpin here without worrying about
 # getting dependency conflicts.
-#
-# We're pinning the other dependencies to their pre base-plans refresh
-# versions for the time being for explicitness, due to a bug in how
-# `bio pkg install` works in the context of our release pipeline.
-#
-# It's a bit of a moot point, though, since Docker's not going to run
-# on older kernels anyway.
 pkg_deps=(core/coreutils
           core/findutils
           core/grep
           core/gawk
-          biome/bio-pkg-export-docker
+          biome/bio-pkg-export-container
           core/docker)
 pkg_bin_dirs=(bin)
 

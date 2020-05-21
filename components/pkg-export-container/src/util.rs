@@ -6,7 +6,6 @@ use std::{fs::{self,
           io::Write,
           path::{Path,
                  PathBuf}};
-
 const BIN_PATH: &str = "/bin";
 
 /// Returns the `bin` path used for symlinking programs.

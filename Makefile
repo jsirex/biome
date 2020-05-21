@@ -1,6 +1,6 @@
 UNAME_S := $(shell uname -s)
 HAS_DOCKER := $(shell command -v docker 2> /dev/null)
-TESTING_FS_ROOT := $(shell mktemp -d /tmp/testing-fs-root-XXXXXX)
+FS_ROOT := $(shell mktemp -d /tmp/testing-fs-root-XXXXXX)
 ifneq (${IN_DOCKER},)
 	IN_DOCKER := ${IN_DOCKER}
 else ifeq ($(UNAME_S),Darwin)
@@ -43,7 +43,7 @@ endif
 
 # launcher is intentionally omitted from the standard build process
 # see https://github.com/habitat-sh/habitat/blob/master/components/launcher/README.md
-BIN = bio pkg-export-docker sup
+BIN = bio pkg-export-container sup
 LIB = butterfly common builder-api-client sup-protocol sup-client
 ALL = $(BIN) $(LIB)
 VERSION := $(shell cat VERSION)
@@ -167,7 +167,7 @@ $(foreach component,$(ALL),$(eval $(call BUILD,$(component))))
 
 define UNIT
 unit-$1: image ## executes the $1 component's unit test suite
-	$(run) sh -c 'cd components/$1 && TESTING_FS_ROOT=$(TESTING_FS_ROOT) cargo test $(CARGO_FLAGS)'
+	$(run) sh -c 'cd components/$1 && FS_ROOT=$(FS_ROOT) cargo test $(CARGO_FLAGS)'
 .PHONY: unit-$1
 endef
 $(foreach component,$(ALL),$(eval $(call UNIT,$(component))))
@@ -182,9 +182,9 @@ unit-sup: build-launcher-for-supervisor-tests
 TOOLCHAIN := $(shell cat rust-toolchain)
 lint: image ## executes the $1 component's linter checks
 	$(run) .expeditor/scripts/verify/run_clippy.sh $(TOOLCHAIN) support/unexamined_lints.txt \
-	                                       support/allowed_lints.txt \
-	                                       support/lints_to_fix.txt \
-	                                       support/denied_lints.txt
+										   support/allowed_lints.txt \
+										   support/lints_to_fix.txt \
+										   support/denied_lints.txt
 .PHONY: lint
 
 define FUNCTIONAL
