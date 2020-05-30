@@ -167,8 +167,8 @@ if ($IsLinux) {
     Describe "bio pkg export container --engine=buildah" {
         It "Runs successfully" {
             $tag = New-CustomTag
-            bio pkg export container core/nginx --engine=buildah --tag-custom="$tag"
-            bio pkg exec core/buildah buildah rmi "core/nginx:$tag"
+            Invoke-NativeCommand bio pkg export container core/nginx --engine=buildah --tag-custom="$tag"
+            Invoke-NativeCommand bio pkg exec core/buildah buildah rmi "core/nginx:$tag"
         }
     }
 }
