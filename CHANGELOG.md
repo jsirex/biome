@@ -1,14 +1,26 @@
 # Habitat CHANGELOG
 
-<!-- latest_release 1.6.34 -->
-## [1.6.34](https://github.com/habitat-sh/habitat/tree/1.6.34) (2020-05-20)
+<!-- latest_release 1.6.42 -->
+## [1.6.42](https://github.com/habitat-sh/habitat/tree/1.6.42) (2020-05-28)
 
 #### Merged Pull Requests
-- Update rust and dependencies [#7575](https://github.com/habitat-sh/habitat/pull/7575) ([davidMcneil](https://github.com/davidMcneil))
+- [CI] Re-enable skipped verify builds affected by core-plans refresh  [#7649](https://github.com/habitat-sh/habitat/pull/7649) ([christophermaier](https://github.com/christophermaier))
 <!-- latest_release -->
 
-<!-- release_rollup since=1.6.0 -->
-### Changes since 1.6.0 release
+<!-- release_rollup since=1.6.39 -->
+### Changes since 1.6.39 release
+
+#### Merged Pull Requests
+- [CI] Re-enable skipped verify builds affected by core-plans refresh  [#7649](https://github.com/habitat-sh/habitat/pull/7649) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.42 -->
+- Rustfmt and Nightly Rust Bump to nightly-2020-05-15 [#7713](https://github.com/habitat-sh/habitat/pull/7713) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.42 -->
+- Cargo Update [#7715](https://github.com/habitat-sh/habitat/pull/7715) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.41 -->
+- Automated update of Habitat Documentation [#7714](https://github.com/habitat-sh/habitat/pull/7714) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.41 -->
+- Update Changelog [#7716](https://github.com/habitat-sh/habitat/pull/7716) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.40 -->
+<!-- release_rollup -->
+
+<!-- latest_stable_release -->
+## [1.6.39](https://github.com/habitat-sh/habitat/tree/1.6.39) (2020-05-28)
+[Full Changelog](https://github.com/habitat-sh/habitat/compare/1.6.0..1.6.39)
 
 #### Behavioral Changes
 - `hab pkg export docker` is now `hab pkg export container` [#7674](https://github.com/habitat-sh/habitat/pull/7674) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.21 -->
@@ -18,6 +30,11 @@
 - Config file support for `hab sup run` [#7658](https://github.com/habitat-sh/habitat/pull/7658) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.15 -->
 
 #### Merged Pull Requests
+- Add a signature policy file for Buildah exports [#7711](https://github.com/habitat-sh/habitat/pull/7711) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.39 -->
+- Revert &quot;Merge pull request #7688 from habitat-sh/cm/static-launcher&quot; [#7709](https://github.com/habitat-sh/habitat/pull/7709) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.38 -->
+- Use docker executor for kernel2 verify [#7707](https://github.com/habitat-sh/habitat/pull/7707) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.6.37 -->
+- Feature/windows logging [#7691](https://github.com/habitat-sh/habitat/pull/7691) ([collinmcneese](https://github.com/collinmcneese)) <!-- 1.6.36 -->
+- [CI] Build kernel2 packages in verify stage [#7706](https://github.com/habitat-sh/habitat/pull/7706) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.35 -->
 - Update rust and dependencies [#7575](https://github.com/habitat-sh/habitat/pull/7575) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.34 -->
 - Add several `ok_***` macros for each logging level [#7700](https://github.com/habitat-sh/habitat/pull/7700) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.33 -->
 - Revert ZMQ Update [#7701](https://github.com/habitat-sh/habitat/pull/7701) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.32 -->
@@ -52,9 +69,7 @@
 - Rustfmt and Nightly Rust Bump to nightly-2020-04-21 [#7631](https://github.com/habitat-sh/habitat/pull/7631) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.3 -->
 - New Documentation Component [#7544](https://github.com/habitat-sh/habitat/pull/7544) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.2 -->
 - Update changelog post 1.6.0 [#7630](https://github.com/habitat-sh/habitat/pull/7630) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.1 -->
-<!-- release_rollup -->
 
-<!-- latest_stable_release -->
 ## [1.6.0](https://github.com/habitat-sh/habitat/tree/1.6.0) (2020-04-20)
 [Full Changelog](https://github.com/habitat-sh/habitat/compare/1.5.86...1.6.0)
 
@@ -75,7 +90,6 @@
 - Cargo Update [#7609](https://github.com/habitat-sh/habitat/pull/7609) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.5.92 -->
 - Prepare e2e tests for powershell 7.0 [#7588](https://github.com/habitat-sh/habitat/pull/7588) ([mwrock](https://github.com/mwrock)) <!-- 1.5.91 -->
 - update changelog for 1.5.86 [#7610](https://github.com/habitat-sh/habitat/pull/7610) ([mwrock](https://github.com/mwrock)) <!-- 1.5.90 -->
-<!-- latest_stable_release -->
 
 ## [1.5.86](https://github.com/habitat-sh/habitat/tree/1.5.86) (2020-04-08)
 [Full Changelog](https://github.com/habitat-sh/habitat/compare/1.5.71...1.5.86)
