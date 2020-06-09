@@ -8,7 +8,7 @@ param (
 
 # # License and Copyright
 # ```
-# Biome project based on Chef Habitat's code © 2016 – 2020 Chef Software, Inc
+# Biome project based on Chef Habitat's code © 2016–2020 Chef Software, Inc
 # License: Apache License, Version 2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
