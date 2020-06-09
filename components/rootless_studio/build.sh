@@ -16,3 +16,6 @@ docker build \
        --build-arg BIO_VERSION="$BIO_VERSION" \
        --build-arg PACKAGE_TARGET="$PACKAGE_TARGET" \
        ./default
+
+docker push biomesh/bio-"$PACKAGE_TARGET":"$BIO_VERSION"
+docker push biomesh/default-studio-"$PACKAGE_TARGET":"$BIO_VERSION"
