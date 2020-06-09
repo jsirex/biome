@@ -149,7 +149,7 @@ Participation in the Biome community is governed by the [code of conduct](https:
 
 ## License
 
-Biome project based on Chef Habitat's code © 2016 – 2020 Chef Software, Inc
+Biome project based on Chef Habitat's code © 2016–2020 Chef Software, Inc
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
