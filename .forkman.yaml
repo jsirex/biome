@@ -5,17 +5,18 @@
 patterns:
 
   # Copyright exactly as recommendation from Chef Company
-  'Copyright (c) 2016 Chef Software Inc. and/or applicable contributors': "Biome project based on Chef Habitat's code © 2016 – 2020 Chef Software, Inc"
-  'Copyright: Copyright (c) 2017 Chef Software, Inc.': "Biome project based on Chef Habitat's code © 2016 – 2020 Chef Software, Inc"
-  'Copyright (c) 2016-2019 Chef Software Inc. and/or applicable contributors': "Biome project based on Chef Habitat's code © 2016 – 2020 Chef Software, Inc"
-  'Copyright 2015-2019 Chef Software Inc. and/or applicable contributors': "Biome project based on Chef Habitat's code © 2016 – 2020 Chef Software, Inc"
-  'Copyright (c) 2015-2016 The Habitat Maintainers': "Biome project based on Chef Habitat's code © 2016 – 2020 Chef Software, Inc"
+  'Copyright (c) 2016 Chef Software Inc. and/or applicable contributors': "Biome project based on Chef Habitat's code © 2016–2020 Chef Software, Inc"
+  'Copyright: Copyright (c) 2017 Chef Software, Inc.': "Biome project based on Chef Habitat's code © 2016–2020 Chef Software, Inc"
+  'Copyright (c) 2016-2019 Chef Software Inc. and/or applicable contributors': "Biome project based on Chef Habitat's code © 2016–2020 Chef Software, Inc"
+  'Copyright 2015-2019 Chef Software Inc. and/or applicable contributors': "Biome project based on Chef Habitat's code © 2016–2020 Chef Software, Inc"
+  'Copyright (c) 2015-2016 The Habitat Maintainers': "Biome project based on Chef Habitat's code © 2016–2020 Chef Software, Inc"
 
   'Chef license agreement': 'Biome license agreement'
   'Chef License Acceptance': 'Biome License Acceptance'
   'Chef products': 'Biome products'
   'Chef Automate': 'Cinc Automate'
   'Chef Binary Distribution': 'Biome Binary Distribution'
+  'Chef Habitat': 'Biome'
 
   'https://github.com/chef/license-acceptance': 'https://github.com/biome-sh/biome'
   'https://www.chef.io/end-user-license-agreement': 'https://github.com/biome-sh/biome'
@@ -97,7 +98,6 @@ patterns:
   # Github Source: Replace
   habitat-sh/habitat: biome-sh/biome
 
-
   'The Habitat-Sh Installation Id is 56940': 'The Habitat-Sh Installation Id is 56940'
   'The Habitat Dev App Id is 5629': 'The Habitat Dev App Id is 5629'
 
@@ -171,7 +171,6 @@ patterns:
   pkg_path_for hab: pkg_path_for bio
   Get-HabPackagePath habitat: Get-HabPackagePath biome
   Get-HabPackagePath hab: Get-HabPackagePath bio
-
 
   # Constants in tests
   habitat/builder-api-proxy: biome/builder-api-proxy
@@ -555,6 +554,10 @@ patterns:
   # Generic rules, keep last
   # Coincidence
   reachable: reachable
+  alphabet: alphabet
+  searchable: searchable
+  dispatchable: dispatchable
+
   'hab::': 'bio::'
   hab_: bio_
   'hab:': 'bio:'
@@ -595,7 +598,6 @@ deletes:
   - CHANGELOG_FAKE.md
   - BUILDING.md
   - .github
-  - .mailmap
 
   # Remove stock travis and other ci-s
   - .travis.yml
