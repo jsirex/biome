@@ -11,6 +11,11 @@ setup: $(addprefix /hab/bin/,git pre-commit tomlcheck shellcheck)
 setup: $(addprefix /hab/bin/bio-plan-,tomlcheck shellcheck rendercheck)
 .PHONY: setup
 
+dist: /.studio
+	@. results/bio.env && cp /hab/pkgs/$$pkg_ident/bin/bio results/$pkg_name-$pkg_version-$pkg_target
+
+.PHONY: dist
+
 pre-commit:
 	@pre-commit run -a
 
@@ -58,7 +63,7 @@ promote-stable/%:
 	@bio pkg install -fb core/shellcheck
 
 /hab/bin/bio-plan-%:
-	@bio pkg install -fb ya/bio-sdk
+	@bio pkg install -fb biome/bio-sdk
 
 # Studio guard: fail build if we are not in studio
 /.studio:

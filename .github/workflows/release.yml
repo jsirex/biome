@@ -2,29 +2,128 @@ name: release
 
 on:
   release:
-    types: [created]
+    types: [published]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  package:
-    # The type of runner that the job will run on
-    runs-on: ${{ matrix.platform }}
-    strategy:
-      fail-fast: true
-      matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
-    # Steps represent a sequence of tasks that will be executed as part of the job
+
+  package-linux:
+    runs-on: ubuntu-latest
+
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+      - uses: actions/checkout
 
-    # Runs a single command using the runners shell
-    - name: Run a one-line script
-      run: git status
+      - name: Install Linux Biome
+        run: |
+          curl https://raw.githubusercontent.com/biome-sh/biome/master/components/bio/install-linux.sh | sudo bash
 
-    - name: Describe event
-      run: |
-        echo ${{ github.event }}
-        echo ${{ github.ref }}
-        echo ${{ github.event.upload_url }}
+      - name: Install Signing Keys
+        run: |
+          bio origin key download biome
+          bio origin key download -s -z $HAB_AUTH_TOKEN biome
+
+      - name: Setup Studio and Tools
+        run: |
+          bio studio run 'make -f ci/Makefile setup'
+
+      - name: Build and Package
+        run: |
+          bio studio run 'make -f ci/Makefile all dist upload'
+
+      - name: Get package info
+        run: |
+          cat results/bio.env | sed 's/\(.*\)=\(.*\)/::set-env name=\1::\2/'
+
+      - name: Upload Linux Biome
+        uses: actions/upload-release-asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.upload_url }}
+          asset_path: results/$pkg_name-$pkg_version-$pkg_target
+          asset_name: $pkg_name-$pkg_version-$pkg_target
+
+      - name: Promote to stable
+        run: |
+          bio studio run 'make -f ci/Makefile promote-stable'
+
+  # package-darwin:
+  #   runs-on: darwin-latest
+
+  #   steps:
+  #     - uses: actions/checkout
+
+  #     - name: Install MacOS Biome
+  #       run: |
+  #         curl https://raw.githubusercontent.com/biome-sh/biome/master/components/bio/install-darwin.sh | sudo bash
+
+  #     - name: Install Signing Keys
+  #       run: |
+  #         bio origin key download biome
+  #         bio origin key download -s -z $HAB_AUTH_TOKEN biome
+
+  #     # - name: Setup Studio and Tools
+  #     #   run: |
+  #     #     bio studio run 'make -f ci/Makefile.darwin setup'
+
+  #     - name: Build and Package
+  #       run: |
+  #         bio studio run 'make -f ci/Makefile.darwin all dist'
+
+  #     - name: Get package info
+  #       run: |
+  #         cat results/bio.env | sed 's/\(.*\)=\(.*\)/::set-env name=\1::\2/'
+
+  #     - name: Upload Darwin Biome
+  #       uses: actions/upload-release-asset
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         upload_url: ${{ github.event.upload_url }}
+  #         asset_path: results/$pkg_name-$pkg_version-$pkg_target.zip
+  #         asset_name: $pkg_name-$pkg_version-$pkg_target.zip
+
+  #     - name: Promote to stable
+  #       run: |
+  #         bio studio run 'make -f ci/Makefile.darwin promote-stable'
+
+  # package-windows:
+  #   runs-on: windows-latest
+
+  #   steps:
+  #     - uses: actions/checkout
+
+  #     - name: Install Windows Biome
+  #       run: |
+  #         Set-ExecutionPolicy Bypass -Scope Process -Force
+  #         iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/biome-sh/biome/master/components/bio/install-windows.ps1'))
+
+  #     - name: Install Signing Keys
+  #       run: |
+  #         bio.exe origin key download biome
+  #         bio.exe origin key download -s -z $HAB_AUTH_TOKEN biome
+
+  #     # - name: Setup Studio and Tools
+  #     #   run: |
+  #     #     bio.exe studio run 'make -f ci/Makefile.windows setup'
+
+  #     - name: Build and Package
+  #       run: |
+  #         bio.exe studio run 'make -f ci/Makefile.windows build dist'
+
+  #     - name: Get package info
+  #       run: |
+  #         Get-Content results/bio.env | sed 's/\(.*\)=\(.*\)/::set-env name=\1::\2/'
+
+  #     - name: Upload Windows Biome
+  #       uses: actions/upload-release-asset
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         upload_url: ${{ github.event.upload_url }}
+  #         asset_path: results/$pkg_name-$pkg_version-$pkg_target.zip
+  #         asset_name: $pkg_name-$pkg_version-$pkg_target.zip
+
+  #     - name: Promote to stable
+  #       run: |
+  #         bio studio run 'make -f ci/Makefile.windows promote-stable'
+
