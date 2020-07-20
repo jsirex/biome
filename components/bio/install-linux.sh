@@ -6,14 +6,16 @@ set -eou pipefail
 if [ -n "${DEBUG:-}" ]; then set -x; fi
 
 BIO_BINARY_URL=https://github.com/biome-sh/biome/releases/download/bio-1.6.42/bio-1.6.42-x86_64-linux
-BIO_BINARY_PATH=/tmp/$(basename "$BIO_BINARY_URL")
+BIO_BINARY_SHA256="2f18fc905330783f70f52d6c9a7f103b4b4c3122159e6c4e3e26507c842016c1"
+BIO_BINARY_PATH=/usr/local/bio-1.6.42/bin/bio
 
-if [ -x $BIO_BINARY_PATH ]; then
-    echo "Using cached binary"
+if echo "$BIO_BINARY_SHA256 $BIO_BINARY_PATH" | sha256sum -c 2>&1 > /dev/null; then
+    echo "Biome bootstrap binary is already installed."
 else
+    echo "Downloading Biome bootstrap binary."
+    mkdir -p "$(dirname "$BIO_BINARY_PATH")"
     curl -sSL "$BIO_BINARY_URL" > "$BIO_BINARY_PATH"
+    chmod +x "$BIO_BINARY_PATH"
 fi
-
-chmod +x "$BIO_BINARY_PATH"
 
 "$BIO_BINARY_PATH" pkg install -fb biome/bio
