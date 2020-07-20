@@ -19,8 +19,6 @@ use biome_common::{output::{self,
                               StructuredOutput},
                      ui::UIWriter,
                      PROGRAM_NAME};
-use biome_core;
-use biome_sup_protocol;
 use std::{fmt,
           fs::{self,
                File},

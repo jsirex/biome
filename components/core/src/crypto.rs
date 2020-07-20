@@ -215,8 +215,6 @@ pub use self::keys::{box_key_pair::BoxKeyPair,
                      sym_key::SymKey};
 use crate::error::{Error,
                    Result};
-use crypto;
-use sodiumoxide;
 
 /// The suffix on the end of a public sig/box file
 pub static PUBLIC_KEY_SUFFIX: &str = "pub";
@@ -235,9 +233,6 @@ pub static CACHE_KEY_PATH_ENV_VAR: &str = "HAB_CACHE_KEY_PATH";
 pub static HART_FORMAT_VERSION: &str = "HART-1";
 pub static BOX_FORMAT_VERSION: &str = "BOX-1";
 pub static ANONYMOUS_BOX_FORMAT_VERSION: &str = "ANONYMOUS-BOX-1";
-/// Create secret key files with these permissions
-#[cfg(not(windows))]
-static KEY_PERMISSIONS: u32 = 0o400;
 
 pub const PUBLIC_SIG_KEY_VERSION: &str = "SIG-PUB-1";
 pub const SECRET_SIG_KEY_VERSION: &str = "SIG-SEC-1";

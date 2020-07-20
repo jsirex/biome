@@ -4,7 +4,6 @@ use biome_common::{outputln,
                      types::{GossipListenAddr,
                              HttpListenAddr,
                              ListenCtlAddr}};
-use biome_core;
 use std::{net::{IpAddr,
                 SocketAddr},
           str};

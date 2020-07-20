@@ -3,11 +3,11 @@ PLANS := components/bio components/launcher components/sup components/plan-build
 
 .DEFAULT_GOAL := all
 all: tomlcheck shellcheck rendercheck build
-.PHONY: all pre-commit tomlcheck shellcheck rendercheck build
+.PHONY: all tomlcheck shellcheck rendercheck build
 .PHONY: upload promote-testing promote-stable
 
 setup: /.studio
-setup: $(addprefix /hab/bin/,git pre-commit tomlcheck shellcheck)
+setup: $(addprefix /hab/bin/,git tomlcheck shellcheck)
 setup: $(addprefix /hab/bin/bio-plan-,tomlcheck shellcheck rendercheck)
 .PHONY: setup
 
@@ -16,8 +16,8 @@ dist: /.studio
 
 .PHONY: dist
 
-pre-commit:
-	@pre-commit run -a
+# pre-commit:
+#	@pre-commit run -a
 
 tomlcheck: $(addprefix tomlcheck/,$(PLANS))
 tomlcheck/%:
@@ -53,8 +53,8 @@ promote-stable/%:
 /hab/bin/git:
 	@bio pkg install -fb core/git
 
-/hab/bin/pre-commit:
-	@bio pkg install -fb tai/pre-commit
+# /hab/bin/pre-commit:
+#	@bio pkg install -fb ya/pre-commit
 
 /hab/bin/tomlcheck:
 	@bio pkg install -fb ya/tomlcheck

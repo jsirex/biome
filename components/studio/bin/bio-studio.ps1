@@ -68,6 +68,7 @@ ENVIRONMENT VARIABLES:
     HAB_STUDIOS_HOME      Sets a home path for all Studios (default: /hab/studios)
     HAB_STUDIO_NOPROFILE  Disables sourcing a \`.studio_profile.ps1' in \`studio enter'
     HAB_STUDIO_ROOT       Sets a Studio root (\`-r' option overrides)
+    NO_ARTIFACT_PATH      If set, do not mount the source artifact cache path
     NO_SRC_PATH           If set, do not mount source path (\`-n' flag overrides)
     QUIET                 Prints less output (\`-q' flag overrides)
     SRC_PATH              Sets the source path (\`-s' option overrides)
@@ -215,9 +216,25 @@ function New-Studio {
     }
 
     Set-Location $HAB_STUDIO_ROOT
-    if(!(Test-Path src) -and !($doNotMount)) {
+    if(!(Test-Path src) -and !($env:NO_SRC_PATH)) {
         mkdir src | Out-Null
         New-Item -Name src -ItemType Junction -target $SRC_PATH.Path | Out-Null
+    }
+
+    if(!$env:NO_ARTIFACT_PATH) {
+        $cachePath = Join-Path $HAB_STUDIO_ROOT "hab/cache"
+        if(!(Test-Path $cachePath)) {
+            mkdir $cachePath | Out-Null
+        }
+        Push-Location $cachePath
+        try {
+            if(!(Test-Path artifacts)) {
+                mkdir artifacts | Out-Null
+                New-Item -Name artifacts -ItemType Junction -target "/hab/cache/artifacts" | Out-Null
+            }
+        } finally {
+            Pop-Location
+        }
     }
 
     $pathArray = @(
@@ -333,17 +350,17 @@ function Enter-Studio {
     }
     New-Studio
     $env:STUDIO_SCRIPT_ROOT = $PSScriptRoot
-    $shouldStartStudio = $false
+    $env:startedNativeStudioSup = $false
+    $shouldRunSup = (!(@($false, 0, "no", "false") -contains $env:HAB_STUDIO_SUP))
+    $bioSvc = Get-Service Biome -ErrorAction SilentlyContinue
+    $supRunningAsService = ($bioSvc -and ($bioSvc.Status -eq "Running"))
 
     if(!(Test-InContainer) -and (Get-Process -Name bio-sup -ErrorAction SilentlyContinue)) {
         Write-Warning "A Biome Supervisor is already running on this machine."
         Write-Warning "Only one Supervisor can run at a time."
         Write-Warning "A Supervisor will not be started in this Studio."
-    } else {
-        $bioSvc = Get-Service Biome -ErrorAction SilentlyContinue
-        if(!$bioSvc -or ($bioSvc.Status -eq "Stopped")) {
-            $shouldStartStudio = $true
-
+    } elseif($shouldRunSup) {
+        if(!$supRunningAsService) {
             # Set console encoding to UTF-8 so that any redirected glyphs
             # from the supervisor log are propperly encoded
             [System.Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -367,14 +384,32 @@ function Enter-Studio {
             }
 
             mkdir $env:HAB_STUDIO_ENTER_ROOT\hab\sup\default -Force | Out-Null
-            [SupervisorBootstrapper]::Run($isAnsiSupported)
+            [SupervisorBootstrapper]::Run($isAnsiSupported, $env:HAB_STUDIO_SUP)
+            $env:startedNativeStudioSup = $true
+        } elseif($env:HAB_STUDIO_SUP) {
+            [xml]$configXml = Get-Content "/hab/svc/windows-service/BioService.dll.config"
+            $launcherArgs = $configXml.configuration.appSettings.SelectNodes("add[@key='launcherArgs']")[0]
+            $launcherArgs.SetAttribute("value", $env:HAB_STUDIO_SUP) | Out-Null
+            $configXml.Save("/hab/svc/windows-service/BioService.dll.config")
+            Restart-Service Biome
         }
 
-        Write-Host  "** The Biome Supervisor has been started in the background." -ForegroundColor Cyan
-        Write-Host  "** Use 'bio svc start' and 'bio svc stop' to start and stop services." -ForegroundColor Cyan
-        Write-Host  "** Use the 'Get-SupervisorLog' command to stream the Supervisor log." -ForegroundColor Cyan
-        Write-Host  "** Use the 'Stop-Supervisor' to terminate the Supervisor." -ForegroundColor Cyan
+        Write-Host  "--> To prevent a Supervisor from running automatically in your" -ForegroundColor Cyan
+        Write-Host  "    Studio, set '`$env:HAB_STUDIO_SUP=`$false' before running" -ForegroundColor Cyan
+        Write-Host  "    'bio studio enter'." -ForegroundColor Cyan
         Write-Host  ""
+        Write-Host "** The Biome Supervisor has been started in the background." -ForegroundColor Cyan
+        Write-Host "** Use 'bio svc start' and 'bio svc stop' to start and stop services." -ForegroundColor Cyan
+        Write-Host "** Use the 'Get-SupervisorLog' command to stream the Supervisor log." -ForegroundColor Cyan
+        Write-Host "** Use the 'Stop-Supervisor' to terminate the Supervisor." -ForegroundColor Cyan
+        if($null -eq $env:HAB_STUDIO_SUP) {
+            Write-Host "** To pass custom arguments to run the Supervisor, set" -ForegroundColor Cyan
+            Write-Host "      '`$env:HAB_STUDIO_SUP' with the arguments before running" -ForegroundColor Cyan
+            Write-Host "      'bio studio enter'." -ForegroundColor Cyan
+        }
+        Write-Host  ""
+    } elseif($supRunningAsService) {
+        Stop-Service Biome
     }
     Write-HabInfo "Entering Studio at $HAB_STUDIO_ROOT"
     & "$PSScriptRoot\powershell\pwsh.exe" -NoProfile -ExecutionPolicy bypass -NoLogo -NoExit -Command {
@@ -420,6 +455,19 @@ function Enter-Studio {
             }
         }
 
+        Register-EngineEvent -SourceIdentifier PowerShell.Exiting -SupportEvent -Action {
+            if($env:startedNativeStudioSup -and (Test-Path "$env:HAB_STUDIO_ENTER_ROOT\hab\sup\default\LOCK")) {
+                Stop-Process -Id (Get-Content "$env:HAB_STUDIO_ENTER_ROOT\hab\sup\default\LOCK")
+                $retry = 0
+                while(($retry -lt 5) -and (Test-Path "$env:HAB_STUDIO_ENTER_ROOT\hab\sup\default\LOCK")) {
+                    $retry += 1
+                    Write-Host "Waiting for Supervisor to finish..."
+                    Start-Sleep -Seconds 5
+                }
+                Remove-Item "$env:HAB_STUDIO_ENTER_ROOT\hab\sup\default\LOCK" -Force -ErrorAction SilentlyContinue
+            }
+        }
+
         New-PSDrive -Name "Biome" -PSProvider FileSystem -Root $env:HAB_STUDIO_ENTER_ROOT | Out-Null
         Set-Location "Biome:\src"
 
@@ -427,17 +475,6 @@ function Enter-Studio {
             Write-Host "--> Detected and loading studio_profile.ps1"
             . .\studio_profile.ps1
         }
-    }
-
-    if($shouldStartStudio -and (Test-Path "$env:HAB_STUDIO_ENTER_ROOT\hab\sup\default\LOCK")) {
-        Stop-Process -Id (Get-Content "$env:HAB_STUDIO_ENTER_ROOT\hab\sup\default\LOCK")
-        $retry = 0
-        while(($retry -lt 5) -and (Test-Path "$env:HAB_STUDIO_ENTER_ROOT\hab\sup\default\LOCK")) {
-            $retry += 1
-            Write-Host "Waiting for Supervisor to finish..."
-            Start-Sleep -Seconds 5
-        }
-        Remove-Item "$env:HAB_STUDIO_ENTER_ROOT\hab\sup\default\LOCK" -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -562,7 +599,7 @@ if ((Test-Path "$env:USERPROFILE\.hab\accepted-licenses\biome") -or (Test-Path "
 }
 
 if($h) { $script:printHelp = $true }
-if($n) { $script:doNotMount = $true }
+if($n) { $env:NO_SRC_PATH = $true }
 if($q) { $script:quiet = $true }
 
 $currentVerbose = $VerbosePreference

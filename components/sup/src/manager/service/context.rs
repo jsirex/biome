@@ -389,7 +389,6 @@ mod tests {
     use biome_common::templating::{config::PackageConfigPaths,
                                      TemplateRenderer};
     use biome_core::package::PackageIdent;
-    use serde_json;
     use std::{fs,
               io::{Read,
                    Write},
@@ -490,13 +489,13 @@ two = 2
         let system_info =
             SystemInfo { version:           Cow::Owned("I AM A BIOME VERSION".into()),
                          member_id:         Cow::Owned("MEMBER_ID".into()),
-                         ip:                Cow::Owned(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
+                         ip:                Cow::Owned(IpAddr::V4(Ipv4Addr::LOCALHOST)),
                          hostname:          Cow::Owned("MY_HOSTNAME".into()),
                          gossip_ip:         Cow::Owned(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))),
                          gossip_port:       Cow::Owned(1234),
                          http_gateway_ip:   Cow::Owned(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))),
                          http_gateway_port: Cow::Owned(5678),
-                         ctl_gateway_ip:    Cow::Owned(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
+                         ctl_gateway_ip:    Cow::Owned(IpAddr::V4(Ipv4Addr::LOCALHOST)),
                          ctl_gateway_port:  Cow::Owned(5679),
                          permanent:         Cow::Owned(false), };
 

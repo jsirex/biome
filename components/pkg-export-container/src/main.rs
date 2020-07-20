@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate log;
 
-use env_logger;
 use biome_common::ui::{UIWriter,
                          UI};
 use biome_pkg_export_container::{cli,

@@ -15,7 +15,6 @@ use crate::{command::studio::enter::{ARTIFACT_PATH_ENVVAR,
                     util::docker},
             license,
             VERSION};
-use atty;
 use std::{env,
           ffi::{OsStr,
                 OsString},
@@ -98,7 +97,6 @@ pub fn start_docker_studio(_ui: &mut UI, args: &[OsString]) -> Result<()> {
                             String::from("HAB_STUDIO_NOPROFILE"),
                             String::from("HAB_STUDIO_NOSTUDIORC"),
                             String::from("HAB_STUDIO_SUP"),
-                            String::from("HAB_UPDATE_STRATEGY_FREQUENCY_MS"),
                             String::from("http_proxy"),
                             String::from("https_proxy"),
                             String::from("RUST_LOG"),
@@ -374,7 +372,6 @@ mod tests {
                 hcore::{fs::CACHE_SSL_PATH,
                         package::target}};
 
-    use lazy_static::lazy_static;
     biome_core::locked_env_var!(SSL_CERT_FILE, lock_ssl_cert_file_env_var);
 
     #[test]

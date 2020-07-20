@@ -11,7 +11,7 @@ bio origin key generate "$env:HAB_ORIGIN"
 
 $tempdir = New-TemporaryDirectory
 $e2e_certname = "e2e-ssl.pem"
-bio pkg install core/openssl
+bio pkg install core/openssl --channel stable
 bio pkg exec core/openssl openssl req -newkey rsa:2048 -batch -nodes -keyout key.pem -x509 -days 365 -out (Join-Path $tempdir $e2e_certname)
 
 if($IsLinux) {

@@ -13,8 +13,6 @@ use clap::{self,
            ArgMatches};
 #[cfg(unix)]
 use failure::SyncFailure;
-#[cfg(unix)]
-use bio;
 use bio::license;
 use biome_common::{command::package::install::{InstallHookMode,
                                                  InstallMode,
@@ -475,7 +473,7 @@ impl BuildRootContext {
             let ident = if Path::new(ident_or_archive).is_file() {
                 // We're going to use the `$pkg_origin/$pkg_name`, fuzzy form of a package
                 // identifier to ensure that update strategies will work if desired
-                let mut archive_ident = PackageArchive::new(ident_or_archive).ident()?;
+                let mut archive_ident = PackageArchive::new(ident_or_archive)?.ident()?;
                 archive_ident.version = None;
                 archive_ident.release = None;
                 archive_ident

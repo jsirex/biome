@@ -7,7 +7,9 @@ $pkg_build_deps=@(
     "biome/bio",
     "biome/bio-plan-build-ps1",
     "core/7zip")
-$pkg_bin_dirs=@("bin")
+$pkg_bin_dirs=@(
+    "bin",
+    "bin/powershell")
 
 function pkg_version {
     Get-Content "$SRC_PATH/VERSION"
@@ -25,12 +27,10 @@ function Invoke-Build {
 }
 
 function Invoke-Install {
-    mkdir "$pkg_prefix/bin/powershell" | Out-Null
     mkdir "$pkg_prefix/bin/bio" | Out-Null
     mkdir "$pkg_prefix/bin/7zip" | Out-Null
 
     Copy-Item bio-studio.ps1 "$pkg_prefix/bin/bio-studio.ps1"
-    Copy-Item $PLAN_CONTEXT/../bin/bio-studio.bat "$pkg_prefix/bin/bio-studio.bat"
     Copy-Item $PLAN_CONTEXT/../bin/SupervisorBootstrapper.cs "$pkg_prefix/bin/SupervisorBootstrapper.cs"
 
     Copy-Item "$(Get-HabPackagePath powershell)/bin/*" "$pkg_prefix/bin/powershell" -Recurse

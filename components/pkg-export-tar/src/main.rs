@@ -1,4 +1,3 @@
-use env_logger;
 use biome_common as common;
 use biome_pkg_export_tar as export_tar;
 #[macro_use]

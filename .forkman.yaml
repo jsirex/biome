@@ -558,6 +558,7 @@ patterns:
   searchable: searchable
   dispatchable: dispatchable
 
+  '(hab)': '(bio)'
   'hab::': 'bio::'
   hab_: bio_
   'hab:': 'bio:'

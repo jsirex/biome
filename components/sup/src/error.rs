@@ -1,18 +1,9 @@
 use crate::event;
 use futures::channel::oneshot;
-use glob;
-use biome_api_client;
-use biome_butterfly;
-use biome_common;
 use biome_core::{self,
                    os::process::Pid,
                    package::{self,
                              Identifiable}};
-use biome_launcher_client;
-use biome_sup_protocol;
-use notify;
-use rustls;
-use serde_json;
 use std::{env,
           error::{self,
                   Error as _},
@@ -27,7 +18,6 @@ use std::{env,
           sync::mpsc,
           time::Duration};
 use tokio::task::JoinError;
-use toml;
 
 /// Our result type alias, for easy coding.
 pub type Result<T> = result::Result<T, Error>;
@@ -55,6 +45,7 @@ pub enum Error {
     FileNotFound(String),
     FileWatcherFileIsRoot,
     GroupNotFound(String),
+    Bio(bio::error::Error),
     BiomeCommon(biome_common::Error),
     BiomeCore(biome_core::Error),
     InvalidBinds(Vec<String>),
@@ -168,6 +159,7 @@ impl fmt::Display for Error {
             }
             Error::EventError(ref err) => err.to_string(),
             Error::Permissions(ref err) => err.to_string(),
+            Error::Bio(ref err) => err.to_string(),
             Error::BiomeCommon(ref err) => err.to_string(),
             Error::BiomeCore(ref err) => err.to_string(),
             Error::EnvJoinPathsError(ref err) => err.to_string(),
@@ -314,6 +306,10 @@ impl From<net::AddrParseError> for Error {
 
 impl From<biome_butterfly::error::Error> for Error {
     fn from(err: biome_butterfly::error::Error) -> Error { Error::ButterflyError(err) }
+}
+
+impl From<bio::error::Error> for Error {
+    fn from(err: bio::error::Error) -> Error { Error::Bio(err) }
 }
 
 impl From<biome_common::Error> for Error {

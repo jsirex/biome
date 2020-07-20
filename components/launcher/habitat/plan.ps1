@@ -2,12 +2,7 @@ $pkg_name = "bio-launcher"
 $pkg_origin = "biome"
 $pkg_maintainer = "The Biome Maintainers <humans@biome.sh>"
 $pkg_license = @("Apache-2.0")
-$pkg_deps=@(
-    "core/openssl",
-    "core/zlib",
-    "core/libarchive",
-    "core/xz"
-)
+$pkg_deps=@()
 $pkg_bin_dirs = @("bin")
 $pkg_build_deps = @(
     "core/visual-cpp-redist-2015",
@@ -28,11 +23,6 @@ function Invoke-Prepare {
     $env:PLAN_VERSION               = "$pkg_version/$pkg_release"
     $env:LIB                        += ";$HAB_CACHE_SRC_PATH/$pkg_dirname/lib"
     $env:INCLUDE                    += ";$HAB_CACHE_SRC_PATH/$pkg_dirname/include"
-    $env:LIBARCHIVE_INCLUDE_DIR     = "$(Get-HabPackagePath "libarchive")/include"
-    $env:LIBARCHIVE_LIB_DIR         = "$(Get-HabPackagePath "libarchive")/lib"
-    $env:OPENSSL_LIBS               = 'ssleay32:libeay32'
-    $env:OPENSSL_LIB_DIR            = "$(Get-HabPackagePath "openssl")/lib"
-    $env:OPENSSL_INCLUDE_DIR        = "$(Get-HabPackagePath "openssl")/include"
 }
 
 function pkg_version {
@@ -58,9 +48,5 @@ function Invoke-Build {
 
 function Invoke-Install {
     Copy-Item "$env:CARGO_TARGET_DIR/release/bio-launch.exe" "$pkg_prefix/bin/bio-launch.exe"
-    Copy-Item "$(Get-HabPackagePath "openssl")/bin/*.dll" "$pkg_prefix/bin"
-    Copy-Item "$(Get-HabPackagePath "zlib")/bin/*.dll" "$pkg_prefix/bin"
-    Copy-Item "$(Get-HabPackagePath "libarchive")/bin/*.dll" "$pkg_prefix/bin"
-    Copy-Item "$(Get-HabPackagePath "xz")/bin/*.dll" "$pkg_prefix/bin"
     Copy-Item "$(Get-HabPackagePath "visual-cpp-redist-2015")/bin/*" "$pkg_prefix/bin"
 }

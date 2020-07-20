@@ -3,7 +3,6 @@ use crate::{census::{CensusGroup,
                      CensusRing},
             manager::service::{Service,
                                Topology}};
-use biome_butterfly;
 use biome_common::owning_refs::RwLockReadGuardRef;
 use biome_core::{package::PackageIdent,
                    service::ServiceGroup};
@@ -62,11 +61,12 @@ pub struct RollingUpdateWorker {
 impl RollingUpdateWorker {
     pub fn new(service: &Service,
                census_ring: Arc<RwLock<CensusRing>>,
-               butterfly: biome_butterfly::Server)
+               butterfly: biome_butterfly::Server,
+               period: Duration)
                -> Self {
         Self { service_group: service.service_group.clone(),
-               topology: service.topology,
-               package_update_worker: PackageUpdateWorker::from(service),
+               topology: service.topology(),
+               package_update_worker: PackageUpdateWorker::new(service, period),
                census_ring,
                butterfly }
     }

@@ -1,6 +1,5 @@
 //! Event subsystem-specific error handling
 
-use biome_http_client;
 use rants::{error::Error as RantsError,
             native_tls};
 use std::{error,
