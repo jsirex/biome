@@ -4,16 +4,23 @@ use crate::{error::{Error,
                     fs::{am_i_root,
                          FS_ROOT_PATH}},
             CTL_SECRET_ENVVAR};
-use dirs;
 use biome_core::env as henv;
 use biome_sup_client::SrvClient;
 use std::{fs::{self,
                File},
           io::Write,
           path::PathBuf};
-use toml;
 
 const CLI_CONFIG_PATH: &str = "hab/etc/cli.toml";
+
+lazy_static::lazy_static! {
+    /// A cached reading of the config file. This avoids the need to continually read from disk.
+    /// However, it also means changes to the file will not be picked up after the program has
+    /// started. Ideally, we would repopulate this struct on file change or on some configured
+    /// interval.
+    /// https://github.com/habitat-sh/habitat/issues/7243
+    pub static ref CACHED: Config = load().unwrap_or_default();
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Config {

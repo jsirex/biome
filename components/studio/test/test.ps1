@@ -24,7 +24,7 @@ Copy-Item "$(bio pkg path core/7zip)/bin/*" "bin/7zip"
 Copy-Item "$(bio pkg path biome/bio-plan-build-ps1)/bin/*" "bin/"
 
 try {
-    & bin/bio-studio.bat new
+    & bin/powershell/pwsh.exe -NoProfile -ExecutionPolicy bypass -NoLogo -File "bin/bio-studio.ps1" new
     $exit_code = $LASTEXITCODE
 } finally {
     # The test can exit before the Studio has closed all open

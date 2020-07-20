@@ -1,3 +1,8 @@
+use self::tty::StdStream;
+use crate::{api_client::DisplayProgress,
+            error::{Error,
+                    Result},
+            output};
 use std::{env,
           fmt,
           fs::{self,
@@ -11,19 +16,12 @@ use std::{env,
           process::{self,
                     Command},
           str::FromStr};
-use uuid::Uuid;
-
-use crate::api_client::DisplayProgress;
-use pbr;
 use termcolor::{self,
                 ColorChoice,
                 ColorSpec,
                 StandardStream,
                 WriteColor};
-
-use self::tty::StdStream;
-use crate::error::{Error,
-                   Result};
+use uuid::Uuid;
 
 pub const NONINTERACTIVE_ENVVAR: &str = "HAB_NONINTERACTIVE";
 
@@ -305,7 +303,7 @@ pub trait UIReader {
 }
 
 /// Functions applied to an IO stream for sending information to a UI.
-pub trait UIWriter {
+pub trait UIWriter: Send {
     type ProgressBar: DisplayProgress;
 
     /// IO Stream for sending error messages to.
@@ -637,6 +635,23 @@ impl UIReader for UI {
 
         Ok(out)
     }
+}
+
+// Based on UI::default_with_env, but taking into account the setting
+// of the global color variable.
+//
+// TODO: Ideally we'd have a unified way of setting color, so this
+// function wouldn't be necessary. In the meantime, though, it'll keep
+// the scope of change contained.
+pub fn ui() -> UI {
+    let isatty = if env::var(NONINTERACTIVE_ENVVAR).map(|val| val == "1" || val == "true")
+                                                   .unwrap_or(false)
+    {
+        Some(false)
+    } else {
+        None
+    };
+    UI::default_with(output::get_format().color_choice(), isatty)
 }
 
 /// A `UIWriter` that does absolutely nothing

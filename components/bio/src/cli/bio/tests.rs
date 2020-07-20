@@ -5,10 +5,16 @@ use clap::{App,
 use biome_common::FeatureFlag;
 use std::str;
 
-fn no_feature_flags() -> FeatureFlag { FeatureFlag::empty() }
-
-fn config_file_enabled() -> FeatureFlag {
+fn feature_flags_for_cli_test() -> FeatureFlag {
     let mut f = FeatureFlag::empty();
+    // Inorder for the `clap` and `structopt` comparison we must turn on this feature flag because
+    // the `structopt` version does not have a way to conditionally add subcommands at runtime.
+    f.insert(FeatureFlag::SERVICE_CONFIG_FILES);
+    f
+}
+
+fn feature_flags_for_cli_test_with_structopt() -> FeatureFlag {
+    let mut f = feature_flags_for_cli_test();
     f.insert(FeatureFlag::STRUCTOPT_CLI);
     f
 }
@@ -394,16 +400,24 @@ fn compare(app1: &mut App, app2: &mut App, path: &str) {
 
 #[test]
 fn test_bio_help() {
-    let mut bio1 = cli::get(no_feature_flags()).after_help("");
+    biome_core::locked_env_var!(HAB_FEAT_SERVICE_CONFIG_FILES, lock_service_config_files);
+    let env = lock_service_config_files();
+    env.set("1");
+
+    let mut bio1 = cli::get(feature_flags_for_cli_test()).after_help("");
     // Remove the subcommand aliases
     bio1.p.subcommands.truncate(bio1.p.subcommands.len() - 7);
-    let mut bio2 = cli::get(config_file_enabled()).after_help("");
+    let mut bio2 = cli::get(feature_flags_for_cli_test_with_structopt()).after_help("");
     compare(&mut bio1, &mut bio2, "bio");
 }
 
 #[test]
 fn test_sup_run_help() {
-    let mut sup1 = cli::sub_sup_run(no_feature_flags()).after_help("");
-    let mut sup2 = cli::sub_sup_run(config_file_enabled()).after_help("");
+    biome_core::locked_env_var!(HAB_FEAT_SERVICE_CONFIG_FILES, lock_service_config_files);
+    let env = lock_service_config_files();
+    env.set("1");
+
+    let mut sup1 = cli::sub_sup_run(feature_flags_for_cli_test()).after_help("");
+    let mut sup2 = cli::sub_sup_run(feature_flags_for_cli_test_with_structopt()).after_help("");
     compare(&mut sup1, &mut sup2, "sup");
 }

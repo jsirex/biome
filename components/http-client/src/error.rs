@@ -1,14 +1,8 @@
+use biome_core as bio_core;
 use std::{error,
           fmt,
           io,
           result};
-
-use native_tls;
-use reqwest;
-use serde_json;
-use url;
-
-use biome_core as bio_core;
 
 pub type Result<T> = result::Result<T, Error>;
 

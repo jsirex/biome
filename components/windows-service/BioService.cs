@@ -82,6 +82,8 @@ namespace BioService
                 // but not here because there is no actual console. To prevent a larger refactor
                 // and research excercise, we will just emit our glyphs in ascii.
                 Environment.SetEnvironmentVariable("HAB_GLYPH_STYLE", "ascii");
+
+                log.Info(String.Format("Biome Windows Service {0}", Assembly.GetExecutingAssembly().GetName().Version));
                 
                 proc = new Process();
                 proc.StartInfo.UseShellExecute = false;
@@ -95,8 +97,8 @@ namespace BioService
                     launcherArgs += String.Format(" {0}", ConfigurationManager.AppSettings["launcherArgs"]);
                 }
                 proc.StartInfo.Arguments = launcherArgs;
-                log.Info(String.Format("Biome windows service is starting launcher at: {0}", LauncherPath));
-                log.Info(String.Format("Biome windows service is starting launcher with args: {0}", launcherArgs));
+                log.Info(String.Format("Biome Windows Service is starting launcher at: {0}", LauncherPath));
+                log.Info(String.Format("Biome Windows Service is starting launcher with args: {0}", launcherArgs));
                 proc.EnableRaisingEvents = true;
                 proc.OutputDataReceived += new DataReceivedEventHandler(SupOutputHandler);
                 proc.ErrorDataReceived += new DataReceivedEventHandler(SupErrorHandler);

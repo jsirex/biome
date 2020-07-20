@@ -3,7 +3,6 @@ extern crate log;
 use crate::error::Result;
 use clap::{App,
            Arg};
-use env_logger;
 use biome_butterfly::rumor::{dat_file,
                                Departure,
                                Election,

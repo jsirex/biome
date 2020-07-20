@@ -74,7 +74,7 @@ impl<'a, 'b> Cli<'a, 'b> {
                     .help(
                         "Launcher package identifier (ex: biome/bio-launcher) or filepath to a \
                          Biome artifact (ex: \
-                         /home/biome-bio-launcher-6083-20171101045646-x86_64-linux.hart) to \
+                         /home/biome-bio-launcher-13829-20200527165030-x86_64-linux.hart) to \
                          install (default: biome/bio-launcher)",
                     ),
             )
@@ -86,7 +86,7 @@ impl<'a, 'b> Cli<'a, 'b> {
                     .help(
                         "Supervisor package identifier (ex: biome/bio-sup) or filepath to a \
                          Biome artifact (ex: \
-                         /home/ore-bio-sup-0.39.1-20171118011657-x86_64-linux.hart) to install \
+                         /home/biome-bio-sup-1.6.39-20200527165021-x86_64-linux.hart) to install \
                          (default: biome/bio-sup)",
                     ),
             );

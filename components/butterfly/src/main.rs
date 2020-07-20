@@ -1,4 +1,3 @@
-use env_logger;
 use biome_butterfly::{member,
                         server::{self,
                                  Suitability}};

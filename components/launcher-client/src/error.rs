@@ -1,5 +1,4 @@
 use biome_launcher_protocol as protocol;
-use ipc_channel;
 use std::{error,
           fmt,
           io,
