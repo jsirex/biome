@@ -1175,10 +1175,10 @@ impl Service {
 
     #[cfg(not(windows))]
     fn set_gossip_permissions<T: AsRef<Path>>(&self, path: T) -> bool {
-        use biome_core::{os::users,
+        use biome_core::{os::process,
                            util::posix_perm};
 
-        if users::can_run_services_as_svc_user() {
+        if process::can_run_services_as_svc_user() {
             let result =
                 posix_perm::set_owner(path.as_ref(), &self.pkg.svc_user, &self.pkg.svc_group);
             if let Err(e) = result {

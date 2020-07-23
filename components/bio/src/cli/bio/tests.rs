@@ -1,7 +1,12 @@
+use super::{svc::{Load,
+                  Svc,
+                  Update},
+            Bio};
 use crate::cli;
 use clap::{App,
            AppSettings,
            ArgSettings};
+use configopt::ConfigOpt;
 use biome_common::FeatureFlag;
 use std::str;
 
@@ -420,4 +425,56 @@ fn test_sup_run_help() {
     let mut sup1 = cli::sub_sup_run(feature_flags_for_cli_test()).after_help("");
     let mut sup2 = cli::sub_sup_run(feature_flags_for_cli_test_with_structopt()).after_help("");
     compare(&mut sup1, &mut sup2, "sup");
+}
+
+fn extract_bio_svc_load(bio: Bio) -> Load {
+    if let Bio::Svc(Svc::Load(load)) = bio {
+        load
+    } else {
+        panic!("expected to find `bio svc load`")
+    }
+}
+
+fn extract_bio_svc_update(bio: Bio) -> Update {
+    if let Bio::Svc(Svc::Update(update)) = bio {
+        update
+    } else {
+        panic!("expected to find `bio svc update`")
+    }
+}
+
+#[test]
+fn test_bio_svc_load_flag_ordering() {
+    let pkg_ident = "core/redis".parse().unwrap();
+
+    let bio = Bio::try_from_iter_with_configopt(&["bio", "svc", "load", "core/redis"]).unwrap();
+    let load = extract_bio_svc_load(bio);
+    assert!(!load.force);
+    assert_eq!(load.pkg_ident.pkg_ident(), pkg_ident);
+
+    let bio = Bio::try_from_iter_with_configopt(&["bio", "svc", "load", "--force", "core/redis"]).unwrap();
+    let load = extract_bio_svc_load(bio);
+    assert!(load.force);
+    assert_eq!(load.pkg_ident.pkg_ident(), pkg_ident);
+
+    let bio = Bio::try_from_iter_with_configopt(&["bio", "svc", "load", "core/redis", "--force"]).unwrap();
+    let load = extract_bio_svc_load(bio);
+    assert!(load.force);
+    assert_eq!(load.pkg_ident.pkg_ident(), pkg_ident);
+}
+
+#[test]
+fn test_bio_svc_update_empty_binds() {
+    let bio = Bio::try_from_iter_with_configopt(&["bio", "svc", "update", "core/redis", "--bind"]).unwrap();
+    let update = extract_bio_svc_update(bio);
+    assert_eq!(update.bind, Some(vec![]));
+
+    let bio = Bio::try_from_iter_with_configopt(&["bio",
+                                                  "svc",
+                                                  "update",
+                                                  "core/redis",
+                                                  "--bind",
+                                                  "x:y.z"]).unwrap();
+    let update = extract_bio_svc_update(bio);
+    assert_eq!(update.bind.unwrap().len(), 1);
 }
