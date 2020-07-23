@@ -133,15 +133,15 @@ mod inner {
                 error::{Error,
                         Result},
                 exec,
-                hcore::{crypto::init,
-                        env as henv,
-                        fs::{am_i_root,
-                             find_command},
-                        os::process,
-                        package::{PackageIdent,
-                                  PackageInstall},
-                        users::linux as group},
                 VERSION};
+    use biome_core::{crypto::init,
+                       env as henv,
+                       fs::{am_i_root,
+                            find_command},
+                       os::process,
+                       package::{PackageIdent,
+                                 PackageInstall},
+                       users};
     use std::{env,
               ffi::OsString,
               path::PathBuf,
@@ -208,8 +208,8 @@ mod inner {
     }
 
     fn has_docker_group() -> bool {
-        let current_user = group::get_current_username().unwrap();
-        let docker_members = group::get_members_by_groupname("docker");
+        let current_user = users::get_current_username().unwrap();
+        let docker_members = users::get_members_by_groupname("docker");
         docker_members.map_or(false, |d| d.contains(&current_user))
     }
 
@@ -255,7 +255,6 @@ mod inner {
                         os::process,
                         package::PackageIdent},
                 VERSION};
-    use ctrlc;
     use std::{ffi::OsString,
               str::FromStr};
 
@@ -286,7 +285,7 @@ mod inner {
         cmd_args.extend_from_slice(args);
 
         if let Some(cmd) = find_command(&pwsh_command) {
-            // we need to disable the default ctrlc handler for this process (hab)
+            // we need to disable the default ctrlc handler for this process (bio)
             // otherwise when a ctrlc is emitted in the studio, this process will
             // also respond to ctrlc which results in odd stdin/out behavior and
             // forces the user to close the console window entirely

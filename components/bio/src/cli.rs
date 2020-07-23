@@ -18,8 +18,7 @@ use biome_common::{cli::{file_into_idents,
                            BINLINK_DIR_ENVVAR,
                            DEFAULT_BINLINK_DIR,
                            PACKAGE_TARGET_ENVVAR},
-                     FeatureFlag,
-                     FEATURE_FLAGS};
+                     FeatureFlag};
 use biome_core::{crypto::{keys::PairType,
                             CACHE_KEY_PATH_ENV_VAR},
                    env::Config,
@@ -752,7 +751,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (@subcommand info =>
                 (about: "Returns the Biome Artifact information")
                 (aliases: &["inf", "info"])
-                (@arg TO_JSON: -j --json "Output will be rendered in json")
+                (@arg TO_JSON: -j --json "Output will be rendered in json. (Includes extended metadata)")
                 (@arg SOURCE: +required +takes_value {file_exists} "A path to a Biome Artifact \
                     (ex: /home/acme-redis-3.0.7-21120102031201-x86_64-linux.hart)")
             )
@@ -834,7 +833,7 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             (aliases: &["sv", "ser", "serv", "service"])
             (@setting ArgRequiredElseHelp)
             (@setting SubcommandRequiredElseHelp)
-            (subcommand: maybe_subcommand::<SvcBulkLoad>(FEATURE_FLAGS.contains(FeatureFlag::SERVICE_CONFIG_FILES)))
+            (subcommand: SvcBulkLoad::clap())
             (@subcommand key =>
                 (about: "Commands relating to Biome service keys")
                 (aliases: &["k", "ke"])
@@ -902,14 +901,6 @@ pub fn get(feature_flags: FeatureFlag) -> App<'static, 'static> {
             \n"
         )
     )
-}
-
-fn maybe_subcommand<T: StructOpt>(condition: bool) -> App<'static, 'static> {
-    if condition {
-        T::clap()
-    } else {
-        App::new("")
-    }
 }
 
 fn alias_run() -> App<'static, 'static> {
