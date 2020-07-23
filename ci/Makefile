@@ -12,8 +12,8 @@ setup: $(addprefix /hab/bin/bio-plan-,tomlcheck shellcheck rendercheck)
 .PHONY: setup
 
 dist: /.studio
-	@. results/bio.env && cp /hab/pkgs/$$pkg_ident/bin/bio results/$pkg_name-$pkg_version-$pkg_target
-
+	@. results/bio.env && tar -zcf results/$$pkg_name-$$pkg_version-$$pkg_target.tar.gz -C /hab/pkgs/$$pkg_ident/bin bio
+	@. results/bio.env && tar -zcf results/meta-$$pkg_version-$$pkg_target.tar.gz results/*.env
 .PHONY: dist
 
 # pre-commit:

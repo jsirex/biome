@@ -10,7 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout
+      - uses: actions/checkout@v2
+
+      - run: |
+          echo ::set-env name=HAB_AUTH_TOKEN::${{ secrets.HAB_AUTH_TOKEN }}
+          echo ::set-env name=HAB_ORIGIN::biome
 
       - name: Install Linux Biome
         run: |
@@ -34,23 +38,34 @@ jobs:
           cat results/bio.env | sed 's/\(.*\)=\(.*\)/::set-env name=\1::\2/'
 
       - name: Upload Linux Biome
-        uses: actions/upload-release-asset
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ github.event.upload_url }}
-          asset_path: results/$pkg_name-$pkg_version-$pkg_target
-          asset_name: $pkg_name-$pkg_version-$pkg_target
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: results/${{ env.pkg_name }}-${{ env.pkg_version }}-${{ env.pkg_target }}.tar.gz
+          asset_name: ${{ env.pkg_name }}-${{ env.pkg_version }}-${{ env.pkg_target }}.tar.gz
+          asset_content_type: application/gzip
 
-      - name: Promote to stable
+      - name: Upload Linux Metadata
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: results/meta-${{ env.pkg_version }}-${{ env.pkg_target }}.tar.gz
+          asset_name: meta-${{ env.pkg_version }}-${{ env.pkg_target }}.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Promote to testing
         run: |
-          bio studio run 'make -f ci/Makefile promote-stable'
+          bio studio run 'make -f ci/Makefile promote-testing'
 
   # package-darwin:
   #   runs-on: darwin-latest
 
   #   steps:
-  #     - uses: actions/checkout
+  #     - uses: actions/checkout@v2
 
   #     - name: Install MacOS Biome
   #       run: |
@@ -74,11 +89,11 @@ jobs:
   #         cat results/bio.env | sed 's/\(.*\)=\(.*\)/::set-env name=\1::\2/'
 
   #     - name: Upload Darwin Biome
-  #       uses: actions/upload-release-asset
+  #       uses: actions/upload-release-asset@v1
   #       env:
   #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   #       with:
-  #         upload_url: ${{ github.event.upload_url }}
+  #         upload_url: ${{ github.event.release.upload_url }}
   #         asset_path: results/$pkg_name-$pkg_version-$pkg_target.zip
   #         asset_name: $pkg_name-$pkg_version-$pkg_target.zip
 
@@ -90,7 +105,7 @@ jobs:
   #   runs-on: windows-latest
 
   #   steps:
-  #     - uses: actions/checkout
+  #     - uses: actions/checkout@v2
 
   #     - name: Install Windows Biome
   #       run: |
@@ -108,22 +123,22 @@ jobs:
 
   #     - name: Build and Package
   #       run: |
-  #         bio.exe studio run 'make -f ci/Makefile.windows build dist'
+  #         bio.exe studio run 'make -f ci/Makefile.windows build dist upload'
 
   #     - name: Get package info
   #       run: |
   #         Get-Content results/bio.env | sed 's/\(.*\)=\(.*\)/::set-env name=\1::\2/'
 
   #     - name: Upload Windows Biome
-  #       uses: actions/upload-release-asset
+  #       uses: actions/upload-release-asset@v1
   #       env:
   #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   #       with:
-  #         upload_url: ${{ github.event.upload_url }}
+  #         upload_url: ${{ github.event.release.upload_url }}
   #         asset_path: results/$pkg_name-$pkg_version-$pkg_target.zip
   #         asset_name: $pkg_name-$pkg_version-$pkg_target.zip
 
   #     - name: Promote to stable
   #       run: |
-  #         bio studio run 'make -f ci/Makefile.windows promote-stable'
+  #         bio studio run 'make -f ci/Makefile.windows promote-testing'
 
