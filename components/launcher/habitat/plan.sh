@@ -13,10 +13,10 @@ pkg_build_deps=(core/coreutils
 pkg_bin_dirs=(bin)
 bin="bio-launch"
 
-# Use the number of commits from the start of this repository
-# to the current HEAD as the version for our pkg_version
+# Temporary hardcoding version because of issue:
+# https://github.com/habitat-sh/habitat/issues/7847
 pkg_version() {
-  git rev-list "$(git rev-parse HEAD)" --count
+  echo 11122
 }
 
 do_before() {
@@ -35,7 +35,7 @@ do_prepare() {
   # Used by Cargo to use a pristine, isolated directory for all compilation
   export CARGO_TARGET_DIR="$HAB_CACHE_SRC_PATH/$pkg_dirname"
   build_line "Setting CARGO_TARGET_DIR=$CARGO_TARGET_DIR"
-  
+
   export PLAN_VERSION="${pkg_version}/${pkg_release}"
   build_line "Setting PLAN_VERSION=$PLAN_VERSION"
 
