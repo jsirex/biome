@@ -1,0 +1,30 @@
+name: forkman
+
+on:
+  schedule:
+    - cron:  '13 7 * * 6'
+
+jobs:
+  update-forkman-branch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: master
+
+      - name: Install Linux Biome
+        run: |
+          curl https://raw.githubusercontent.com/biome-sh/biome/master/components/bio/install-linux.sh | sudo bash
+
+      - name: Install Forkman
+        run: |
+          bio pkg install -fb jsirex/forkman
+
+      - name: Run update git repository
+        run: |
+          git fetch --depth 1 origin forkman-raw:forkman-raw
+          git remote add habitat https://github.com/habitat-sh/habitat.git
+          git fetch --depth 1 habitat/master
+          forkman-patch-git -u habitat/master || true
+          git push origin forkman-raw:forkman-raw
