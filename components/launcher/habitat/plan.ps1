@@ -20,7 +20,8 @@ function Invoke-Prepare {
     }
 
     $env:SSL_CERT_FILE              = "$(Get-HabPackagePath "cacerts")/ssl/certs/cacert.pem"
-    $env:PLAN_VERSION               = "$pkg_version/$pkg_release"
+    $env:PLAN_VERSION               = "$pkg_version"
+    Write-BuildLine "Setting env:PLAN_VERSION=$env:PLAN_VERSION"
     $env:LIB                        += ";$HAB_CACHE_SRC_PATH/$pkg_dirname/lib"
     $env:INCLUDE                    += ";$HAB_CACHE_SRC_PATH/$pkg_dirname/include"
 }
@@ -49,4 +50,8 @@ function Invoke-Build {
 function Invoke-Install {
     Copy-Item "$env:CARGO_TARGET_DIR/release/bio-launch.exe" "$pkg_prefix/bin/bio-launch.exe"
     Copy-Item "$(Get-HabPackagePath "visual-cpp-redist-2015")/bin/*" "$pkg_prefix/bin"
+}
+
+function Invoke-Clean {
+    if(!$env:HAB_SKIP_CLEAN) { Invoke-DefaultClean }
 }

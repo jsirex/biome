@@ -8,6 +8,7 @@ extern crate lazy_static;
 extern crate log;
 
 use clap::{ArgMatches,
+           ErrorKind as ClapErrorKind,
            Shell};
 use configopt::{ConfigOpt,
                 Error as ConfigOptError};
@@ -117,12 +118,29 @@ async fn main() {
 
 #[allow(clippy::cognitive_complexity)]
 async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
-    if std::env::args().skip(1).collect::<Vec<_>>() == vec!["license", "accept"] {
+    let bio = Bio::try_from_args_with_configopt();
+
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if args == vec!["license", "accept"] {
         
         return Ok(());
-    } else {
-        
     }
+
+    // Allow checking version information and displaying command help without accepting the license.
+    // We execute other binaries below in `exec_subcommand_if_called` so we only make the check if
+    // the license has not been accepted. `version` and `help` may behave differently when executed
+    // with alternate binaries. See the comment on `exec_subcommand_if_called` below.
+    if !license::check_for_license_acceptance().unwrap_or_default()
+                                               .accepted()
+    {
+        if let Err(ConfigOptError::Clap(e)) = &bio {
+            if e.kind == ClapErrorKind::VersionDisplayed || e.kind == ClapErrorKind::HelpDisplayed {
+                e.exit()
+            }
+        }
+    }
+
+    
 
     // TODO JB: this feels like an anti-pattern to me. I get that in certain cases, we want to hand
     // off control from bio to a different binary to do the work, but this implementation feels
@@ -147,7 +165,7 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
 
     // Parse and handle commands which have been migrated to use `structopt` here. Once everything
     // is migrated to use `structopt` the parsing logic below this using clap directly will be gone.
-    match Bio::try_from_args_with_configopt() {
+    match bio {
         Ok(bio) => {
             #[allow(clippy::single_match)]
             match bio {

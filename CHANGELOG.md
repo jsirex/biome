@@ -1,10 +1,10 @@
 # Habitat CHANGELOG
 
-<!-- latest_release 1.6.100 -->
-## [1.6.100](https://github.com/habitat-sh/habitat/tree/1.6.100) (2020-07-23)
+<!-- latest_release 1.6.115 -->
+## [1.6.115](https://github.com/habitat-sh/habitat/tree/1.6.115) (2020-08-06)
 
-#### Bug Fixes
-- Add supplemental groups to Linux hook processes [#7823](https://github.com/habitat-sh/habitat/pull/7823) ([christophermaier](https://github.com/christophermaier))
+#### Merged Pull Requests
+- fix license environment injection in container exporter [#7860](https://github.com/habitat-sh/habitat/pull/7860) ([mwrock](https://github.com/mwrock))
 <!-- latest_release -->
 
 <!-- release_rollup since=1.6.56 -->
@@ -25,6 +25,21 @@
 - [FIX] Ensure `toToml` helper works properly for tables [#7772](https://github.com/habitat-sh/habitat/pull/7772) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.63 -->
 
 #### Merged Pull Requests
+- fix license environment injection in container exporter [#7860](https://github.com/habitat-sh/habitat/pull/7860) ([mwrock](https://github.com/mwrock)) <!-- 1.6.115 -->
+- fix e2e test_license test [#7859](https://github.com/habitat-sh/habitat/pull/7859) ([mwrock](https://github.com/mwrock)) <!-- 1.6.114 -->
+- fix e2e test with older launcher [#7856](https://github.com/habitat-sh/habitat/pull/7856) ([mwrock](https://github.com/mwrock)) <!-- 1.6.113 -->
+- Allow version check without license [#7834](https://github.com/habitat-sh/habitat/pull/7834) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.112 -->
+- fix launcher version parsing [#7855](https://github.com/habitat-sh/habitat/pull/7855) ([mwrock](https://github.com/mwrock)) <!-- 1.6.111 -->
+- fallback to superuser root if home path cannot be found during license search [#7853](https://github.com/habitat-sh/habitat/pull/7853) ([mwrock](https://github.com/mwrock)) <!-- 1.6.110 -->
+- [CI] Ensure that kernel2 packages get build appropriately [#7854](https://github.com/habitat-sh/habitat/pull/7854) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.109 -->
+- Add channel promotion datadog event [#7848](https://github.com/habitat-sh/habitat/pull/7848) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.108 -->
+- use win32 api and not env var for determining current user name [#7840](https://github.com/habitat-sh/habitat/pull/7840) ([mwrock](https://github.com/mwrock)) <!-- 1.6.107 -->
+-  [CI] Pull Chef GPG key from Vault instead of S3 [#7852](https://github.com/habitat-sh/habitat/pull/7852) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.106 -->
+- [CI] Ensure GPG keys are imported before verifying manifest [#7851](https://github.com/habitat-sh/habitat/pull/7851) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.105 -->
+- refactor account/sid/win_perms to not need to contact a domian controller [#7844](https://github.com/habitat-sh/habitat/pull/7844) ([mwrock](https://github.com/mwrock)) <!-- 1.6.104 -->
+- [CI] Fixed some stupid bugs in the supplemental groups test [#7839](https://github.com/habitat-sh/habitat/pull/7839) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.103 -->
+- [CI] Update changelog management labels in Expeditor config [#7837](https://github.com/habitat-sh/habitat/pull/7837) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.102 -->
+-  [CI] Binlink `hab` earlier in the path for e2e tests [#7835](https://github.com/habitat-sh/habitat/pull/7835) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.101 -->
 - Add command line completion to powershell studio [#7831](https://github.com/habitat-sh/habitat/pull/7831) ([mwrock](https://github.com/mwrock)) <!-- 1.6.98 -->
 - delete old objects in S3 bucket that do not exist in local website build [#7829](https://github.com/habitat-sh/habitat/pull/7829) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.98 -->
 - Update configopt version [#7830](https://github.com/habitat-sh/habitat/pull/7830) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.97 -->
