@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Forkman
         run: |
-          bio pkg install -fb jsirex/forkman
+          sudo bio pkg install -fb jsirex/forkman
 
       - name: Run update git repository
         run: |
