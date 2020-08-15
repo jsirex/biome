@@ -409,22 +409,9 @@ fn test_bio_help() {
     let env = lock_service_config_files();
     env.set("1");
 
-    let mut bio1 = cli::get(feature_flags_for_cli_test()).after_help("");
-    // Remove the subcommand aliases
-    bio1.p.subcommands.truncate(bio1.p.subcommands.len() - 7);
-    let mut bio2 = cli::get(feature_flags_for_cli_test_with_structopt()).after_help("");
+    let mut bio1 = cli::get(feature_flags_for_cli_test());
+    let mut bio2 = cli::get(feature_flags_for_cli_test_with_structopt());
     compare(&mut bio1, &mut bio2, "bio");
-}
-
-#[test]
-fn test_sup_run_help() {
-    biome_core::locked_env_var!(HAB_FEAT_SERVICE_CONFIG_FILES, lock_service_config_files);
-    let env = lock_service_config_files();
-    env.set("1");
-
-    let mut sup1 = cli::sub_sup_run(feature_flags_for_cli_test()).after_help("");
-    let mut sup2 = cli::sub_sup_run(feature_flags_for_cli_test_with_structopt()).after_help("");
-    compare(&mut sup1, &mut sup2, "sup");
 }
 
 fn extract_bio_svc_load(bio: Bio) -> Load {

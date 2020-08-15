@@ -15,10 +15,23 @@ use configopt::{ConfigOpt,
 use futures::stream::StreamExt;
 use bio::{cli::{self,
                 gateway_util,
-                bio::{svc::{self,
+                bio::{license::License,
+                      origin::{Origin,
+                               Rbac,
+                               RbacSet,
+                               RbacShow},
+                      pkg::{ExportCommand as PkgExportCommand,
+                            Pkg,
+                            PkgExec},
+                      sup::{BioSup,
+                            Secret,
+                            Sup},
+                      svc::{self,
                             BulkLoad as SvcBulkLoad,
                             Load as SvcLoad,
                             Svc},
+                      util::{bldr_auth_token_from_args_env_or_load,
+                             bldr_url_from_args_env_load_or_default},
                       Bio},
                 parse_optional_arg},
           command::{self,
@@ -120,16 +133,16 @@ async fn main() {
 async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
     let bio = Bio::try_from_args_with_configopt();
 
-    let args = std::env::args().skip(1).collect::<Vec<_>>();
-    if args == vec!["license", "accept"] {
+    if let Ok(Bio::License(License::Accept)) = bio {
         
         return Ok(());
     }
 
     // Allow checking version information and displaying command help without accepting the license.
-    // We execute other binaries below in `exec_subcommand_if_called` so we only make the check if
-    // the license has not been accepted. `version` and `help` may behave differently when executed
-    // with alternate binaries. See the comment on `exec_subcommand_if_called` below.
+    // TODO (DM): To prevent errors in discrepancy between the structopt and cli versions only do
+    // this when the license has not yet been accepted. When we switch fully to structopt this can
+    // be completely removed and we should just call `Bio::from_args_with_configopt` which will
+    // automatically result in this functionality.
     if !license::check_for_license_acceptance().unwrap_or_default()
                                                .accepted()
     {
@@ -140,28 +153,22 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
         }
     }
 
+    // We must manually detect a supervisor version check and call the `bio-sup` binary to get the
+    // true Supervisor version.
+    // TODO (DM): This is an ugly consequence of having `bio sup` subcommands handled by both the
+    // `bio` binary and the `bio-sup` binary. Potential fixes:
+    // 1. Handle all `bio sup` subcommands with the `bio-sup` binary
+    // 2. Have a dedicated subcommand for commands handled by the `bio-sup` binary
+    let mut args = env::args();
+    if matches!((args.next().unwrap_or_default().as_str(),
+                 args.next().unwrap_or_default().as_str(),
+                 args.next().unwrap_or_default().as_str()),
+                 (_, "sup", "--version") | (_, "sup", "-V"))
+    {
+        return command::sup::start(ui, &args_after_first(2)).await;
+    }
+
     
-
-    // TODO JB: this feels like an anti-pattern to me. I get that in certain cases, we want to hand
-    // off control from bio to a different binary to do the work, but this implementation feels
-    // like it's duplicating a lot of what clap does for us. I think we should let clap do the work
-    // it was designed to do, and hand off control a little bit later. Maybe there's a tiny
-    // performance penalty, but the code would be much clearer.
-    //
-    // In addition, it creates a confusing UX because we advertise certain options via clap, e.g.
-    // --url and --channel and since we're handing off control before clap has even had a chance to
-    // parse the args, clap doesn't have a chance to do any validation that it needs to. We just
-    // grab everything that was submitted and shove it all to the exporter or whatever other binary
-    // is doing the job, and trust that it implements those flags. In some cases, e.g. the cf
-    // exporter, it doesn't, so we're effectively lying to users.
-    //
-    // In my opinion, this function should go away and we should follow 1 standard flow for arg
-    // parsing and delegation.
-    exec_subcommand_if_called(ui).await?;
-
-    let (args, remaining_args) = raw_parse_args();
-    debug!("clap cli args: {:?}", &args);
-    debug!("remaining cli args: {:?}", &remaining_args);
 
     // Parse and handle commands which have been migrated to use `structopt` here. Once everything
     // is migrated to use `structopt` the parsing logic below this using clap directly will be gone.
@@ -169,6 +176,64 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
         Ok(bio) => {
             #[allow(clippy::single_match)]
             match bio {
+                Bio::Origin(origin) => {
+                    match origin {
+                        // bio origin rbac set|show
+                        Origin::Rbac(action) => {
+                            match action {
+                                Rbac::Set(rbac_set) => {
+                                    return sub_origin_member_role_set(ui, rbac_set).await;
+                                }
+                                Rbac::Show(rbac_show) => {
+                                    return sub_origin_member_role_show(ui, rbac_show).await;
+                                }
+                            }
+                        }
+                        _ => {
+                            // All other commands will be caught by the CLI parsing logic below.
+                        }
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                Bio::Run(sup_run) => {
+                    ui.warn("'bio run' as an alias for 'bio sup run' is deprecated. Please \
+                             update your automation and processes accordingly.")?;
+                    return command::launcher::start(ui, sup_run, &args_after_first(1)).await;
+                }
+                Bio::Studio(studio) => {
+                    return command::studio::enter::start(ui, studio.args()).await;
+                }
+                Bio::Sup(sup) => {
+                    match sup {
+                        #[cfg(not(target_os = "macos"))]
+                        BioSup::Sup(sup) => {
+                            // These commands are handled by the `bio-sup` or `bio-launch` binaries.
+                            // We need to pass the subcommand that was issued to the underlying
+                            // binary. It is a bit hacky, but to do that we strip off the `bio sup`
+                            // command prefix and pass the rest of the args to underlying binary.
+                            let args = args_after_first(2);
+                            match sup {
+                                Sup::Bash | Sup::Sh | Sup::Term => {
+                                    return command::sup::start(ui, &args).await;
+                                }
+                                Sup::Run(sup_run) => {
+                                    return command::launcher::start(ui, sup_run, &args).await;
+                                }
+                            }
+                        }
+                        BioSup::Depart { member_id,
+                                         remote_sup, } => {
+                            return sub_sup_depart(member_id, &remote_sup.to_listen_ctl_addr()).await;
+                        }
+                        BioSup::Secret(Secret::Generate) => {
+                            return sub_sup_secret_generate();
+                        }
+                        BioSup::Status { pkg_ident,
+                                         remote_sup, } => {
+                            return sub_svc_status(pkg_ident, &remote_sup.to_listen_ctl_addr()).await;
+                        }
+                    }
+                }
                 Bio::Svc(svc) => {
                     match svc {
                         Svc::BulkLoad(svc_bulk_load) => {
@@ -182,6 +247,57 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                             return sub_svc_load(svc_load).await;
                         }
                         Svc::Update(svc_update) => return sub_svc_update(svc_update).await,
+                        Svc::Status { pkg_ident,
+                                      remote_sup, } => {
+                            return sub_svc_status(pkg_ident, &remote_sup.to_listen_ctl_addr()).await;
+                        }
+                        _ => {
+                            // All other commands will be caught by the CLI parsing logic below.
+                        }
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                Bio::Term => {
+                    ui.warn("'bio term' as an alias for 'bio sup term' is deprecated. Please \
+                             update your automation and processes accordingly.")?;
+                    return command::sup::start(ui, &args_after_first(1)).await;
+                }
+                Bio::Pkg(pkg) => {
+                    match pkg {
+                        Pkg::Export(export) => {
+                            match export {
+                                #[cfg(any(target_os = "linux", target_os = "windows"))]
+                                PkgExportCommand::Cf(args) => {
+                                    return command::pkg::export::cf::start(ui, &args.args).await;
+                                }
+                                #[cfg(any(target_os = "linux", target_os = "windows"))]
+                                PkgExportCommand::Container(args) => {
+                                    return command::pkg::export::container::start(ui, &args.args).await;
+                                }
+                                #[cfg(any(target_os = "linux", target_os = "windows"))]
+                                PkgExportCommand::Docker(args) => {
+                                    ui.warn("'bio pkg export docker' is now a deprecated alias \
+                                             for 'bio pkg export container'. Please update your \
+                                             automation and processes accordingly.")?;
+                                    return command::pkg::export::container::start(ui, &args.args).await;
+                                }
+                                #[cfg(target_os = "linux")]
+                                PkgExportCommand::Mesos(args) => {
+                                    return command::pkg::export::mesos::start(ui, &args.args).await;
+                                }
+                                #[cfg(any(target_os = "linux", target_os = "windows"))]
+                                PkgExportCommand::Tar(args) => {
+                                    return command::pkg::export::tar::start(ui, &args.args).await;
+                                }
+                            }
+                        }
+                        Pkg::Exec(PkgExec { pkg_ident,
+                                            cmd,
+                                            args, }) => {
+                            return command::pkg::exec::start(&pkg_ident.pkg_ident(),
+                                                             cmd,
+                                                             &args.args);
+                        }
                         _ => {
                             // All other commands will be caught by the CLI parsing logic below.
                         }
@@ -205,17 +321,20 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
     // https://github.com/kbknapp/clap-rs/issues/86
     let child = thread::Builder::new().stack_size(8 * 1024 * 1024)
                                       .spawn(move || {
-                                          cli::get(feature_flags)
-                .get_matches_from_safe_borrow(&mut args.iter())
-                .unwrap_or_else(|e| {
-                    e.exit();
-                })
+                                          cli::get(feature_flags).get_matches_safe()
+                                                                 .unwrap_or_else(|e| {
+                                                                     e.exit();
+                                                                 })
                                       })
                                       .unwrap();
     let app_matches = child.join().unwrap();
 
     match app_matches.subcommand() {
-        ("apply", Some(m)) => sub_svc_set(m).await?,
+        ("apply", Some(m)) => {
+            ui.warn("'bio apply' as an alias for 'bio config apply' is deprecated. Please \
+                     update your automation and processes accordingly.")?;
+            sub_svc_set(m).await?
+        }
         ("cli", Some(matches)) => {
             match matches.subcommand() {
                 ("setup", Some(m)) => sub_cli_setup(ui, m)?,
@@ -236,7 +355,11 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                 _ => unreachable!(),
             }
         }
-        ("install", Some(m)) => sub_pkg_install(ui, m, feature_flags).await?,
+        ("install", Some(m)) => {
+            ui.warn("'bio install' as an alias for 'bio pkg install' is deprecated. Please \
+                     update your automation and processes accordingly.")?;
+            sub_pkg_install(ui, m, feature_flags).await?
+        }
         ("origin", Some(matches)) => {
             match matches.subcommand() {
                 ("invitations", Some(m)) => {
@@ -311,8 +434,6 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                 ("dependencies", Some(m)) => sub_pkg_dependencies(m)?,
                 ("download", Some(m)) => sub_pkg_download(ui, m, feature_flags).await?,
                 ("env", Some(m)) => sub_pkg_env(m)?,
-                ("exec", Some(m)) => sub_pkg_exec(m, &remaining_args)?,
-                ("export", Some(m)) => sub_pkg_export(ui, m).await?,
                 ("hash", Some(m)) => sub_pkg_hash(m)?,
                 ("install", Some(m)) => sub_pkg_install(ui, m, feature_flags).await?,
                 ("list", Some(m)) => sub_pkg_list(m)?,
@@ -363,28 +484,25 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                 ("unload", Some(m)) => sub_svc_unload(m).await?,
                 ("start", Some(m)) => sub_svc_start(m).await?,
                 ("stop", Some(m)) => sub_svc_stop(m).await?,
-                ("status", Some(m)) => sub_svc_status(m).await?,
-                _ => unreachable!(),
-            }
-        }
-        ("sup", Some(m)) => {
-            match m.subcommand() {
-                ("depart", Some(m)) => sub_sup_depart(m).await?,
-                ("secret", Some(m)) => {
-                    match m.subcommand() {
-                        ("generate", _) => sub_sup_secret_generate()?,
-                        _ => unreachable!(),
-                    }
-                }
-                // this is effectively an alias of `bio svc status`
-                ("status", Some(m)) => sub_svc_status(m).await?,
                 _ => unreachable!(),
             }
         }
         ("supportbundle", _) => sub_supportbundle(ui)?,
-        ("setup", Some(m)) => sub_cli_setup(ui, m)?,
-        ("start", Some(m)) => sub_svc_start(m).await?,
-        ("stop", Some(m)) => sub_svc_stop(m).await?,
+        ("setup", Some(m)) => {
+            ui.warn("'bio setup' as an alias for 'bio cli setup' is deprecated. Please update \
+                     your automation and processes accordingly.")?;
+            sub_cli_setup(ui, m)?
+        }
+        ("start", Some(m)) => {
+            ui.warn("'bio start' as an alias for 'bio svc start' is deprecated. Please update \
+                     your automation and processes accordingly.")?;
+            sub_svc_start(m).await?
+        }
+        ("stop", Some(m)) => {
+            ui.warn("'bio stop' as an alias for 'bio svc stop' is deprecated. Please update \
+                     your automation and processes accordingly.")?;
+            sub_svc_stop(m).await?
+        }
         ("user", Some(matches)) => {
             match matches.subcommand() {
                 ("key", Some(m)) => {
@@ -615,6 +733,29 @@ async fn sub_send_origin_invitation(ui: &mut UI, m: &ArgMatches<'_>) -> Result<(
     command::origin::invitations::send::start(ui, &url, &origin, &token, &invitee_account).await
 }
 
+async fn sub_origin_member_role_show(ui: &mut UI, r: RbacShow) -> Result<()> {
+    let bldr_url = bldr_url_from_args_env_load_or_default(r.bldr_url.value)?;
+    let auth_token = bldr_auth_token_from_args_env_or_load(r.auth_token.value)?;
+    command::origin::rbac::show_role::start(ui,
+                                            bldr_url,
+                                            r.origin.inner,
+                                            &auth_token,
+                                            &r.member_account,
+                                            r.to_json).await
+}
+
+async fn sub_origin_member_role_set(ui: &mut UI, r: RbacSet) -> Result<()> {
+    let bldr_url = bldr_url_from_args_env_load_or_default(r.bldr_url.value)?;
+    let auth_token = bldr_auth_token_from_args_env_or_load(r.auth_token.value)?;
+    command::origin::rbac::set_role::start(ui,
+                                           bldr_url,
+                                           r.origin.inner,
+                                           &auth_token,
+                                           &r.member_account,
+                                           r.role,
+                                           r.no_prompt).await
+}
+
 fn sub_pkg_binlink(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let ident = required_pkg_ident_from_input(m)?;
     let dest_dir = Path::new(m.value_of("DEST_DIR").unwrap()); // required by clap
@@ -726,21 +867,6 @@ async fn sub_pkg_download(ui: &mut UI,
 fn sub_pkg_env(m: &ArgMatches<'_>) -> Result<()> {
     let ident = required_pkg_ident_from_input(m)?;
     command::pkg::env::start(&ident, &*FS_ROOT_PATH)
-}
-
-fn sub_pkg_exec(m: &ArgMatches<'_>, cmd_args: &[OsString]) -> Result<()> {
-    let ident = required_pkg_ident_from_input(m)?;
-    let cmd = m.value_of("CMD").unwrap(); // Required via clap
-    command::pkg::exec::start(&ident, cmd, cmd_args)
-}
-
-async fn sub_pkg_export(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let ident = required_pkg_ident_from_input(m)?;
-    let format = &m.value_of("FORMAT").unwrap();
-    let url = bldr_url_from_matches(&m)?;
-    let channel = channel_from_matches_or_default(&m);
-    let export_fmt = command::pkg::export::format_for(ui, &format)?;
-    command::pkg::export::start(ui, &url, &channel, &ident, &export_fmt).await
 }
 
 fn sub_pkg_hash(m: &ArgMatches<'_>) -> Result<()> {
@@ -1311,17 +1437,14 @@ async fn sub_svc_start(m: &ArgMatches<'_>) -> Result<()> {
     gateway_util::send(&remote_sup_addr, msg).await
 }
 
-async fn sub_svc_status(m: &ArgMatches<'_>) -> Result<()> {
+async fn sub_svc_status(pkg_ident: Option<PackageIdent>, remote_sup: &ListenCtlAddr) -> Result<()> {
     let cfg = config::load()?;
-    let remote_sup_addr = remote_sup_from_input(m)?;
     let secret_key = config::ctl_secret_key(&cfg)?;
     let mut msg = sup_proto::ctl::SvcStatus::default();
-    if let Some(pkg) = m.value_of("PKG_IDENT") {
-        msg.ident = Some(PackageIdent::from_str(pkg)?.into());
-    }
+    msg.ident = pkg_ident.map(Into::into);
 
     let mut out = TabWriter::new(io::stdout());
-    let mut response = SrvClient::request(&remote_sup_addr, &secret_key, msg).await?;
+    let mut response = SrvClient::request(remote_sup, &secret_key, msg).await?;
     // Ensure there is at least one result from the server otherwise produce an error
     if let Some(message_result) = response.next().await {
         let reply = message_result?;
@@ -1414,20 +1537,19 @@ async fn sub_file_put(m: &ArgMatches<'_>) -> Result<()> {
     Ok(())
 }
 
-async fn sub_sup_depart(m: &ArgMatches<'_>) -> Result<()> {
+async fn sub_sup_depart(member_id: String, remote_sup: &ListenCtlAddr) -> Result<()> {
     let cfg = config::load()?;
-    let remote_sup_addr = remote_sup_from_input(m)?;
     let secret_key = config::ctl_secret_key(&cfg)?;
     let mut ui = ui::ui();
     let mut msg = sup_proto::ctl::SupDepart::default();
-    msg.member_id = Some(m.value_of("MEMBER_ID").unwrap().to_string());
+    msg.member_id = Some(member_id);
 
     ui.begin(format!("Permanently marking {} as departed",
                      msg.member_id.as_deref().unwrap_or("UNKNOWN")))
       .unwrap();
-    ui.status(Status::Applying, format!("via peer {}", remote_sup_addr))
+    ui.status(Status::Applying, format!("via peer {}", remote_sup))
       .unwrap();
-    let mut response = SrvClient::request(&remote_sup_addr, &secret_key, msg).await?;
+    let mut response = SrvClient::request(&remote_sup, &secret_key, msg).await?;
     while let Some(message_result) = response.next().await {
         let reply = message_result?;
         match reply.message_id() {
@@ -1503,71 +1625,6 @@ fn sub_user_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 
 fn args_after_first(args_to_skip: usize) -> Vec<OsString> {
     env::args_os().skip(args_to_skip).collect()
-}
-
-async fn exec_subcommand_if_called(ui: &mut UI) -> Result<()> {
-    let mut args = env::args();
-    let first = args.nth(1).unwrap_or_default();
-    let second = args.next().unwrap_or_default();
-    let third = args.next().unwrap_or_default();
-
-    match (first.as_str(), second.as_str(), third.as_str()) {
-        ("pkg", "export", "container") => {
-            command::pkg::export::container::start(ui, &args_after_first(4)).await
-        }
-        ("pkg", "export", "docker") => {
-            ui.warn("'bio pkg export docker' is now a deprecated alias for 'bio pkg \
-                             export container'. Please update your automation and processes \
-                             accordingly.".to_string())?;
-            command::pkg::export::container::start(ui, &args_after_first(4)).await
-        }
-        ("pkg", "export", "cf") => command::pkg::export::cf::start(ui, &args_after_first(4)).await,
-        ("pkg", "export", "tar") => {
-            command::pkg::export::tar::start(ui, &args_after_first(4)).await
-        }
-        ("run", ..) => command::launcher::start(ui, &args_after_first(1)).await,
-        ("stu", ..) | ("stud", ..) | ("studi", ..) | ("studio", ..) => {
-            command::studio::enter::start(ui, &args_after_first(2)).await
-        }
-        // Skip invoking the `bio-sup` binary for sup cli help messages;
-        // handle these from within `bio`
-        ("help", "sup", _)
-        | ("sup", _, "help")
-        | ("sup", "help", _)
-        | ("sup", _, "-h")
-        | ("sup", "-h", _)
-        | ("sup", _, "--help")
-        | ("sup", "--help", _) => Ok(()),
-        // Delegate remaining Supervisor subcommands to `bio-sup`
-        ("sup", "", "")
-        | ("sup", "term", _)
-        | ("sup", "bash", _)
-        | ("sup", "sh", _)
-        | ("sup", "-V", _)
-        | ("sup", "--version", _) => command::sup::start(ui, &args_after_first(2)).await,
-        ("term", ..) => command::sup::start(ui, &args_after_first(1)).await,
-        // Delegate `bio sup run *` to the Launcher
-        ("sup", "run", _) => command::launcher::start(ui, &args_after_first(2)).await,
-        _ => Ok(()),
-    }
-}
-
-/// Parse the raw program arguments and split off any arguments that will skip clap's parsing.
-///
-/// **Note** with the current version of clap there is no clean way to ignore arguments after a
-/// certain point, especially if those arguments look like further options and flags.
-fn raw_parse_args() -> (Vec<OsString>, Vec<OsString>) {
-    let mut args = env::args();
-    match (args.nth(1).unwrap_or_default().as_str(), args.next().unwrap_or_default().as_str()) {
-        ("pkg", "exec") => {
-            if args.by_ref().count() > 2 {
-                (env::args_os().take(5).collect(), env::args_os().skip(5).collect())
-            } else {
-                (env::args_os().collect(), Vec::new())
-            }
-        }
-        _ => (env::args_os().collect(), Vec::new()),
-    }
 }
 
 /// Check to see if the user has passed in an AUTH_TOKEN param. If not, check the

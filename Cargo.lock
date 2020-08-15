@@ -580,7 +580,7 @@ dependencies = [
 [[package]]
 name = "clap"
 version = "2.33.1"
-source = "git+https://github.com/habitat-sh/clap.git?branch=v2-master#7dcf79090eb06ad1e279c1caa93d7f45697e0768"
+source = "git+https://github.com/habitat-sh/clap.git?branch=v2-master#0058050e1eb5f88cb336f3b91becb904e0ef2d47"
 dependencies = [
  "ansi_term",
  "atty",
@@ -618,7 +618,7 @@ checksum = "370c83b49aedf022ee27942e8ae1d9de1cf40dc9653ee6550e4455d08f6406f9"
 [[package]]
 name = "configopt"
 version = "0.1.0"
-source = "git+https://github.com/davidMcneil/configopt.git#152ed46d71d38a2a592c8f412ebacadeed1fc19d"
+source = "git+https://github.com/davidMcneil/configopt.git#8f08f3ec6a6a5c12fbd1e3cdbcaf8db7139bba48"
 dependencies = [
  "colosseum",
  "configopt-derive",
@@ -631,7 +631,7 @@ dependencies = [
 [[package]]
 name = "configopt-derive"
 version = "0.1.0"
-source = "git+https://github.com/davidMcneil/configopt.git#152ed46d71d38a2a592c8f412ebacadeed1fc19d"
+source = "git+https://github.com/davidMcneil/configopt.git#8f08f3ec6a6a5c12fbd1e3cdbcaf8db7139bba48"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1348,7 +1348,6 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "tabwriter",
  "tee",
  "tokio",
  "tokio-util 0.3.1",
@@ -1451,6 +1450,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sodiumoxide",
+ "tabwriter",
  "tar",
  "tempfile",
  "toml 0.5.6",
@@ -1548,6 +1548,7 @@ dependencies = [
  "glob",
  "bio",
  "biome-launcher-client",
+ "biome-launcher-protocol",
  "biome-sup-protocol",
  "biome_api_client",
  "biome_butterfly",
@@ -3129,7 +3130,7 @@ dependencies = [
 [[package]]
 name = "retry"
 version = "1.0.0"
-source = "git+https://github.com/habitat-sh/retry#715ec21da9fb0d575c60be2eb51704610b551795"
+source = "git+https://github.com/habitat-sh/retry#955385fba7da7a2f1bf1f8d7d2f2b33bd173a7b6"
 dependencies = [
  "rand 0.7.3",
  "tokio",
