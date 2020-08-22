@@ -10,9 +10,15 @@ Describe "`bio` correctly executes external binaries" {
     }
 
     It "cf exporter help" {
-        $out = bio pkg export cf --help
-        $LastExitCode | Should -Be 0
-        "Biome Package CFize - Create a Cloud Foundry ready Docker image from a given package." | Should -BeIn $out
+        # The cf exporter is only available on linux
+        if ($IsLinux) {
+            $out = bio pkg export cf --help
+            $LastExitCode | Should -Be 0
+            "Biome Package CFize - Create a Cloud Foundry ready Docker image from a given package." | Should -BeIn $out
+        } else {
+            bio pkg export cf --help
+            $LastExitCode | Should -Be 1
+        }
     }
 
     It "mesos exporter help" {

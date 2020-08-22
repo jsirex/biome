@@ -1,16 +1,17 @@
 # Habitat CHANGELOG
 
-<!-- latest_release 1.6.132 -->
-## [1.6.132](https://github.com/habitat-sh/habitat/tree/1.6.132) (2020-08-14)
+<!-- latest_release 1.6.138 -->
+## [1.6.138](https://github.com/habitat-sh/habitat/tree/1.6.138) (2020-08-21)
 
 #### Merged Pull Requests
-- do not add c:/hab/bin to persistent path in ci [#7876](https://github.com/habitat-sh/habitat/pull/7876) ([mwrock](https://github.com/mwrock))
+- Replace `hab install` with `hab pkg install` in plan-build [#7882](https://github.com/habitat-sh/habitat/pull/7882) ([christophermaier](https://github.com/christophermaier))
 <!-- latest_release -->
 
 <!-- release_rollup since=1.6.115 -->
 ### Changes since 1.6.115 release
 
 #### New Features & Enhancements
+- Add `hab sup restart` command [#7878](https://github.com/habitat-sh/habitat/pull/7878) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.134 -->
 - builder origin rbac subcommand [#7841](https://github.com/habitat-sh/habitat/pull/7841) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.123 -->
 
 #### Behavioral Changes
@@ -19,6 +20,11 @@
 - Add splay to health check execution [#7850](https://github.com/habitat-sh/habitat/pull/7850) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.121 -->
 
 #### Merged Pull Requests
+- Replace `hab install` with `hab pkg install` in plan-build [#7882](https://github.com/habitat-sh/habitat/pull/7882) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.138 -->
+- Fix CLI deprecation when generating completions [#7881](https://github.com/habitat-sh/habitat/pull/7881) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.137 -->
+- Report errors when getting user and group [#7879](https://github.com/habitat-sh/habitat/pull/7879) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.136 -->
+- Update dependencies [#7875](https://github.com/habitat-sh/habitat/pull/7875) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.135 -->
+- Remove the `hab pkg export cf` command from windows [#7877](https://github.com/habitat-sh/habitat/pull/7877) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.133 -->
 - do not add c:/hab/bin to persistent path in ci [#7876](https://github.com/habitat-sh/habitat/pull/7876) ([mwrock](https://github.com/mwrock)) <!-- 1.6.132 -->
 - Fix `hab sup --version` after `structopt` refactoring [#7873](https://github.com/habitat-sh/habitat/pull/7873) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.130 -->
 - fix path to VERSION file in windows plans [#7868](https://github.com/habitat-sh/habitat/pull/7868) ([mwrock](https://github.com/mwrock)) <!-- 1.6.128 -->
