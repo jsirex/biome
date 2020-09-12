@@ -1,10 +1,10 @@
 # Habitat CHANGELOG
 
-<!-- latest_release 1.6.149 -->
-## [1.6.149](https://github.com/habitat-sh/habitat/tree/1.6.149) (2020-09-04)
+<!-- latest_release 1.6.152 -->
+## [1.6.152](https://github.com/habitat-sh/habitat/tree/1.6.152) (2020-09-10)
 
 #### Merged Pull Requests
-- Overhaul and refactoring of Keys [#7887](https://github.com/habitat-sh/habitat/pull/7887) ([christophermaier](https://github.com/christophermaier))
+- skip remote download when present in cache or offline [#7915](https://github.com/habitat-sh/habitat/pull/7915) ([jeremymv2](https://github.com/jeremymv2))
 <!-- latest_release -->
 
 <!-- release_rollup since=1.6.115 -->
@@ -15,11 +15,14 @@
 - builder origin rbac subcommand [#7841](https://github.com/habitat-sh/habitat/pull/7841) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.123 -->
 
 #### Behavioral Changes
+- an API retry pattern [#7874](https://github.com/habitat-sh/habitat/pull/7874) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.150 -->
 - Pull packages from the `--channel` argument on `hab sup run` [#7871](https://github.com/habitat-sh/habitat/pull/7871) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.131 -->
 - Deprecate CLI aliases [#7872](https://github.com/habitat-sh/habitat/pull/7872) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.129 -->
 - Add splay to health check execution [#7850](https://github.com/habitat-sh/habitat/pull/7850) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.121 -->
 
 #### Merged Pull Requests
+- skip remote download when present in cache or offline [#7915](https://github.com/habitat-sh/habitat/pull/7915) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.152 -->
+- re-add removed else condition logic for hab pkg download [#7913](https://github.com/habitat-sh/habitat/pull/7913) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.151 -->
 - Overhaul and refactoring of Keys [#7887](https://github.com/habitat-sh/habitat/pull/7887) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.149 -->
 - Rename dev docs directory &quot;dev-docs&quot; [#7909](https://github.com/habitat-sh/habitat/pull/7909) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.148 -->
 - Quick fixes for the Builder page [#7907](https://github.com/habitat-sh/habitat/pull/7907) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.147 -->
