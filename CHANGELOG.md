@@ -1,40 +1,115 @@
 Consider below original Chef Habitat Changelog
 
-<!-- latest_release 1.6.100 -->
-## [1.6.100](https://github.com/habitat-sh/habitat/tree/1.6.100) (2020-07-23)
+<!-- latest_release 1.6.152 -->
+## [1.6.152](https://github.com/habitat-sh/habitat/tree/1.6.152) (2020-09-10)
 
-#### Bug Fixes
-- Add supplemental groups to Linux hook processes [#7823](https://github.com/habitat-sh/habitat/pull/7823) ([christophermaier](https://github.com/christophermaier))
+#### Merged Pull Requests
+- skip remote download when present in cache or offline [#7915](https://github.com/habitat-sh/habitat/pull/7915) ([jeremymv2](https://github.com/jeremymv2))
 <!-- latest_release -->
 
-<!-- release_rollup since=1.6.56 -->
-### Changes since 1.6.56 release
+<!-- release_rollup since=1.6.115 -->
+### Changes since 1.6.115 release
+
+#### New Features & Enhancements
+- Add `hab sup restart` command [#7878](https://github.com/habitat-sh/habitat/pull/7878) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.134 -->
+- builder origin rbac subcommand [#7841](https://github.com/habitat-sh/habitat/pull/7841) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.123 -->
+
+#### Behavioral Changes
+- an API retry pattern [#7874](https://github.com/habitat-sh/habitat/pull/7874) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.150 -->
+- Pull packages from the `--channel` argument on `hab sup run` [#7871](https://github.com/habitat-sh/habitat/pull/7871) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.131 -->
+- Deprecate CLI aliases [#7872](https://github.com/habitat-sh/habitat/pull/7872) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.129 -->
+- Add splay to health check execution [#7850](https://github.com/habitat-sh/habitat/pull/7850) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.121 -->
+
+#### Merged Pull Requests
+- skip remote download when present in cache or offline [#7915](https://github.com/habitat-sh/habitat/pull/7915) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.152 -->
+- re-add removed else condition logic for hab pkg download [#7913](https://github.com/habitat-sh/habitat/pull/7913) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.151 -->
+- Overhaul and refactoring of Keys [#7887](https://github.com/habitat-sh/habitat/pull/7887) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.149 -->
+- Rename dev docs directory &quot;dev-docs&quot; [#7909](https://github.com/habitat-sh/habitat/pull/7909) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.148 -->
+- Quick fixes for the Builder page [#7907](https://github.com/habitat-sh/habitat/pull/7907) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.147 -->
+- Check if license exists for current user during license acceptance [#7906](https://github.com/habitat-sh/habitat/pull/7906) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.146 -->
+- Keep the code inside of the window [#7894](https://github.com/habitat-sh/habitat/pull/7894) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.145 -->
+- Update Builder Documentation [#7581](https://github.com/habitat-sh/habitat/pull/7581) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.144 -->
+- Automated update of Habitat Documentation [#7898](https://github.com/habitat-sh/habitat/pull/7898) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.143 -->
+- Cargo Update [#7899](https://github.com/habitat-sh/habitat/pull/7899) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.143 -->
+- Rustfmt and Nightly Rust Bump to nightly-2020-08-28 [#7897](https://github.com/habitat-sh/habitat/pull/7897) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.142 -->
+- Fix update documentation pipeline [#7895](https://github.com/habitat-sh/habitat/pull/7895) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.141 -->
+- Rustfmt and Nightly Rust Bump to nightly-2020-08-24 [#7889](https://github.com/habitat-sh/habitat/pull/7889) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.140 -->
+- Fix text in e2e test [#7883](https://github.com/habitat-sh/habitat/pull/7883) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.139 -->
+- Replace `hab install` with `hab pkg install` in plan-build [#7882](https://github.com/habitat-sh/habitat/pull/7882) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.138 -->
+- Fix CLI deprecation when generating completions [#7881](https://github.com/habitat-sh/habitat/pull/7881) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.137 -->
+- Report errors when getting user and group [#7879](https://github.com/habitat-sh/habitat/pull/7879) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.136 -->
+- Update dependencies [#7875](https://github.com/habitat-sh/habitat/pull/7875) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.135 -->
+- Remove the `hab pkg export cf` command from windows [#7877](https://github.com/habitat-sh/habitat/pull/7877) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.133 -->
+- do not add c:/hab/bin to persistent path in ci [#7876](https://github.com/habitat-sh/habitat/pull/7876) ([mwrock](https://github.com/mwrock)) <!-- 1.6.132 -->
+- Fix `hab sup --version` after `structopt` refactoring [#7873](https://github.com/habitat-sh/habitat/pull/7873) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.130 -->
+- fix path to VERSION file in windows plans [#7868](https://github.com/habitat-sh/habitat/pull/7868) ([mwrock](https://github.com/mwrock)) <!-- 1.6.128 -->
+- Remove custom cli parsing [#7870](https://github.com/habitat-sh/habitat/pull/7870) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.127 -->
+- Improve error message when installing internal packages [#7869](https://github.com/habitat-sh/habitat/pull/7869) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.126 -->
+- Improve parsing of `hab pkg export` [#7865](https://github.com/habitat-sh/habitat/pull/7865) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.125 -->
+- Add some e2e tests around crypto functionality [#7867](https://github.com/habitat-sh/habitat/pull/7867) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.124 -->
+- Automated update of Habitat Documentation [#7861](https://github.com/habitat-sh/habitat/pull/7861) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.122 -->
+- modernize windows tutorial [#7820](https://github.com/habitat-sh/habitat/pull/7820) ([mwrock](https://github.com/mwrock)) <!-- 1.6.120 -->
+- Update Changelog for 1.6.115 [#7864](https://github.com/habitat-sh/habitat/pull/7864) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.119 -->
+- make bind timeout configurable and add debug output around startup [#7858](https://github.com/habitat-sh/habitat/pull/7858) ([mwrock](https://github.com/mwrock)) <!-- 1.6.117 -->
+- Cleanup `hab pkg export` subcommand [#7857](https://github.com/habitat-sh/habitat/pull/7857) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.116 -->
+<!-- release_rollup -->
+
+<!-- latest_stable_release -->
+## [1.6.115](https://github.com/habitat-sh/habitat/tree/1.6.115) (2020-08-10)
+[Full Changelog](https://github.com/habitat-sh/habitat/compare/1.6.56..1.6.115)
 
 #### New Features & Enhancements
 - hab pkg info extended metadata [#7814](https://github.com/habitat-sh/habitat/pull/7814) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.99 -->
+- Add command line completion to powershell studio [#7831](https://github.com/habitat-sh/habitat/pull/7831) ([mwrock](https://github.com/mwrock)) <!-- 1.6.98 -->
+- Add HAB_STUDIO_SUP support to Windows studio [#7791](https://github.com/habitat-sh/habitat/pull/7791) ([mwrock](https://github.com/mwrock)) <!-- 1.6.83 -->
 - Add `hab svc update` command [#7781](https://github.com/habitat-sh/habitat/pull/7781) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.75 -->
+- Service bootstrap [#7765](https://github.com/habitat-sh/habitat/pull/7765) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.73 -->
+- add uninstall hook [#7764](https://github.com/habitat-sh/habitat/pull/7764) ([mwrock](https://github.com/mwrock)) <!-- 1.6.68 -->
 - Allow dynamic changes to updater-related config for services  [#7770](https://github.com/habitat-sh/habitat/pull/7770) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.65 -->
+- always promote package on upload if a user specifies a channel [#7768](https://github.com/habitat-sh/habitat/pull/7768) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.65 -->
 
 #### Bug Fixes
+- Allow version check without license [#7834](https://github.com/habitat-sh/habitat/pull/7834) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.112 -->
+- fallback to superuser root if home path cannot be found during license search [#7853](https://github.com/habitat-sh/habitat/pull/7853) ([mwrock](https://github.com/mwrock)) <!-- 1.6.110 -->
+- refactor account/sid/win_perms to not need to contact a domian controller [#7844](https://github.com/habitat-sh/habitat/pull/7844) ([mwrock](https://github.com/mwrock)) <!-- 1.6.104 -->
 - Add supplemental groups to Linux hook processes [#7823](https://github.com/habitat-sh/habitat/pull/7823) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.100 -->
 - Ignore unreadable keys when exporting (among other uses) [#7832](https://github.com/habitat-sh/habitat/pull/7832) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.99 -->
 - [Fix] Cli completions by conditionally hiding bulkload subcommand [#7827](https://github.com/habitat-sh/habitat/pull/7827) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.96 -->
 - Fix hab svc load argument parsing [#7822](https://github.com/habitat-sh/habitat/pull/7822) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.96 -->
--  Write all service files when a service is loaded  [#7799](https://github.com/habitat-sh/habitat/pull/7799) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.83 -->
+- fix builds consuming runtime environment of build deps [#7828](https://github.com/habitat-sh/habitat/pull/7828) ([mwrock](https://github.com/mwrock)) <!-- 1.6.96 -->
+- fix ctrlc in local windows studio [#7808](https://github.com/habitat-sh/habitat/pull/7808) ([mwrock](https://github.com/mwrock)) <!-- 1.6.90 -->
+- unify bash and powershell pwd locations for build, check, prepare and install [#7796](https://github.com/habitat-sh/habitat/pull/7796) ([mwrock](https://github.com/mwrock)) <!-- 1.6.83 -->
+- Write all service files when a service is loaded  [#7799](https://github.com/habitat-sh/habitat/pull/7799) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.83 -->
+- symlink artifact cache in windows native studio [#7786](https://github.com/habitat-sh/habitat/pull/7786) ([mwrock](https://github.com/mwrock)) <!-- 1.6.82 -->
+- ensure tdeps file is built with lower level deps at the bottom of the list [#7776](https://github.com/habitat-sh/habitat/pull/7776) ([mwrock](https://github.com/mwrock)) <!-- 1.6.70 -->
+- hab-plan-build: don&#39;t fail on empty hooks dir [#7775](https://github.com/habitat-sh/habitat/pull/7775) ([stevendanna](https://github.com/stevendanna)) <!-- 1.6.67 -->
 - Fix reading root certs [#7778](https://github.com/habitat-sh/habitat/pull/7778) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.66 -->
+- Explicit permissions on keys [#7739](https://github.com/habitat-sh/habitat/pull/7739) ([stevendanna](https://github.com/stevendanna)) <!-- 1.6.64 -->
 - [FIX] Ensure `toToml` helper works properly for tables [#7772](https://github.com/habitat-sh/habitat/pull/7772) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.63 -->
 
 #### Merged Pull Requests
-- Add command line completion to powershell studio [#7831](https://github.com/habitat-sh/habitat/pull/7831) ([mwrock](https://github.com/mwrock)) <!-- 1.6.98 -->
+- Rustfmt and Nightly Rust Bump to nightly-2020-07-27 [#7862](https://github.com/habitat-sh/habitat/pull/7862) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.118 -->
+- make bind timeout configurable and add debug output around startup [#7858](https://github.com/habitat-sh/habitat/pull/7858) ([mwrock](https://github.com/mwrock)) <!-- 1.6.117 -->
+- Cleanup `hab pkg export` subcommand [#7857](https://github.com/habitat-sh/habitat/pull/7857) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.116 -->
+- fix license environment injection in container exporter [#7860](https://github.com/habitat-sh/habitat/pull/7860) ([mwrock](https://github.com/mwrock)) <!-- 1.6.115 -->
+- fix e2e test_license test [#7859](https://github.com/habitat-sh/habitat/pull/7859) ([mwrock](https://github.com/mwrock)) <!-- 1.6.114 -->
+- fix e2e test with older launcher [#7856](https://github.com/habitat-sh/habitat/pull/7856) ([mwrock](https://github.com/mwrock)) <!-- 1.6.113 -->
+- fix launcher version parsing [#7855](https://github.com/habitat-sh/habitat/pull/7855) ([mwrock](https://github.com/mwrock)) <!-- 1.6.111 -->
+- [CI] Ensure that kernel2 packages get build appropriately [#7854](https://github.com/habitat-sh/habitat/pull/7854) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.109 -->
+- Add channel promotion datadog event [#7848](https://github.com/habitat-sh/habitat/pull/7848) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.108 -->
+- use win32 api and not env var for determining current user name [#7840](https://github.com/habitat-sh/habitat/pull/7840) ([mwrock](https://github.com/mwrock)) <!-- 1.6.107 -->
+- [CI] Pull Chef GPG key from Vault instead of S3 [#7852](https://github.com/habitat-sh/habitat/pull/7852) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.106 -->
+- [CI] Ensure GPG keys are imported before verifying manifest [#7851](https://github.com/habitat-sh/habitat/pull/7851) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.105 -->
+- [CI] Fixed some stupid bugs in the supplemental groups test [#7839](https://github.com/habitat-sh/habitat/pull/7839) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.103 -->
+- [CI] Update changelog management labels in Expeditor config [#7837](https://github.com/habitat-sh/habitat/pull/7837) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.102 -->
+- [CI] Binlink `hab` earlier in the path for e2e tests [#7835](https://github.com/habitat-sh/habitat/pull/7835) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.101 -->
 - delete old objects in S3 bucket that do not exist in local website build [#7829](https://github.com/habitat-sh/habitat/pull/7829) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.98 -->
 - Update configopt version [#7830](https://github.com/habitat-sh/habitat/pull/7830) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.97 -->
-- fix builds consuming runtime environment of build deps [#7828](https://github.com/habitat-sh/habitat/pull/7828) ([mwrock](https://github.com/mwrock)) <!-- 1.6.96 -->
 - Use the new downloads site where appropriate. [#7824](https://github.com/habitat-sh/habitat/pull/7824) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.95 -->
 - fixes clippy [#7826](https://github.com/habitat-sh/habitat/pull/7826) ([mwrock](https://github.com/mwrock)) <!-- 1.6.94 -->
 - [Chore] Update rust to 1.44.1 [#7825](https://github.com/habitat-sh/habitat/pull/7825) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.93 -->
 - remove link to kubernetes operator and cloud foundary exporter [#7821](https://github.com/habitat-sh/habitat/pull/7821) ([mwrock](https://github.com/mwrock)) <!-- 1.6.92 -->
 - A PR to preview what habitat.sh will look like with branding from community.chef.io [#7762](https://github.com/habitat-sh/habitat/pull/7762) ([chefjiajia](https://github.com/chefjiajia)) <!-- 1.6.91 -->
-- fix ctrlc in local windows studio [#7808](https://github.com/habitat-sh/habitat/pull/7808) ([mwrock](https://github.com/mwrock)) <!-- 1.6.90 -->
 - [CI] Fix service update e2e test [#7813](https://github.com/habitat-sh/habitat/pull/7813) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.89 -->
 - Fix e2e failures [#7807](https://github.com/habitat-sh/habitat/pull/7807) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.88 -->
 - [CI] Bump macOS stage retry limits [#7806](https://github.com/habitat-sh/habitat/pull/7806) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.87 -->
@@ -42,9 +117,6 @@ Consider below original Chef Habitat Changelog
 - [CI] Fix a forgotten renaming [#7805](https://github.com/habitat-sh/habitat/pull/7805) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.85 -->
 - output SRC_PATH in hab-plan-puild.ps1 results [#7802](https://github.com/habitat-sh/habitat/pull/7802) ([mwrock](https://github.com/mwrock)) <!-- 1.6.84 -->
 - Make rust compiler warnings errors [#7800](https://github.com/habitat-sh/habitat/pull/7800) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.84 -->
-- unify bash and powershell pwd locations for build, check, prepare and install [#7796](https://github.com/habitat-sh/habitat/pull/7796) ([mwrock](https://github.com/mwrock)) <!-- 1.6.83 -->
-- Add HAB_STUDIO_SUP support to Windows studio [#7791](https://github.com/habitat-sh/habitat/pull/7791) ([mwrock](https://github.com/mwrock)) <!-- 1.6.83 -->
-- symlink artifact cache in windows native studio [#7786](https://github.com/habitat-sh/habitat/pull/7786) ([mwrock](https://github.com/mwrock)) <!-- 1.6.82 -->
 - Add packages for health check performance tests [#7797](https://github.com/habitat-sh/habitat/pull/7797) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.81 -->
 - use a single env var lock in tests to improve consistency [#7795](https://github.com/habitat-sh/habitat/pull/7795) ([mwrock](https://github.com/mwrock)) <!-- 1.6.80 -->
 - Update `structopt` [#7793](https://github.com/habitat-sh/habitat/pull/7793) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.79 -->
@@ -52,25 +124,17 @@ Consider below original Chef Habitat Changelog
 - [CI] Bump macOS timeout in release pipeline [#7789](https://github.com/habitat-sh/habitat/pull/7789) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.77 -->
 - [FIX] Ensure --remote-sup option is parsed properly [#7788](https://github.com/habitat-sh/habitat/pull/7788) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.76 -->
 - Propagate install and uninstall hook exit codes [#7782](https://github.com/habitat-sh/habitat/pull/7782) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.74 -->
-- Service bootstrap [#7765](https://github.com/habitat-sh/habitat/pull/7765) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.73 -->
 - start gossip listener before spawning services [#7784](https://github.com/habitat-sh/habitat/pull/7784) ([mwrock](https://github.com/mwrock)) <!-- 1.6.72 -->
 - [CI] Increase macOS timeouts [#7785](https://github.com/habitat-sh/habitat/pull/7785) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.71 -->
-- ensure tdeps file is built with lower level deps at the bottom of the list [#7776](https://github.com/habitat-sh/habitat/pull/7776) ([mwrock](https://github.com/mwrock)) <!-- 1.6.70 -->
 - compile windows-service package version into binary and log version at start of log [#7779](https://github.com/habitat-sh/habitat/pull/7779) ([mwrock](https://github.com/mwrock)) <!-- 1.6.69 -->
-- add uninstall hook [#7764](https://github.com/habitat-sh/habitat/pull/7764) ([mwrock](https://github.com/mwrock)) <!-- 1.6.68 -->
-- hab-plan-build: don&#39;t fail on empty hooks dir [#7775](https://github.com/habitat-sh/habitat/pull/7775) ([stevendanna](https://github.com/stevendanna)) <!-- 1.6.67 -->
-- always promote package on upload if a user specifies a channel [#7768](https://github.com/habitat-sh/habitat/pull/7768) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.65 -->
 - adding documentation on the HAB_SUP_UPDATE_MS environment variable [#7717](https://github.com/habitat-sh/habitat/pull/7717) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.65 -->
--  Explicit permissions on keys  [#7739](https://github.com/habitat-sh/habitat/pull/7739) ([stevendanna](https://github.com/stevendanna)) <!-- 1.6.64 -->
 - [REFACTOR] Clean up and streamline spec reconciliation [#7766](https://github.com/habitat-sh/habitat/pull/7766) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.62 -->
 - correcting multi-target package plan layout example [#7763](https://github.com/habitat-sh/habitat/pull/7763) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.61 -->
 - [CI] Simplify PKG_CONFIG_PATH for cargo_update.sh [#7761](https://github.com/habitat-sh/habitat/pull/7761) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.60 -->
 - Automated update of Habitat Documentation [#7758](https://github.com/habitat-sh/habitat/pull/7758) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.59 -->
 - Rustfmt and Nightly Rust Bump to nightly-2020-06-22 [#7759](https://github.com/habitat-sh/habitat/pull/7759) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.58 -->
 - Update changelog for 1.6.56 release [#7760](https://github.com/habitat-sh/habitat/pull/7760) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.57 -->
-<!-- release_rollup -->
 
-<!-- latest_stable_release -->
 ## [1.6.56](https://github.com/habitat-sh/habitat/tree/1.6.56) (2020-06-18)
 [Full Changelog](https://github.com/habitat-sh/habitat/compare/1.6.39..1.6.56)
 

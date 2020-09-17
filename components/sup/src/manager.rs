@@ -63,7 +63,8 @@ use biome_common::{liveliness_checker,
 use biome_core::os::{process::{ShutdownSignal,
                                  Signal},
                        signals};
-use biome_core::{crypto::SymKey,
+use biome_core::{crypto::keys::{KeyCache,
+                                  RingKey},
                    env,
                    env::Config,
                    fs::FS_ROOT_PATH,
@@ -153,6 +154,10 @@ lazy_static! {
     static ref THIS_SUPERVISOR_IDENT: PackageIdent =
         PackageIdent::from_str(&format!("{}/{}", SUP_PKG_IDENT, VERSION)).unwrap();
 }
+
+biome_core::env_config_duration!( HttpStartupTimeout,
+                                    HAB_HTTP_STARTUP_TIMEOUT_SECS => from_secs,
+                                    Duration::from_secs(10));
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 /// Determines whether the new pidfile-less behavior is enabled, or
@@ -256,7 +261,7 @@ pub struct ManagerConfig {
     pub auto_update_period:    Duration,
     pub service_update_period: Duration,
     pub custom_state_path:     Option<PathBuf>,
-    pub cache_key_path:        PathBuf,
+    pub key_cache:             KeyCache,
     pub update_url:            String,
     pub update_channel:        ChannelIdent,
     pub gossip_listen:         GossipListenAddr,
@@ -265,7 +270,7 @@ pub struct ManagerConfig {
     pub http_disable:          bool,
     pub gossip_peers:          Vec<SocketAddr>,
     pub gossip_permanent:      bool,
-    pub ring_key:              Option<SymKey>,
+    pub ring_key:              Option<RingKey>,
     pub organization:          Option<String>,
     pub watch_peer_file:       Option<String>,
     pub tls_config:            Option<TLSConfig>,
@@ -376,9 +381,10 @@ impl ReconciliationFlag {
 /// state gets shared with all the CtlGateway handlers.
 pub struct ManagerState {
     /// The configuration used to instantiate this Manager instance
-    cfg:           ManagerConfig,
-    services:      Arc<sync::ManagerServices>,
-    gateway_state: Arc<sync::GatewayState>,
+    cfg:            ManagerConfig,
+    services:       Arc<sync::ManagerServices>,
+    gateway_state:  Arc<sync::GatewayState>,
+    should_restart: AtomicBool,
 }
 
 pub(crate) mod sync {
@@ -681,7 +687,8 @@ impl Manager {
         let census_ring = Arc::new(RwLock::new(CensusRing::new(sys.member_id.clone())));
         Ok(Manager { state: Arc::new(ManagerState { cfg: cfg_static,
                                                     services,
-                                                    gateway_state: Arc::default() }),
+                                                    gateway_state: Arc::default(),
+                                                    should_restart: AtomicBool::default() }),
                      self_updater,
                      service_updater:
                          Arc::new(Mutex::new(ServiceUpdater::new(server.clone(),
@@ -994,19 +1001,22 @@ impl Manager {
             loop {
                 match *started {
                     http_gateway::ServerStartup::NotStarted => {
-                        started = match cvar.wait_timeout(started, Duration::from_secs(10)) {
-                            Ok((mutex, timeout_result)) => {
-                                if timeout_result.timed_out() {
-                                    return Err(Error::BindTimeout(http_listen_addr.to_string()));
-                                } else {
-                                    mutex
+                        started =
+                            match cvar.wait_timeout(started,
+                                                    HttpStartupTimeout::configured_value().into())
+                            {
+                                Ok((mutex, timeout_result)) => {
+                                    if timeout_result.timed_out() {
+                                        return Err(Error::BindTimeout(http_listen_addr.to_string()));
+                                    } else {
+                                        mutex
+                                    }
                                 }
-                            }
-                            Err(e) => {
-                                error!("Mutex for the HTTP gateway was poisoned. e = {:?}", e);
-                                return Err(Error::LockPoisoned);
-                            }
-                        };
+                                Err(e) => {
+                                    error!("Mutex for the HTTP gateway was poisoned. e = {:?}", e);
+                                    return Err(Error::LockPoisoned);
+                                }
+                            };
                     }
                     http_gateway::ServerStartup::BindFailed => {
                         return Err(Error::BadAddress(http_listen_addr.to_string()));
@@ -1069,12 +1079,9 @@ impl Manager {
                 break ShutdownMode::Departed;
             }
 
-            #[cfg(unix)]
-            {
-                if signals::pending_sighup() {
-                    outputln!("Supervisor shutting down for signal");
-                    break ShutdownMode::Restarting;
-                }
+            if self.check_for_restart() {
+                outputln!("Supervisor shutting down for restart");
+                break ShutdownMode::Restarting;
             }
 
             if let Some(package) = self.check_for_updated_supervisor().await {
@@ -1145,7 +1152,7 @@ impl Manager {
             self.restart_elections_rsw_mlr_rhw_msr(self.feature_flags);
             self.census_ring
                 .write()
-                .update_from_rumors_rsr_mlr(&self.state.cfg.cache_key_path,
+                .update_from_rumors_rsr_mlr(&self.state.cfg.key_cache,
                                             &self.butterfly.service_store,
                                             &self.butterfly.election_store,
                                             &self.butterfly.update_store,
@@ -1303,6 +1310,18 @@ impl Manager {
     }
 
     fn check_for_departure(&self) -> bool { self.butterfly.is_departed() }
+
+    fn check_for_restart(&self) -> bool {
+        let should_restart = self.state.should_restart.load(Ordering::Relaxed);
+        #[cfg(unix)]
+        {
+            should_restart || signals::pending_sighup()
+        }
+        #[cfg(not(unix))]
+        {
+            should_restart
+        }
+    }
 
     /// # Locking (see locking.md)
     /// * `ManagerServices::inner` (read)
@@ -1964,7 +1983,7 @@ mod test {
                             auto_update_period:    Duration::from_secs(60),
                             service_update_period: Duration::from_secs(60),
                             custom_state_path:     None,
-                            cache_key_path:        (&*CACHE_KEY_PATH).to_path_buf(),
+                            key_cache:             KeyCache::new(&*CACHE_KEY_PATH),
                             update_url:            "".to_string(),
                             update_channel:        ChannelIdent::default(),
                             gossip_listen:         GossipListenAddr::default(),

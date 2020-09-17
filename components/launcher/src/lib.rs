@@ -12,3 +12,4 @@ mod sys;
 
 pub const SUP_CMD: &str = "bio-sup";
 pub const SUP_PACKAGE_IDENT: &str = "biome/bio-sup";
+pub const VERSION: Option<&str> = option_env!("PLAN_VERSION");

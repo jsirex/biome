@@ -5,9 +5,8 @@
 /// down. If the process dies, the Supervisor will restart it.
 use super::{terminator,
             ProcessState};
-#[cfg(unix)]
-use crate::error::Error;
-use crate::{error::Result,
+use crate::{error::{Error,
+                    Result},
             manager::{ServicePidSource,
                       ShutdownConfig}};
 use biome_common::{outputln,
@@ -21,10 +20,17 @@ use biome_core::{fs,
                    os::process::{self,
                                  Pid},
                    service::ServiceGroup};
+#[cfg(windows)]
+use biome_launcher_client::Error as launcher_error;
 use biome_launcher_client::LauncherCli;
+#[cfg(windows)]
+use biome_launcher_protocol::{self as protocol,
+                                Error as launcher_protocol_error};
 use serde::{ser::SerializeStruct,
             Serialize,
             Serializer};
+#[cfg(windows)]
+use std::env;
 use std::{fs::File,
           io::{BufRead,
                BufReader,
@@ -128,18 +134,18 @@ impl Supervisor {
     // NOTE: the &self argument is only used to get access to
     // self.service_group, and even then only for Linux :/
     #[cfg(unix)]
-    fn user_info(&self, pkg: &Pkg) -> Result<UserInfo> {
+    fn user_info(&self, pkg: &Pkg, _: &LauncherCli) -> Result<UserInfo> {
         if process::can_run_services_as_svc_user() {
             // We have the ability to run services as a user / group other
             // than ourselves, so they better exist
-            let uid = users::get_uid_by_name(&pkg.svc_user).ok_or_else(|| {
-                                                               Error::UserNotFound(pkg.svc_user
-                                                                                      .to_string())
-                                                           })?;
-            let gid = users::get_gid_by_name(&pkg.svc_group).ok_or_else(|| {
-                                                                Error::GroupNotFound(pkg.svc_group
-                                                                                  .to_string())
+            let uid = users::get_uid_by_name(&pkg.svc_user)?.ok_or_else(|| {
+                                                                Error::UserNotFound(pkg.svc_user
+                                                                                       .to_string())
                                                             })?;
+            let gid = users::get_gid_by_name(&pkg.svc_group)?.ok_or_else(|| {
+                                                                 Error::GroupNotFound(pkg.svc_group
+                                                                                  .to_string())
+                                                             })?;
 
             Ok(UserInfo { username:  Some(pkg.svc_user.clone()),
                           uid:       Some(uid),
@@ -149,9 +155,9 @@ impl Supervisor {
             // We DO NOT have the ability to run as other users!  Also
             // note that we legitimately may not have a username or
             // groupname.
-            let username = users::get_effective_username();
+            let username = users::get_effective_username()?;
             let uid = users::get_effective_uid();
-            let groupname = users::get_effective_groupname();
+            let groupname = users::get_effective_groupname()?;
             let gid = users::get_effective_gid();
 
             let name_for_logging = username.clone()
@@ -167,14 +173,63 @@ impl Supervisor {
     }
 
     #[cfg(windows)]
-    fn user_info(&self, pkg: &Pkg) -> Result<UserInfo> {
+    fn user_info(&self, pkg: &Pkg, launcher: &LauncherCli) -> Result<UserInfo> {
+        // We have changed the implementation of get_current_username in core
+        // to use a win32 call GetUserNameW instead of the USERNAME environment
+        // variable. This introduces a problem if we are using an older launcher
+        // because both might get the current user name and an older launcher would
+        // get a different value if the current user is the SYSTEM user. The API
+        // call returns 'system' but the environment variable would be the host
+        // name followed by a dollar sign. So when an older launcher attempts to
+        // spawn a service and the supervisor is telling it to use the 'system' user
+        // name, the launcher will try to spawn the service using CreateProcessAsUserW
+        // instead of CreateProcessW thinking it needs to spawn the process as a
+        // different user. CreateProcessAsUserW will fail because it will attempt to
+        // authenticate the system user to create its access token which cannot be done
+        // with the system user.
+        //
+        // So we will check the version of the launcher. This version check is added
+        // in the same set of commits that changed the current username inspection
+        // implementation. So if the version handler is not supported, which it would
+        // not be in an older launcher, we will convert the user name to the old style
+        // system user using the host name.
+        let user = {
+            if pkg.svc_user == "system" {
+                let legacy_user = env::var("COMPUTERNAME")?.to_lowercase() + "$";
+                match launcher.version() {
+                    // 14227 is the last unstable launcher version as of the writing
+                    // of this comment.
+                    Ok(v) if v > 14227 => pkg.svc_user.clone(),
+                    Ok(_) => legacy_user,
+                    Err(err @ launcher_error::Timeout) => {
+                        error!("Timeout getting version from launcher: {:?}", err);
+                        legacy_user
+                    }
+                    Err(launcher_error::Protocol(launcher_protocol_error::NetErr(err))) => {
+                        match err.code {
+                            protocol::ErrCode::UnknownMessage => {
+                                error!("Unable to retrieve version from launcher: {:?}", err);
+                                legacy_user
+                            }
+                            _ => return Err(Error::Launcher(launcher_error::Protocol(launcher_protocol_error::NetErr(err)))),
+                        }
+                    }
+                    Err(err) => {
+                        return Err(Error::Launcher(err));
+                    }
+                }
+            } else {
+                pkg.svc_user.clone()
+            }
+        };
+
         // Windows only really has usernames, not groups and other
         // IDs.
         //
         // Note that the Windows Supervisor does not yet have a
         // corresponding "non-root" behavior, as the Linux version
         // does; services run as the service user.
-        Ok(UserInfo { username: Some(pkg.svc_user.clone()),
+        Ok(UserInfo { username: Some(user),
                       ..Default::default() })
     }
 
@@ -184,7 +239,7 @@ impl Supervisor {
                  launcher: &LauncherCli,
                  svc_password: Option<&str>)
                  -> Result<()> {
-        let user_info = self.user_info(&pkg)?;
+        let user_info = self.user_info(&pkg, launcher)?;
         outputln!(preamble self.service_group,
                   "Starting service as user={}, group={}",
                   user_info.username.as_ref().map_or("<anonymous>", String::as_str),

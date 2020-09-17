@@ -321,7 +321,7 @@ impl Service {
     async fn resolve_pkg(package: &PackageInstall, spec: &ServiceSpec) -> Result<Pkg> {
         let mut pkg = Pkg::from_install(&package).await?;
         if spec.svc_encrypted_password.is_none() && pkg.svc_user == DEFAULT_USER {
-            if let Some(user) = users::get_current_username() {
+            if let Some(user) = users::get_current_username()? {
                 pkg.svc_user = user;
             }
         }
@@ -1151,18 +1151,22 @@ impl Service {
         where T: AsRef<Path>
     {
         let current_checksum = match hash::hash_file(&file) {
-            Ok(current_checksum) => current_checksum,
+            Ok(current_checksum) => Some(current_checksum),
             Err(err) => {
                 outputln!(preamble self.service_group, "Failed to get current checksum for {}, {}",
                        file.as_ref().display(),
                        err);
-                String::new()
+                None
             }
         };
         let new_checksum = hash::hash_bytes(&contents);
-        if new_checksum == current_checksum {
-            return false;
+
+        if let Some(current_checksum) = current_checksum {
+            if new_checksum == current_checksum {
+                return false;
+            }
         }
+
         if let Err(e) = atomic_write(file.as_ref(), contents) {
             outputln!(preamble self.service_group,
                       "Failed to write to cache file {}, {}",

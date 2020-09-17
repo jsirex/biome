@@ -21,9 +21,14 @@
 //! * Unpack it
 
 use crate::{api_client::{self,
+                         retry_builder_api,
+                         APIFailure,
                          BuilderAPIClient,
                          Client,
-                         Error::APIError},
+                         Error::{APIClientError,
+                                 APIError},
+                         API_RETRY_COUNT,
+                         API_RETRY_DELAY},
             error::{Error,
                     Result},
             templating::hooks::{InstallHook,
@@ -32,8 +37,10 @@ use crate::{api_client::{self,
                  UIWriter}};
 use biome_core::{self,
                    crypto::{artifact,
-                            keys::parse_name_with_rev,
-                            SigKeyPair},
+                            keys::{Key,
+                                   KeyCache,
+                                   NamedRevision,
+                                   PublicOriginSigningKey}},
                    fs::{cache_key_path,
                         pkg_install_path,
                         AtomicWriter,
@@ -47,7 +54,6 @@ use biome_core::{self,
                              PackageTarget},
                    ChannelIdent};
 use reqwest::StatusCode;
-use retry::delay;
 use std::{convert::TryFrom,
           fs::{self,
                File},
@@ -306,8 +312,9 @@ pub async fn start<U>(ui: &mut U,
                       -> Result<PackageInstall>
     where U: UIWriter
 {
-    let key_cache_path = &cache_key_path(fs_root_path);
-    debug!("install key_cache_path: {}", key_cache_path.display());
+    let key_cache = KeyCache::new(cache_key_path(fs_root_path));
+    key_cache.setup()?;
+    debug!("install key cache: {}", key_cache.as_ref().display());
 
     let api_client = Client::new(url, product, version, Some(fs_root_path))?;
     let task = InstallTask { install_mode,
@@ -316,7 +323,7 @@ pub async fn start<U>(ui: &mut U,
                              channel,
                              fs_root_path,
                              artifact_cache_path,
-                             key_cache_path,
+                             key_cache,
                              install_hook_mode };
 
     match *install_source {
@@ -419,7 +426,7 @@ struct InstallTask<'a> {
     fs_root_path:        &'a Path,
     /// The path to the local artifact cache (e.g., /hab/cache/artifacts)
     artifact_cache_path: &'a Path,
-    key_cache_path:      &'a Path,
+    key_cache:           KeyCache,
     install_hook_mode:   InstallHookMode,
 }
 
@@ -663,14 +670,8 @@ impl<'a> InstallTask<'a> {
                    ident);
         } else if self.is_offline() {
             return Err(Error::OfflineArtifactNotFound(ident.as_ref().clone()));
-        } else if let Err(err) =
-            retry::retry_future!(delay::Fixed::from(RETRY_WAIT).take(RETRIES),
-                                 self.fetch_artifact(ui, (ident, target), token)).await
-        {
-            return Err(Error::DownloadFailed(format!("We tried {} times but \
-                                                      could not download {}. \
-                                                      Last error was: {}",
-                                                     RETRIES, ident, err)));
+        } else {
+            self.fetch_artifact(ui, (ident, target), token).await?;
         }
 
         let mut artifact = PackageArchive::new(self.cached_artifact_path(ident))?;
@@ -843,43 +844,49 @@ impl<'a> InstallTask<'a> {
                                -> Result<()>
         where T: UIWriter
     {
-        ui.status(Status::Downloading, ident)?;
-        match self.api_client
-                  .fetch_package((ident.as_ref(), target),
-                                 token,
-                                 self.artifact_cache_path,
-                                 ui.progress())
-                  .await
-        {
-            Ok(_) => Ok(()),
-            Err(api_client::Error::APIError(StatusCode::NOT_IMPLEMENTED, _)) => {
-                println!("Host platform or architecture not supported by the targeted depot; \
-                          skipping.");
-                Ok(())
-            }
-            Err(e) => Err(Error::from(e)),
-        }
+        retry_builder_api!(async {
+            ui.status(Status::Downloading, format!("{} for {}", ident, target))?;
+            self.api_client
+                .fetch_package((ident.as_ref(), target),
+                               token,
+                               self.artifact_cache_path,
+                               ui.progress())
+                .await
+        }).await
+          .map_err(|e| {
+              APIClientError(APIFailure::DownloadPackageFailed(API_RETRY_COUNT,
+                                                               PackageIdent::from(ident.clone()),
+                                                               target,
+                                                               Box::new(e)))
+          })?;
+
+        Ok(())
     }
 
     async fn fetch_origin_key<T>(&self,
                                  ui: &mut T,
-                                 name_with_rev: &str,
+                                 named_revision: &NamedRevision,
                                  token: Option<&str>)
-                                 -> Result<()>
+                                 -> Result<PublicOriginSigningKey>
         where T: UIWriter
     {
         if self.is_offline() {
-            Err(Error::OfflineOriginKeyNotFound(name_with_rev.to_string()))
+            Err(Error::OfflineOriginKeyNotFound(named_revision.to_string()))
         } else {
             ui.status(Status::Downloading,
-                      format!("{} public origin key", &name_with_rev))?;
-            let (name, rev) = parse_name_with_rev(&name_with_rev)?;
+                      format!("{} public origin key", named_revision))?;
             self.api_client
-                .fetch_origin_key(&name, &rev, token, self.key_cache_path, ui.progress())
+                .fetch_origin_key(named_revision.name(),
+                                  named_revision.revision(),
+                                  token,
+                                  self.key_cache.as_ref(),
+                                  ui.progress())
                 .await?;
+
+            let key = self.key_cache.public_signing_key(&named_revision)?;
             ui.status(Status::Cached,
-                      format!("{} public origin key", &name_with_rev))?;
-            Ok(())
+                      format!("{} public origin key", key.named_revision()))?;
+            Ok(key)
         }
     }
 
@@ -951,13 +958,16 @@ impl<'a> InstallTask<'a> {
             )));
         }
 
-        let nwr = artifact::artifact_signer(&artifact.path)?;
-        if SigKeyPair::get_public_key_path(&nwr, self.key_cache_path).is_err() {
-            self.fetch_origin_key(ui, &nwr, token).await?;
-        }
+        let named_revision = artifact::artifact_signer(&artifact.path)?;
 
-        artifact.verify(&self.key_cache_path)?;
-        debug!("Verified {} signed by {}", ident, &nwr);
+        // If we don't have the key locally, fetch it from Builder
+        if self.key_cache.public_signing_key(&named_revision).is_err() {
+            self.fetch_origin_key(ui, &named_revision, token).await?;
+        };
+
+        artifact::verify(&artifact.path, &self.key_cache)?;
+
+        debug!("Verified {} signed by {}", ident, named_revision);
         Ok(())
     }
 

@@ -31,18 +31,22 @@ use std::{collections::{HashMap,
                         HashSet},
           fs::DirBuilder,
           path::{Path,
-                 PathBuf},
-          time::Duration};
+                 PathBuf}};
 
 use crate::{api_client::{self,
+                         retry_builder_api,
+                         APIFailure,
                          BuilderAPIClient,
                          Client,
-                         Error::APIError,
-                         Package},
-            common::Error as CommonError,
+                         Error::{APIClientError,
+                                 APIError},
+                         Package,
+                         API_RETRY_COUNT,
+                         API_RETRY_DELAY},
+            common::error::Error as CommonError,
             hcore::{crypto::{artifact,
-                             keys::parse_name_with_rev,
-                             SigKeyPair},
+                             keys::{KeyCache,
+                                    NamedRevision}},
                     fs::cache_root_path,
                     package::{Identifiable,
                               PackageArchive,
@@ -56,13 +60,9 @@ use biome_common::ui::{Glyph,
                          UIWriter};
 
 use reqwest::StatusCode;
-use retry::delay;
 
 use crate::error::{Error,
                    Result};
-
-pub const RETRIES: usize = 5;
-pub const RETRY_WAIT: Duration = Duration::from_millis(3000);
 
 #[derive(Debug, Deserialize)]
 pub struct PackageSetFile {
@@ -120,7 +120,7 @@ pub async fn start<U>(ui: &mut U,
     where U: UIWriter
 {
     debug!(
-           "Starting download with url: {}, product: {}, version: {}, 
+           "Starting download with url: {}, product: {}, version: {},
          download_path: {:?}, token: {:?}, verify: {}, ignore_missing_seeds: {}, set_count: {}",
            url,
            product,
@@ -337,13 +337,8 @@ impl<'a> DownloadTask<'a> {
                    ident);
             ui.status(Status::Custom(Glyph::Elipses, String::from("Using cached")),
                       format!("{}", ident))?;
-        } else if let Err(err) = retry::retry_future!(delay::Fixed::from(RETRY_WAIT).take(RETRIES),
-                                                      self.fetch_artifact(ui, ident, target)).await
-        {
-            return Err(CommonError::DownloadFailed(format!("We tried {} times but could not \
-                                                            download {} for {}. Last error \
-                                                            was: {}",
-                                                           RETRIES, ident, target, err)).into());
+        } else {
+            self.fetch_artifact(ui, ident, target).await?;
         }
 
         // At this point the artifact is in the download directory...
@@ -364,33 +359,36 @@ impl<'a> DownloadTask<'a> {
         where T: UIWriter
     {
         ui.status(Status::Downloading, format!("{}", ident))?;
-        match self.api_client
-                  .fetch_package((ident, target),
-                                 self.token,
-                                 &self.path_for_artifact(),
-                                 ui.progress())
-                  .await
-        {
-            Ok(_) => Ok(()),
-            Err(api_client::Error::APIError(StatusCode::NOT_IMPLEMENTED, _)) => {
-                println!("Host platform or architecture not supported by the targeted depot; \
-                          skipping.");
-                Ok(())
-            }
-            Err(e) => Err(e.into()),
-        }
+        retry_builder_api!(async {
+            self.api_client
+                .fetch_package((ident, target),
+                               self.token,
+                               &self.path_for_artifact(),
+                               ui.progress())
+                .await
+        }).await
+          .map_err(|e| {
+              APIClientError(APIFailure::DownloadPackageFailed(API_RETRY_COUNT,
+                                                               ident.clone(),
+                                                               target,
+                                                               Box::new(e)))
+          })?;
+        Ok(())
     }
 
     async fn fetch_origin_key<T>(&self,
                                  ui: &mut T,
-                                 name_with_rev: &str,
+                                 named_revision: NamedRevision,
                                  token: Option<&str>)
                                  -> Result<()>
         where T: UIWriter
     {
-        let (name, rev) = parse_name_with_rev(&name_with_rev)?;
         self.api_client
-            .fetch_origin_key(&name, &rev, token, &self.path_for_keys(), ui.progress())
+            .fetch_origin_key(named_revision.name(),
+                              named_revision.revision(),
+                              token,
+                              &self.path_for_keys(),
+                              ui.progress())
             .await?;
         Ok(())
     }
@@ -407,15 +405,20 @@ impl<'a> DownloadTask<'a> {
         // Once we have them, it's the natural time to verify.
         // Otherwise, it might make sense to take this fetch out of the verification code.
         let signer = artifact::artifact_signer(&artifact.path)?;
-        if SigKeyPair::get_public_key_path(&signer, &self.path_for_keys()).is_err() {
+
+        let cache = KeyCache::new(&self.path_for_keys());
+        cache.setup()?;
+
+        if cache.public_signing_key(&signer).is_err() {
             ui.status(Status::Downloading,
-                      format!("public key for signer {:?}", signer))?;
-            self.fetch_origin_key(ui, &signer, self.token).await?;
-        }
+                      format!("public key for signer {}", signer))?;
+            self.fetch_origin_key(ui, signer.clone(), self.token)
+                .await?;
+        };
 
         if self.verify {
             ui.status(Status::Verifying, artifact.ident()?)?;
-            artifact.verify(&self.path_for_keys())?;
+            artifact::verify(&artifact.path, &cache)?;
             debug!("Verified {} for {} signed by {}", ident, target, &signer);
         }
         Ok(())

@@ -53,12 +53,14 @@ pub enum Error {
     JobGroupCancel(api_client::Error),
     JobGroupPromoteOrDemoteUnprocessable(bool /* promote */),
     JsonErr(serde_json::Error),
+    KeyTypeParseError(String),
     LicenseNotAccepted,
     NameLookup,
     NetErr(net::NetErr),
     PackageArchiveMalformed(String),
     PackageSetParseError(String),
     ParseIntError(num::ParseIntError),
+    ParseUrlError(url::ParseError),
     PathPrefixError(path::StripPrefixError),
     ProvidesError(String),
     RootRequired,
@@ -161,6 +163,7 @@ impl fmt::Display for Error {
             }
             Error::JsonErr(ref e) => e.to_string(),
             Error::JobGroupCancel(ref e) => format!("Failed to cancel job group: {:?}", e),
+            Error::KeyTypeParseError(ref s) => format!("Failed to parse key type: {}", s),
             Error::LicenseNotAccepted => "License agreement not accepted".to_string(),
             Error::NameLookup => "Error resolving a name or IP address".to_string(),
             Error::NetErr(ref e) => e.to_string(),
@@ -172,6 +175,7 @@ impl fmt::Display for Error {
                 format!("Package set file could not be parsed: {:?}", e)
             }
             Error::ParseIntError(ref err) => format!("{}", err),
+            Error::ParseUrlError(ref err) => format!("{}", err),
             Error::PathPrefixError(ref err) => format!("{}", err),
             Error::ProvidesError(ref err) => format!("Can't find {}", err),
             Error::RootRequired => {
@@ -274,4 +278,8 @@ impl From<walkdir::Error> for Error {
 
 impl From<ctrlc::Error> for Error {
     fn from(err: ctrlc::Error) -> Self { Error::CtrlcError(err) }
+}
+
+impl From<url::ParseError> for Error {
+    fn from(err: url::ParseError) -> Self { Error::ParseUrlError(err) }
 }

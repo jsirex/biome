@@ -7,6 +7,7 @@ use crate::{allow_std_io::AllowStdIo,
             DisplayProgress,
             OriginInfoResponse,
             OriginKeyIdent,
+            OriginMemberRoleResponse,
             OriginSecret,
             Package,
             PendingOriginInvitationsResponse,
@@ -16,12 +17,14 @@ use crate::{allow_std_io::AllowStdIo,
 use broadcast::BroadcastWriter;
 use bytes::BytesMut;
 use futures::stream::TryStreamExt;
-use biome_core::{crypto::keys::box_key_pair::WrappedSealedBox,
+use biome_core::{crypto::keys::AnonymousBox,
                    fs::{AtomicWriter,
                         Permissions,
                         DEFAULT_CACHED_ARTIFACT_PERMISSIONS,
                         DEFAULT_PUBLIC_KEY_PERMISSIONS,
                         DEFAULT_SECRET_KEY_PERMISSIONS},
+                   origin::{Origin,
+                            OriginMemberRole},
                    package::{Identifiable,
                              PackageArchive,
                              PackageIdent,
@@ -43,7 +46,8 @@ use std::{fs::{self,
                Cursor},
           path::{Path,
                  PathBuf},
-          string::ToString};
+          string::ToString,
+          time::Duration};
 use tee::TeeReader;
 use tokio::task;
 use tokio_util::codec::{BytesCodec,
@@ -53,6 +57,15 @@ use url::Url;
 const X_FILENAME: &str = "x-filename";
 
 const DEFAULT_API_PATH: &str = "/v1";
+
+/// This constant is used by the retry_builder_api! macro and governs the number of maximum
+/// retries of an API function after a failure of the initial attempt.
+pub const API_RETRY_COUNT: usize = 5;
+/// The retry_builder_api! macro supports different types of retry strategies. This constant
+/// establishes the initial delay used in the respective retry algorithm. This delay and the
+/// retry algorithm chosen are combined to create an iterator of Duration representing the timing
+/// of the retry attempts.
+pub const API_RETRY_DELAY: Duration = Duration::from_secs(10);
 
 // The characters in this set are copied from
 // https://docs.rs/percent-encoding/1.0.1/percent_encoding/struct.PATH_SEGMENT_ENCODE_SET.html
@@ -474,14 +487,14 @@ impl BuilderAPIClient {
                                       origin: &str,
                                       token: &str,
                                       key_name: &str,
-                                      secret: &WrappedSealedBox<'_>)
+                                      secret: &AnonymousBox)
                                       -> Result<()> {
         debug!("Creating origin secret: {}, {}", origin, key_name);
 
         let path = format!("depot/origins/{}/secret", origin);
         let body = json!({
             "name": key_name,
-            "value": secret
+            "value": secret.to_string()
         });
 
         response::ok_if_unit(self.0
@@ -1374,6 +1387,88 @@ impl BuilderAPIClient {
             _ => Err(response::err_from_response(resp).await),
         }
     }
+
+    /// Get an origin member's role
+    ///
+    /// # Failures
+    ///
+    /// * Remote Builder is not available
+    pub async fn get_member_role(&self,
+                                 origin: Origin,
+                                 token: &str,
+                                 member_account: &str)
+                                 -> Result<OriginMemberRoleResponse> {
+        debug!("Getting member {} role from origin {}",
+               member_account, origin);
+
+        let path = format!("depot/origins/{}/users/{}/role", origin, member_account);
+        let resp = self.0.get(&path).bearer_auth(token).send().await?;
+        let resp = response::ok_if(resp, &[StatusCode::OK]).await?;
+
+        Ok(resp.json().await?)
+    }
+
+    /// Update an origin member's role
+    ///
+    /// # Failures
+    ///
+    /// * Remote Builder is not available
+    /// * Unprocessable role
+    /// * Insufficient Privileges
+    pub async fn update_member_role(&self,
+                                    origin: Origin,
+                                    token: &str,
+                                    member_account: &str,
+                                    role: OriginMemberRole)
+                                    -> Result<()> {
+        debug!("Updating member {} role to '{}' in origin {}",
+               member_account, role, origin);
+
+        let path = format!("depot/origins/{}/users/{}/role", origin, member_account);
+        response::ok_if_unit(self.0
+                                 .put_with_custom_url(&path, |url| {
+                                     url.query_pairs_mut().append_pair("role", &role.to_string());
+                                 })
+                                 .bearer_auth(token)
+                                 .send()
+                                 .await?,
+                             &[StatusCode::NO_CONTENT]).await
+    }
+}
+
+/// Retry an API function until it succeeds or a client-side HTTP error (400-499) results, or
+/// until the given `Duration` iterator ends.
+///
+/// Use the following syntax:
+/// `retry_builder_api!(Future<Output = Into<OperationResult<R, E>>>)`
+/// or
+/// `retry_builder_api!(Future<Output = Into<OperationResult<R, E>>>), with_custom_iterator:
+/// IntoIterator<Item = Duration>)`
+#[macro_export]
+macro_rules! retry_builder_api {
+    ($api_future:expr) => {
+        retry_builder_api!($api_future,
+                           with_custom_iterator: retry::delay::Fibonacci::from(API_RETRY_DELAY).take(API_RETRY_COUNT))
+    };
+    ($api_future:expr,with_custom_iterator: $iterator:expr) => {
+        async {
+            retry::retry_future!($iterator, async {
+                match $api_future.await.into() {
+                    Ok(_) => retry::OperationResult::Ok(()),
+                    Err(api_client::Error::APIError(StatusCode::NOT_IMPLEMENTED, _)) => {
+                        info!("Unsupported package platform or architecture. Skipping!");
+                        retry::OperationResult::Ok(())
+                    }
+                    Err(api_client::Error::APIError(code, error)) if code.is_client_error() => {
+                        retry::OperationResult::Err(api_client::Error::APIError(code, error))
+                    }
+                    Err(e) => retry::OperationResult::Retry(e),
+                }
+            }).await
+              // pull out the wrapped error from retry::OperationResult
+              .map_err(|e| e.error)
+        }
+    };
 }
 
 fn origin_keys_path(origin: &str) -> String { format!("depot/origins/{}/keys", origin) }

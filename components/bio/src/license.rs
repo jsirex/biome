@@ -58,58 +58,80 @@ pub struct LicenseData {
 }
 
 impl LicenseData {
-    pub fn new() -> Self {
-        LicenseData { date_accepted: Utc::now(),
-                      accepting_product: String::from("bio"),
-                      accepting_product_version: super::VERSION.to_string(),
-                      user: get_current_username(),
-                      file_format: String::from(LICENSE_FILE_FORMAT_VERSION), }
+    pub fn new() -> Result<Self> {
+        Ok(LicenseData { date_accepted: Utc::now(),
+                         accepting_product: String::from("bio"),
+                         accepting_product_version: super::VERSION.to_string(),
+                         user: get_current_username()?,
+                         file_format: String::from(LICENSE_FILE_FORMAT_VERSION), })
     }
 }
 
-pub fn check_for_license_acceptance() -> Result<bool> {
-    if true || env_var_present()? {
-        return Ok(true);
-    }
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum LicenseAcceptance {
+    Accepted,
+    /// Explicitly deny the license and do not prompt for license acceptance. This is useful for
+    /// testing.
+    Denied,
+    NotYetAccepted,
+}
 
-    Ok(false)
+impl LicenseAcceptance {
+    pub fn accepted(self) -> bool { self == Self::Accepted }
+}
+
+impl Default for LicenseAcceptance {
+    fn default() -> Self { Self::NotYetAccepted }
+}
+
+pub fn check_for_license_acceptance() -> Result<LicenseAcceptance> {
+    match (acceptance_from_env_var()?, license_exists()) {
+        // The environment variable takes precedence regardless of the existence of the license
+        // file
+        (l @ LicenseAcceptance::Accepted, _) | (l @ LicenseAcceptance::Denied, _) => Ok(l),
+        (_, true) => Ok(LicenseAcceptance::Accepted),
+        (..) => Ok(LicenseAcceptance::NotYetAccepted),
+    }
 }
 
 pub fn check_for_license_acceptance_and_prompt(ui: &mut UI) -> Result<()> {
-    if check_for_license_acceptance()? {
-        return Ok(());
-    }
-
-    ui.heading("+---------------------------------------------+")?;
-    ui.heading("            Biome License Acceptance")?;
-    ui.br()?;
-    ui.info("Before you can continue, 1 product license must be accepted.")?;
-    ui.info("View the license at https://github.com/biome-sh/biome")?;
-    ui.br()?;
-    ui.info("License that needs accepting:")?;
-    ui.br()?;
-    ui.info("  * Biome")?;
-    ui.br()?;
-
-    if ui.prompt_yes_no("Do you accept the 1 product license?", Some(false))? {
-        accept_license(ui)
-    } else {
-        ui.br()?;
-        ui.info("If you do not accept this license you will not be able to use Biome products.")?;
-        ui.br()?;
-
-        if ui.prompt_yes_no("Do you accept the 1 product license?", Some(false))? {
-            accept_license(ui)
-        } else {
-            ui.br()?;
+    match check_for_license_acceptance()? {
+        LicenseAcceptance::Accepted => Ok(()),
+        LicenseAcceptance::Denied => Err(Error::LicenseNotAccepted),
+        LicenseAcceptance::NotYetAccepted => {
             ui.heading("+---------------------------------------------+")?;
-            Err(Error::LicenseNotAccepted)
+            ui.heading("            Biome License Acceptance")?;
+            ui.br()?;
+            ui.info("Before you can continue, 1 product license must be accepted.")?;
+            ui.info("View the license at https://github.com/biome-sh/biome")?;
+            ui.br()?;
+            ui.info("License that needs accepting:")?;
+            ui.br()?;
+            ui.info("  * Biome")?;
+            ui.br()?;
+
+            if ui.prompt_yes_no("Do you accept the 1 product license?", Some(false))? {
+                accept_license(ui)
+            } else {
+                ui.br()?;
+                ui.info("If you do not accept this license you will not be able to use Chef \
+                         products.")?;
+                ui.br()?;
+
+                if ui.prompt_yes_no("Do you accept the 1 product license?", Some(false))? {
+                    accept_license(ui)
+                } else {
+                    ui.br()?;
+                    ui.heading("+---------------------------------------------+")?;
+                    Err(Error::LicenseNotAccepted)
+                }
+            }
         }
     }
 }
 
 pub fn accept_license(ui: &mut UI) -> Result<()> {
-    if true {
+    if license_exists_for_current_user() {
         ui.info("You have already accepted the license.")?;
         return Ok(());
     }
@@ -133,8 +155,7 @@ fn user_license_root() -> PathBuf {
     if let Some(home) = dirs::home_dir() {
         home.join(".hab")
     } else {
-        panic!("No home directory available. Unable to find a suitable place to write a license \
-                file.");
+        superuser_license_root()
     }
 }
 
@@ -152,24 +173,26 @@ fn writeable_license_path() -> PathBuf {
     license_path(&root_dir)
 }
 
-fn env_var_present() -> Result<bool> {
+fn acceptance_from_env_var() -> Result<LicenseAcceptance> {
     match env::var(LICENSE_ACCEPT_ENVVAR) {
         Ok(val) => {
             if &val == "accept" {
                 write_license_file()?;
-                Ok(true)
+                Ok(LicenseAcceptance::Accepted)
             } else if &val == "accept-no-persist" {
-                Ok(true)
+                Ok(LicenseAcceptance::Accepted)
+            } else if &val == "deny" {
+                Ok(LicenseAcceptance::Denied)
             } else {
-                Ok(false)
+                Ok(LicenseAcceptance::NotYetAccepted)
             }
         }
-        Err(_) => Ok(false),
+        Err(_) => Ok(LicenseAcceptance::NotYetAccepted),
     }
 }
 
 fn write_license_file() -> Result<()> {
-    let license = LicenseData::new();
+    let license = LicenseData::new()?;
     let content = serde_yaml::to_string(&license)?;
     fs::create_dir_all(writeable_license_path())?;
     let mut file = File::create(license_file(&writeable_license_path()))?;
@@ -180,4 +203,12 @@ fn write_license_file() -> Result<()> {
 pub fn license_exists() -> bool {
     license_file(&license_path(&user_license_root())).is_file()
     || license_file(&license_path(&superuser_license_root())).is_file()
+}
+
+pub fn license_exists_for_current_user() -> bool {
+    if am_i_root() {
+        license_file(&license_path(&superuser_license_root())).is_file()
+    } else {
+        license_file(&license_path(&user_license_root())).is_file()
+    }
 }
