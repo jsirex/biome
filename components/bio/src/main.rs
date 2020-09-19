@@ -230,6 +230,9 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                         }
                         BioSup::Status { pkg_ident,
                                          remote_sup, } => {
+                            ui.warn("'bio sup status' as an alias for 'bio svc status' is \
+                                     deprecated. Please update your automation and processes \
+                                     accordingly.")?;
                             return sub_svc_status(pkg_ident, &remote_sup.to_listen_ctl_addr()).await;
                         }
                         BioSup::Restart { remote_sup } => {
