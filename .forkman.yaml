@@ -570,6 +570,7 @@ patterns:
   'hab=': 'bio='
   'hab =': 'bio ='
   ' hab ': ' bio '
+  /.hab: /.hab
   .hab: .bio
   '&hab': '&bio'
   '"hab"': '"bio"'
