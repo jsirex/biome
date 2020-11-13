@@ -47,7 +47,7 @@ RUN \
     # This is currently needed in order for non-root containers to
     # function... this ends up being their home directory, and we
     # expect to find key cache directory there right now.
-    mkdir -p /.hab/cache/keys && chmod -R 770 /.bio
+    mkdir -p /.hab/cache/keys && chmod -R 770 /.hab
 
 # Ensure our custom /etc content (notably `passwd` and `group` files,
 # but also our linked cacerts in /etc/ssl) are present.
