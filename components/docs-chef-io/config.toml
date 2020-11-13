@@ -107,67 +107,71 @@ weight = 60
 # Biome Menu ##
 ###
 
-[[menu.bioitat]]
+[[menu.biome]]
 title = "Biome"
 identifier = "biome"
 weight = 10
 
-  [[menu.bioitat]]
+  [[menu.biome]]
   title = "Install Biome"
   identifier = "habitat/get_started"
   parent = "biome"
   weight = 10
 
-  [[menu.bioitat]]
+  [[menu.biome]]
   title = "Builder"
   identifier = "habitat/builder"
   parent = "biome"
   weight = 20
 
-  [[menu.bioitat]]
-  title = "Packages"
-  identifier = "habitat/packages"
+  [[menu.biome]]
+  title = "Origins"
+  identifier = "habitat/origins"
   parent = "biome"
   weight = 30
 
-  [[menu.bioitat]]
-  title = "Plans"
-  identifier = "habitat/plans"
+  [[menu.biome]]
+  title = "Packages"
+  identifier = "habitat/packages"
   parent = "biome"
   weight = 40
 
-  [[menu.bioitat]]
-  title = "Services"
-  identifier = "habitat/services"
+  [[menu.biome]]
+  title = "Plans"
+  identifier = "habitat/plans"
   parent = "biome"
   weight = 50
 
-  [[menu.bioitat]]
-  title = "Supervisors"
-  identifier = "habitat/supervisors"
+  [[menu.biome]]
+  title = "Services"
+  identifier = "habitat/services"
   parent = "biome"
   weight = 60
 
-  [[menu.bioitat]]
-  title = "Studio"
-  identifier = "habitat/studio"
-  url = "/habitat/studio"
+  [[menu.biome]]
+  title = "Supervisors"
+  identifier = "habitat/supervisors"
   parent = "biome"
   weight = 70
 
-  [[menu.bioitat]]
-  title = "Containers"
-  identifier = "habitat/containers"
-  parent = "biome"
-  weight = 100
-
-  [[menu.bioitat]]
+  [[menu.biome]]
   title = "Reference"
   identifier = "habitat/reference"
   parent = "biome"
-  weight = 80
+  weight = 90
 
-  [[menu.bioitat]]
+  [[menu.biome]]
+  title = "API"
+  identifier = "habitat/reference/api"
+  parent = "habitat/reference"
+
+  [[menu.biome]]
+  title = "Containers"
+  identifier = "habitat/containers"
+  parent = "biome"
+  weight = 200
+
+  [[menu.biome]]
   title = "Diagrams"
   identifier = "habitat/diagrams"
   parent = "biome"

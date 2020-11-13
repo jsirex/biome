@@ -31,16 +31,17 @@ biome-sup-client = { path = "../sup-client" }
 biome-sup-protocol = { path = "../sup-protocol", default-features = false }
 # We need to lock here since v0.30.0 bumps to a version of pest that fails to build on Windows.
 handlebars = { version = "0.29.1", default-features = false }
-lazy_static = "*"
+lazy_static = "^1.4.0"
 libc = "*"
-log = "*"
+log = "^0.4.11"
 pbr = "*"
-rants = "*"
+rants = { version = "*", features = ["native-tls"] }
 # reqwest 0.10.4 significantly increased compile times. The increase was about a 5.5
 # times slower on a local environment and resulted in several buildkite timeouts.
 # For now we will pin to 0.10.3.
 reqwest = { version = "=0.10.3", features = ["blocking", "json", "stream"] }
 retry = { git = "https://github.com/habitat-sh/retry", features = ["asynchronous"] }
+rustls = "*"
 same-file = "*"
 serde = "*"
 serde_derive = "*"
@@ -51,10 +52,11 @@ tabwriter = "*"
 tar = "*"
 termcolor = "*"
 thiserror = "*"
-tokio = { version = "*", features = ["full"] }
+tokio = { version = "^0.2", features = ["full"] }
 toml = { version = "*", features = [ "preserve_order" ] }
 url = { version = "*", features = ["serde"] }
 walkdir = "*"
+webpki = "*"
 
 [dependencies.uuid]
 version = "*"
@@ -62,7 +64,7 @@ features = ["v4"]
 
 [target.'cfg(windows)'.dependencies]
 widestring = "*"
-winapi = { version = "*", features = ["winuser", "windef"] }
+winapi = { version = "^0.3.9", features = ["winuser", "windef"] }
 winreg = "*"
 
 [dev-dependencies]

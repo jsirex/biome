@@ -3,17 +3,16 @@ name = "biome_http_client"
 version = "0.0.0"
 edition = "2018"
 authors = ["The Biome Maintainers <humans@biome.sh>"]
-build = "build.rs"
 workspace = "../../"
 
 [dependencies]
 base64 = "*"
-log = "*"
+log = "^0.4.11"
 native-tls = { version = "*", features = ["vendored"] }
 pem = "*"
 httparse = "*"
 reqwest = { version = "*", features = ["blocking", "json", "stream"] }
-env_proxy = { git = "https://github.com/inejge/env_proxy.git" }
+env_proxy = "*"
 serde = "*"
 serde_json = { version = "*", features = [ "preserve_order" ] }
 url = "*"

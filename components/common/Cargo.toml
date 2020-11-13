@@ -26,9 +26,9 @@ biome_core = { path = "../core" }
 #   See https://github.com/sunng87/handlebars-rust/commit/707f05442ef6f441a1cfc6b13ac180b78cb296db
 handlebars = { version = "= 0.28.3", default-features = false }
 json = "*"
-lazy_static = "*"
+lazy_static = "^1.4.0"
 libc = "*"
-log = "*"
+log = "^0.4.11"
 native-tls = { version = "*", features = ["vendored"] }
 owning_ref = "*"
 parking_lot = "*"
@@ -44,8 +44,9 @@ serde_yaml = "*"
 tempfile = "*"
 thiserror = "*"
 retry = { git = "https://github.com/habitat-sh/retry", features = ["asynchronous"] }
+rustls = "*"
 termcolor = "*"
-tokio = { version = "*", features = ["full"] }
+tokio = { version = "^0.2", features = ["full"] }
 toml = { version = "*", features = ["preserve_order"] }
 uuid = { version = "*", features = ["v4"] }
 valico = "*"
@@ -54,7 +55,7 @@ valico = "*"
 nix = "*"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "*", features = ["consoleapi", "processenv"] }
+winapi = { version = "^0.3.9", features = ["consoleapi", "processenv"] }
 
 [features]
 default = []

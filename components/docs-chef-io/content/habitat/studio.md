@@ -2,14 +2,17 @@
 
 title = "Studio"
 description = "About the Biome Studio"
+draft = true
 
 [menu]
-  [menu.bioitat]
-    title = "About the Studio"
-    identifier = "habitat/studio/studio"
-    parent = "habitat/studio"
+  [menu.biome]
+    title = "Biome Studio"
+    identifier = "habitat/studio Biome Studio"
+    parent = "biome"
+    weight = 80
 
 +++
+[\[edit on GitHub\]](https://github.com/habitat-sh/habitat/blob/master/components/docs-chef-io/content/habitat/studio.md)
 
 ## Customizing Studio
 

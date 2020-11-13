@@ -10,15 +10,15 @@ workspace = "../../"
 base64 = "*"
 bytes = "*"
 biome_core = { path = "../core" }
-lazy_static = "*"
-log = "*"
+lazy_static = "^1.4.0"
+log = "^0.4.11"
 prost = "*"
 prost-derive = "*"
 rand = "*"
 serde = "*"
 serde_derive = "*"
-tokio = { version = "*", features = ["full"] }
-tokio-util = { version = "*", features = ["full"] }
+tokio = { version = "^0.2", features = ["full"] }
+tokio-util = { version = "^0.3", features = ["full"] }
 
 [build-dependencies]
 prost-build = "*"

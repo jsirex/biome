@@ -240,7 +240,7 @@ Below is an example of a page menu entry:
 
 ```
 [menu]
-  [menu.bioitat]
+  [menu.biome]
     title = "Page Menu Title"
     identifier = "habitat/<file_name>.md Page Title"
     parent = "biome"
@@ -263,7 +263,7 @@ the [Chef Documentation](https://docs.chef.io) site or to an external site. See
 the example below.
 
 ```
-[[menu.bioitat]]
+[[menu.biome]]
 title = "Page Menu Title"
 identifier = "habitat/<filename> Page Title"
 parent = "biome"

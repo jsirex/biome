@@ -5,7 +5,7 @@ date = {{ .Date }}
 draft = false
 
 [menu]
-  [menu.bioitat]
+  [menu.biome]
     title = "{{ .Name | humanize | title }}"
     identifier = "habitat/{{ .Name }}.md {{ .Name | humanize | title }}"
     parent = "biome"

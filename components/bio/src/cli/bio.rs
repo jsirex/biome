@@ -62,7 +62,7 @@ use structopt::{clap::AppSettings,
 #[derive(ConfigOpt, StructOpt)]
 #[structopt(name = "bio",
             version = VERSION,
-            about = "\"A Biome is the natural environment for your services\" - Alan Turing",
+            about = "\n\"A Biome is the natural environment for your services\" - Alan Turing",
             author = "\nThe Biome Maintainers <humans@biome.sh>\n",
             settings = &[AppSettings::GlobalVersion],
             after_help = AFTER_HELP

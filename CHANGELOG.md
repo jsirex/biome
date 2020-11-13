@@ -1,19 +1,75 @@
 Consider below original Chef Habitat Changelog
 
-<!-- latest_release 1.6.162 -->
-## [1.6.162](https://github.com/habitat-sh/habitat/tree/1.6.162) (2020-09-29)
+<!-- latest_release 1.6.197 -->
+## [1.6.197](https://github.com/habitat-sh/habitat/tree/1.6.197) (2020-11-11)
 
 #### Merged Pull Requests
-- Fix e2e tests [#7934](https://github.com/habitat-sh/habitat/pull/7934) ([davidMcneil](https://github.com/davidMcneil))
+- Remove me as codeowner [#7983](https://github.com/habitat-sh/habitat/pull/7983) ([smacfarlane](https://github.com/smacfarlane))
 <!-- latest_release -->
 
-<!-- release_rollup since=1.6.139 -->
-### Changes since 1.6.139 release
+<!-- release_rollup since=1.6.181 -->
+### Changes since 1.6.181 release
+
+#### Merged Pull Requests
+- Remove me as codeowner [#7983](https://github.com/habitat-sh/habitat/pull/7983) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.6.197 -->
+- Lock Tokio dependencies to 0.2 line [#7982](https://github.com/habitat-sh/habitat/pull/7982) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.196 -->
+- Lock lazy_static dependency [#7981](https://github.com/habitat-sh/habitat/pull/7981) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.196 -->
+- Bump os_info from 2.0.8 to 3.0.1 [#7980](https://github.com/habitat-sh/habitat/pull/7980) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.195 -->
+- Lock down log dependencies [#7979](https://github.com/habitat-sh/habitat/pull/7979) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.194 -->
+- only test non system drive build on windows [#7978](https://github.com/habitat-sh/habitat/pull/7978) ([mwrock](https://github.com/mwrock)) <!-- 1.6.193 -->
+- Update automation for CLI and Service Template Data docs [#7968](https://github.com/habitat-sh/habitat/pull/7968) ([IanMadd](https://github.com/IanMadd)) <!-- 1.6.192 -->
+- Bump state from 0.4.1 to 0.4.2 [#7972](https://github.com/habitat-sh/habitat/pull/7972) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.191 -->
+- Specify winapi version more tightly [#7976](https://github.com/habitat-sh/habitat/pull/7976) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.191 -->
+- Rustfmt and Nightly Rust Bump to nightly-2020-10-25 [#7954](https://github.com/habitat-sh/habitat/pull/7954) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.190 -->
+- Add Dependabot config for Rust [#7970](https://github.com/habitat-sh/habitat/pull/7970) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.190 -->
+- fix studio failure building outside system drive [#7969](https://github.com/habitat-sh/habitat/pull/7969) ([mwrock](https://github.com/mwrock)) <!-- 1.6.189 -->
+- Add redirects for api pages [#7967](https://github.com/habitat-sh/habitat/pull/7967) ([IanMadd](https://github.com/IanMadd)) <!-- 1.6.188 -->
+- Edits to service docs [#7947](https://github.com/habitat-sh/habitat/pull/7947) ([IanMadd](https://github.com/IanMadd)) <!-- 1.6.187 -->
+- Add Hab API docs [#7966](https://github.com/habitat-sh/habitat/pull/7966) ([IanMadd](https://github.com/IanMadd)) <!-- 1.6.186 -->
+- Add About Habitat index page [#7948](https://github.com/habitat-sh/habitat/pull/7948) ([IanMadd](https://github.com/IanMadd)) <!-- 1.6.185 -->
+- Delete glossary page [#7962](https://github.com/habitat-sh/habitat/pull/7962) ([IanMadd](https://github.com/IanMadd)) <!-- 1.6.184 -->
+- Update page names and page links [#7961](https://github.com/habitat-sh/habitat/pull/7961) ([IanMadd](https://github.com/IanMadd)) <!-- 1.6.184 -->
+- WIP - Chef Habitat Resources structural edits [#7959](https://github.com/habitat-sh/habitat/pull/7959) ([mjingle](https://github.com/mjingle)) <!-- 1.6.183 -->
+- Automated update of Habitat Documentation [#7963](https://github.com/habitat-sh/habitat/pull/7963) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.183 -->
+- 1.6.181 Changelog [#7964](https://github.com/habitat-sh/habitat/pull/7964) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.182 -->
+<!-- release_rollup -->
+
+<!-- latest_stable_release 1.6.181 -->
+## [1.6.181](https://github.com/habitat-sh/habitat/tree/1.6.181) (2020-10-30)
+[Full Changelog](https://github.com/habitat-sh/habitat/compare/1.6.175..1.6.181)
+
+#### Bug Fixes
+- [FIX] Minimal change to enable non-root containers again [#7960](https://github.com/habitat-sh/habitat/pull/7960) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.181 -->
+
+#### Merged Pull Requests
+- 1.6.175 Documentation, plus docs generation script update [#7957](https://github.com/habitat-sh/habitat/pull/7957) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.180 -->
+- [FIX] Fix a bad environment variable lookup in hab-plan-bulid [#7958](https://github.com/habitat-sh/habitat/pull/7958) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.179 -->
+- Update Changelog for 1.6.175 [#7956](https://github.com/habitat-sh/habitat/pull/7956) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.178 -->
+- Update pages, weights, and edit on GH links [#7953](https://github.com/habitat-sh/habitat/pull/7953) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.177 -->
+- Curate docs images in docs-chef-io [#7916](https://github.com/habitat-sh/habitat/pull/7916) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.176 -->
+
+## [1.6.175](https://github.com/habitat-sh/habitat/tree/1.6.175) (2020-10-28)
+[Full Changelog](https://github.com/habitat-sh/habitat/compare/1.6.139..1.6.175)
 
 #### Behavioral Changes
 - an API retry pattern [#7874](https://github.com/habitat-sh/habitat/pull/7874) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.150 -->
 
 #### Merged Pull Requests
+- Expose HAB_FALLBACK_CHANNEL in plan build [#7951](https://github.com/habitat-sh/habitat/pull/7951) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.175 -->
+- [BUG] Update actix-web calling conventions [#7950](https://github.com/habitat-sh/habitat/pull/7950) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.174 -->
+- Revert &quot;Merge pull request #7943 from habitat-sh/cm/revert-tls&quot; [#7949](https://github.com/habitat-sh/habitat/pull/7949) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.173 -->
+- [CI] Capture Supervisor logs from e2e tests  [#7942](https://github.com/habitat-sh/habitat/pull/7942) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.172 -->
+- Monday module update [#7945](https://github.com/habitat-sh/habitat/pull/7945) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.171 -->
+- adds docs component &amp; team as codeowners [#7946](https://github.com/habitat-sh/habitat/pull/7946) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.170 -->
+- updating codeowners due to team departures [#7944](https://github.com/habitat-sh/habitat/pull/7944) ([jeremymv2](https://github.com/jeremymv2)) <!-- 1.6.169 -->
+- Revert &quot;Merge pull request #7923 from habitat-sh/dmcneil/ctl-gateway-… [#7943](https://github.com/habitat-sh/habitat/pull/7943) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.168 -->
+- Make shorter Builder pages [#7939](https://github.com/habitat-sh/habitat/pull/7939) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.167 -->
+- Add TLS support to the ctl gateway [#7923](https://github.com/habitat-sh/habitat/pull/7923) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.166 -->
+- Updates Hugo, Node modules [#7941](https://github.com/habitat-sh/habitat/pull/7941) ([kagarmoe](https://github.com/kagarmoe)) <!-- 1.6.165 -->
+- Temporarily disable website deploy triggers [#7904](https://github.com/habitat-sh/habitat/pull/7904) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.6.165 -->
+- add patents notification to `hab` cli [#7937](https://github.com/habitat-sh/habitat/pull/7937) ([sdelano](https://github.com/sdelano)) <!-- 1.6.164 -->
+- eliminate usages of `hab install` alias in plan-build-ps1 [#7938](https://github.com/habitat-sh/habitat/pull/7938) ([mwrock](https://github.com/mwrock)) <!-- 1.6.164 -->
+- Update env_proxy to 0.4.1 [#7933](https://github.com/habitat-sh/habitat/pull/7933) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.163 -->
 - Fix e2e tests [#7934](https://github.com/habitat-sh/habitat/pull/7934) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.162 -->
 - Cleanup the CLI config file [#7931](https://github.com/habitat-sh/habitat/pull/7931) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.161 -->
 - fix prompting to stop launcher when closing windows docker studio [#7930](https://github.com/habitat-sh/habitat/pull/7930) ([mwrock](https://github.com/mwrock)) <!-- 1.6.160 -->
@@ -37,7 +93,6 @@ Consider below original Chef Habitat Changelog
 - Rustfmt and Nightly Rust Bump to nightly-2020-08-28 [#7897](https://github.com/habitat-sh/habitat/pull/7897) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.142 -->
 - Fix update documentation pipeline [#7895](https://github.com/habitat-sh/habitat/pull/7895) ([davidMcneil](https://github.com/davidMcneil)) <!-- 1.6.141 -->
 - Rustfmt and Nightly Rust Bump to nightly-2020-08-24 [#7889](https://github.com/habitat-sh/habitat/pull/7889) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.140 -->
-<!-- release_rollup -->
 
 <!-- latest_stable_release 1.6.139 -->
 ## [1.6.139](https://github.com/habitat-sh/habitat/tree/1.6.139) (2020-08-24)
