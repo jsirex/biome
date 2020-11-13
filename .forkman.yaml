@@ -235,6 +235,8 @@ patterns:
   'the lower-privileged hab user': 'the lower-privileged hab user'
   'the hab user account on windows': 'the hab user account on windows'
 
+  'Patents: https://chef.io/patents': ''
+
 
   # Surprisingly this is safe constant
   Habitat: Biome
@@ -260,6 +262,8 @@ patterns:
 
   '"habitat"': '"biome"'
   .habitat.dev: .biome.dev
+
+  .habitat: .biome
 
   # Make compatibility with habitat
   habitat/plan.sh: habitat/plan.sh
