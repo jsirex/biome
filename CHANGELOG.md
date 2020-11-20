@@ -1,16 +1,35 @@
 Consider below original Chef Habitat Changelog
 
-<!-- latest_release 1.6.197 -->
-## [1.6.197](https://github.com/habitat-sh/habitat/tree/1.6.197) (2020-11-11)
+<!-- latest_release 1.6.214 -->
+## [1.6.214](https://github.com/habitat-sh/habitat/tree/1.6.214) (2020-11-19)
 
 #### Merged Pull Requests
-- Remove me as codeowner [#7983](https://github.com/habitat-sh/habitat/pull/7983) ([smacfarlane](https://github.com/smacfarlane))
+- Bump paste from 1.0.0 to 1.0.3 [#8004](https://github.com/habitat-sh/habitat/pull/8004) ([dependabot[bot]](https://github.com/dependabot[bot]))
 <!-- latest_release -->
 
 <!-- release_rollup since=1.6.181 -->
 ### Changes since 1.6.181 release
 
+#### Bug Fixes
+- [FIX] Ensure that health check output is available via HTTP gateway [#7991](https://github.com/habitat-sh/habitat/pull/7991) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.207 -->
+
 #### Merged Pull Requests
+- Bump paste from 1.0.0 to 1.0.3 [#8004](https://github.com/habitat-sh/habitat/pull/8004) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.214 -->
+- [CI] Increase service unload timeouts for test_config_files e2e test [#8005](https://github.com/habitat-sh/habitat/pull/8005) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.213 -->
+- [CI] Move documentation generation to release pipeline [#7993](https://github.com/habitat-sh/habitat/pull/7993) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.212 -->
+- Bump url from 2.1.1 to 2.2.0 [#7995](https://github.com/habitat-sh/habitat/pull/7995) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.211 -->
+- Bump parking_lot from 0.11.0 to 0.11.1 [#7997](https://github.com/habitat-sh/habitat/pull/7997) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.210 -->
+- Bump hyper from 0.13.7 to 0.13.9 [#7996](https://github.com/habitat-sh/habitat/pull/7996) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.209 -->
+- [CI] Unload test-probe service after test [#8000](https://github.com/habitat-sh/habitat/pull/8000) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.208 -->
+- Bump prometheus from 0.9.0 to 0.10.0 [#7987](https://github.com/habitat-sh/habitat/pull/7987) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.206 -->
+- [CI] Remove old `hab` binaries on Linux containers [#7994](https://github.com/habitat-sh/habitat/pull/7994) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.205 -->
+- Bump serde_json from 1.0.57 to 1.0.59 [#7988](https://github.com/habitat-sh/habitat/pull/7988) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.204 -->
+- Bump errno from 0.2.6 to 0.2.7 [#7989](https://github.com/habitat-sh/habitat/pull/7989) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.203 -->
+- Bump thiserror from 1.0.20 to 1.0.22 [#7986](https://github.com/habitat-sh/habitat/pull/7986) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.202 -->
+- Bump semver from 0.10.0 to 0.11.0 [#7974](https://github.com/habitat-sh/habitat/pull/7974) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.201 -->
+- Bump dns-lookup from 1.0.3 to 1.0.5 [#7977](https://github.com/habitat-sh/habitat/pull/7977) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.200 -->
+- Lock pin-project crate to 0.4.23 for explicitness [#7985](https://github.com/habitat-sh/habitat/pull/7985) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.199 -->
+- Bump actix-web from 3.0.0 to 3.2.0 [#7975](https://github.com/habitat-sh/habitat/pull/7975) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.198 -->
 - Remove me as codeowner [#7983](https://github.com/habitat-sh/habitat/pull/7983) ([smacfarlane](https://github.com/smacfarlane)) <!-- 1.6.197 -->
 - Lock Tokio dependencies to 0.2 line [#7982](https://github.com/habitat-sh/habitat/pull/7982) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.196 -->
 - Lock lazy_static dependency [#7981](https://github.com/habitat-sh/habitat/pull/7981) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.196 -->
