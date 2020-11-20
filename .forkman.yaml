@@ -538,6 +538,9 @@ patterns:
   'if [ -f "/hab': 'if [ -f "/hab'
   'tar_builder.append_dir_all("hab", hab_pkgs_path);': 'tar_builder.append_dir_all("hab", bio_pkgs_path);'
 
+  # Export Common
+  '"core/{}/{}", export_cmd': '"biome/{}/{}", export_cmd'
+
   # Cargo.lock
   '"hab 0.0.0"': '"bio 0.0.0"'
   'hab {}': 'bio {}'
