@@ -12,30 +12,34 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - run: |
-          echo ::set-env name=HAB_AUTH_TOKEN::${{ secrets.HAB_AUTH_TOKEN }}
-          echo ::set-env name=HAB_ORIGIN::biome
-
       - name: Install Linux Biome
         run: |
           curl https://raw.githubusercontent.com/biome-sh/biome/master/components/bio/install-linux.sh | sudo bash
 
       - name: Install Signing Keys
+        env:
+          HAB_AUTH_TOKEN: ${{ secrets.HAB_AUTH_TOKEN }}
         run: |
           bio origin key download biome
-          bio origin key download -s -z $HAB_AUTH_TOKEN biome
+          bio origin key download -s biome
 
       - name: Setup Studio and Tools
+        env:
+          HAB_ORIGIN: biome
+          HAB_AUTH_TOKEN: ${{ secrets.HAB_AUTH_TOKEN }}
         run: |
           bio studio run 'make -f ci/Makefile setup'
 
       - name: Build and Package
+        env:
+          HAB_ORIGIN: biome
+          HAB_AUTH_TOKEN: ${{ secrets.HAB_AUTH_TOKEN }}
         run: |
           bio studio run 'make -f ci/Makefile all dist upload'
 
       - name: Get package info
         run: |
-          cat results/bio.env | sed 's/\(.*\)=\(.*\)/::set-env name=\1::\2/'
+          cat results/bio.env >> $GITHUB_ENV
 
       - name: Upload Linux Biome
         uses: actions/upload-release-asset@v1
@@ -58,6 +62,9 @@ jobs:
           asset_content_type: application/gzip
 
       - name: Promote to testing
+        env:
+          HAB_ORIGIN: biome
+          HAB_AUTH_TOKEN: ${{ secrets.HAB_AUTH_TOKEN }}
         run: |
           bio studio run 'make -f ci/Makefile promote-testing'
 
