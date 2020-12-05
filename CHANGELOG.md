@@ -1,19 +1,34 @@
 # Habitat CHANGELOG
 
-<!-- latest_release 1.6.215 -->
-## [1.6.215](https://github.com/habitat-sh/habitat/tree/1.6.215) (2020-11-20)
+<!-- latest_release 1.6.222 -->
+## [1.6.222](https://github.com/habitat-sh/habitat/tree/1.6.222) (2020-12-02)
 
 #### Merged Pull Requests
-- added utility function required_value_of and refactored [#7984](https://github.com/habitat-sh/habitat/pull/7984) ([sajjaphani](https://github.com/sajjaphani))
+- Bump futures from 0.3.5 to 0.3.8 [#8015](https://github.com/habitat-sh/habitat/pull/8015) ([dependabot[bot]](https://github.com/dependabot[bot]))
 <!-- latest_release -->
 
-<!-- release_rollup since=1.6.181 -->
-### Changes since 1.6.181 release
+<!-- release_rollup since=1.6.216 -->
+### Changes since 1.6.216 release
+
+#### Merged Pull Requests
+- Bump futures from 0.3.5 to 0.3.8 [#8015](https://github.com/habitat-sh/habitat/pull/8015) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.222 -->
+- Bump env_logger from 0.7.1 to 0.8.2 [#8014](https://github.com/habitat-sh/habitat/pull/8014) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.221 -->
+- Edit plan_variable docs for clarity [#7992](https://github.com/habitat-sh/habitat/pull/7992) ([IanMadd](https://github.com/IanMadd)) <!-- 1.6.220 -->
+- Bump async-trait from 0.1.38 to 0.1.42 [#8007](https://github.com/habitat-sh/habitat/pull/8007) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.219 -->
+- Bump tar from 0.4.29 to 0.4.30 [#8003](https://github.com/habitat-sh/habitat/pull/8003) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.218 -->
+- Update CHANGELOG for 1.6.216 [#8012](https://github.com/habitat-sh/habitat/pull/8012) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.217 -->
+<!-- release_rollup -->
+
+<!-- latest_stable_release 1.6.216 -->
+
+## [1.6.216](https://github.com/habitat-sh/habitat/tree/1.6.216) (2020-12-01)
+[Full Changelog](https://github.com/habitat-sh/habitat/compare/1.6.181..1.6.216)
 
 #### Bug Fixes
 - [FIX] Ensure that health check output is available via HTTP gateway [#7991](https://github.com/habitat-sh/habitat/pull/7991) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.207 -->
 
 #### Merged Pull Requests
+- [CI] Remove `--no-modify-path` from `install_rustup` [#8009](https://github.com/habitat-sh/habitat/pull/8009) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.216 -->
 - added utility function required_value_of and refactored [#7984](https://github.com/habitat-sh/habitat/pull/7984) ([sajjaphani](https://github.com/sajjaphani)) <!-- 1.6.215 -->
 - Bump paste from 1.0.0 to 1.0.3 [#8004](https://github.com/habitat-sh/habitat/pull/8004) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 1.6.214 -->
 - [CI] Increase service unload timeouts for test_config_files e2e test [#8005](https://github.com/habitat-sh/habitat/pull/8005) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.213 -->
@@ -52,9 +67,8 @@
 - WIP - Chef Habitat Resources structural edits [#7959](https://github.com/habitat-sh/habitat/pull/7959) ([mjingle](https://github.com/mjingle)) <!-- 1.6.183 -->
 - Automated update of Habitat Documentation [#7963](https://github.com/habitat-sh/habitat/pull/7963) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 1.6.183 -->
 - 1.6.181 Changelog [#7964](https://github.com/habitat-sh/habitat/pull/7964) ([christophermaier](https://github.com/christophermaier)) <!-- 1.6.182 -->
-<!-- release_rollup -->
 
-<!-- latest_stable_release 1.6.181 -->
+
 ## [1.6.181](https://github.com/habitat-sh/habitat/tree/1.6.181) (2020-10-30)
 [Full Changelog](https://github.com/habitat-sh/habitat/compare/1.6.175..1.6.181)
 
