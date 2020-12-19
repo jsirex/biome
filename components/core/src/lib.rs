@@ -8,25 +8,25 @@ pub use self::error::{Error,
                       Result};
 
 pub mod binlink;
-pub mod config;
 pub mod crypto;
 pub mod env;
 pub mod error;
 pub mod fs;
 pub mod locked_env_var;
+pub mod origin;
 pub mod os;
 pub mod package;
 pub mod service;
+pub mod tls;
 pub mod url;
 pub mod util;
 
 use std::fmt;
 
-use serde_derive::{Deserialize,
-                   Serialize};
-
 pub use crate::os::{filesystem,
                     users};
+use serde_derive::{Deserialize,
+                   Serialize};
 
 pub const AUTH_TOKEN_ENVVAR: &str = "HAB_AUTH_TOKEN";
 

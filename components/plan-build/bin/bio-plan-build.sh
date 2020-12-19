@@ -356,7 +356,13 @@ export HAB_BLDR_URL
 # Export Builder channel so all other programs and subshells use this same one
 export HAB_BLDR_CHANNEL
 # Fall back here if package can't be installed from $HAB_BLDR_CHANNEL
-FALLBACK_CHANNEL="stable"
+# This is overridable with the sole intention of supporting core plans
+# refresh evaluations (where we want to pull dependencies from a
+# separate channel, and not "stable").
+#
+# Also note that this only really comes into play if HAB_BLDR_CHANNEL
+# has been set to something different.
+: "${HAB_FALLBACK_CHANNEL=stable}"
 # The value of `$PATH` on initial start of this program
 INITIAL_PATH="$PATH"
 # The value of `pwd` on initial start of this program
@@ -726,10 +732,10 @@ _install_dependency() {
               "${HAB_FEAT_IGNORE_LOCAL:-}" = "TRUE" ]]; then
         IGNORE_LOCAL="--ignore-local"
     fi
-    $HAB_BIN install -u $HAB_BLDR_URL --channel $HAB_BLDR_CHANNEL ${IGNORE_LOCAL:-} "$@" || {
-      if [[ "$HAB_BLDR_CHANNEL" != "$FALLBACK_CHANNEL" ]]; then
-        build_line "Trying to install '$dep' from '$FALLBACK_CHANNEL'"
-        $HAB_BIN install -u $HAB_BLDR_URL --channel "$FALLBACK_CHANNEL" ${IGNORE_LOCAL:-} "$@" || true
+    $HAB_BIN pkg install -u $HAB_BLDR_URL --channel $HAB_BLDR_CHANNEL ${IGNORE_LOCAL:-} "$@" || {
+      if [[ "$HAB_BLDR_CHANNEL" != "$HAB_FALLBACK_CHANNEL" ]]; then
+        build_line "Trying to install '$dep' from '$HAB_FALLBACK_CHANNEL'"
+        $HAB_BIN pkg install -u $HAB_BLDR_URL --channel "$HAB_FALLBACK_CHANNEL" ${IGNORE_LOCAL:-} "$@" || true
       fi
     }
   fi

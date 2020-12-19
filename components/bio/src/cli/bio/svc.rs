@@ -43,48 +43,11 @@ pub enum Svc {
     Load(Load),
     #[structopt(no_version)]
     Update(Update),
-    /// Start a loaded, but stopped, Biome service.
-    Start {
-        #[structopt(flatten)]
-        pkg_ident:  PkgIdent,
-        #[structopt(flatten)]
-        remote_sup: RemoteSup,
-    },
-    /// Query the status of Biome services
-    Status {
-        /// A package identifier (ex: core/redis, core/busybox-static/1.42.2)
-        #[structopt(name = "PKG_IDENT")]
-        pkg_ident:  Option<PackageIdent>,
-        #[structopt(flatten)]
-        remote_sup: RemoteSup,
-    },
-    /// Stop a running Biome service.
-    Stop {
-        #[structopt(flatten)]
-        pkg_ident:        PkgIdent,
-        #[structopt(flatten)]
-        remote_sup:       RemoteSup,
-        /// The delay in seconds after sending the shutdown signal to wait before killing the
-        /// service process
-        ///
-        /// The default value is set in the packages plan file.
-        #[structopt(name = "SHUTDOWN_TIMEOUT", long = "shutdown-timeout")]
-        shutdown_timeout: Option<ShutdownTimeout>,
-    },
-    /// Unload a service loaded by the Biome Supervisor. If the service is running it will
-    /// additionally be stopped.
-    Unload {
-        #[structopt(flatten)]
-        pkg_ident:        PkgIdent,
-        #[structopt(flatten)]
-        remote_sup:       RemoteSup,
-        /// The delay in seconds after sending the shutdown signal to wait before killing the
-        /// service process
-        ///
-        /// The default value is set in the packages plan file.
-        #[structopt(name = "SHUTDOWN_TIMEOUT", long = "shutdown-timeout")]
-        shutdown_timeout: Option<ShutdownTimeout>,
-    },
+    Start(SvcStart),
+    #[structopt(aliases = &["stat", "statu"])]
+    Status(SvcStatus),
+    Stop(SvcStop),
+    Unload(SvcUnload),
 }
 
 #[derive(ConfigOpt, StructOpt)]
@@ -105,22 +68,63 @@ pub struct BulkLoad {
     pub svc_config_paths: Vec<PathBuf>,
 }
 
+/// Start a loaded, but stopped, Biome service.
+#[derive(ConfigOpt, StructOpt)]
+#[structopt(name = "start", no_version, rename_all = "screamingsnake")]
+pub struct SvcStart {
+    #[structopt(flatten)]
+    pkg_ident:  PkgIdent,
+    #[structopt(flatten)]
+    remote_sup: RemoteSup,
+}
+
+/// Query the status of Biome services
+#[derive(ConfigOpt, StructOpt)]
+#[structopt(name = "status", no_version, rename_all = "screamingsnake")]
+pub struct SvcStatus {
+    /// A package identifier (ex: core/redis, core/busybox-static/1.42.2)
+    #[structopt(name = "PKG_IDENT")]
+    pub pkg_ident:  Option<PackageIdent>,
+    #[structopt(flatten)]
+    pub remote_sup: RemoteSup,
+}
+
+/// Stop a running Biome service.
+#[derive(ConfigOpt, StructOpt)]
+#[structopt(name = "stop", no_version, rename_all = "screamingsnake")]
+pub struct SvcStop {
+    #[structopt(flatten)]
+    pkg_ident:        PkgIdent,
+    #[structopt(flatten)]
+    remote_sup:       RemoteSup,
+    /// The delay in seconds after sending the shutdown signal to wait before killing the
+    /// service process
+    ///
+    /// The default value is set in the packages plan file.
+    #[structopt(name = "SHUTDOWN_TIMEOUT", long = "shutdown-timeout")]
+    shutdown_timeout: Option<ShutdownTimeout>,
+}
+
 #[derive(ConfigOpt, StructOpt)]
 #[structopt(no_version)]
 /// Commands relating to Biome service keys
 pub enum Key {
-    /// Generates a Biome service key
-    Generate {
-        /// Target service group service.group[@organization] (ex: redis.default or
-        /// foo.default@bazcorp)
-        #[structopt(name = "SERVICE_GROUP")]
-        service_group:  ServiceGroup,
-        /// The service organization
-        #[structopt(name = "ORG")]
-        org:            Option<String>,
-        #[structopt(flatten)]
-        cache_key_path: CacheKeyPath,
-    },
+    Generate(KeyGenerate),
+}
+
+/// Generates a Biome service key
+#[derive(ConfigOpt, StructOpt)]
+#[structopt(name = "generate", no_version)]
+pub struct KeyGenerate {
+    /// Target service group service.group[@organization] (ex: redis.default or
+    /// foo.default@bazcorp)
+    #[structopt(name = "SERVICE_GROUP")]
+    service_group:  ServiceGroup,
+    /// The service organization
+    #[structopt(name = "ORG")]
+    org:            Option<String>,
+    #[structopt(flatten)]
+    cache_key_path: CacheKeyPath,
 }
 
 lazy_static::lazy_static! {
@@ -182,6 +186,7 @@ pub struct SharedLoad {
     pub update_condition:      UpdateCondition,
     /// One or more service groups to bind to a configuration
     #[structopt(long = "bind")]
+    #[serde(default)]
     pub bind:                  Vec<ServiceBind>,
     /// Governs how the presence or absence of binds affects service startup
     ///
@@ -240,7 +245,7 @@ fn load_default_config_files() -> Vec<PathBuf> {
             derive(Clone, Debug),
             default_config_file(load_default_config_files))]
 #[serde(deny_unknown_fields)]
-#[structopt(name = "load", no_version, rename_all = "screamingsnake")]
+#[structopt(name = "load", aliases = &["l", "lo", "loa"], no_version, rename_all = "screamingsnake")]
 /// Load a service to be started and supervised by Biome from a package identifier. If an
 /// installed package doesn't satisfy the given package identifier, a suitable package will be
 /// installed from Builder.
@@ -250,6 +255,7 @@ pub struct Load {
     /// Load or reload an already loaded service. If the service was previously loaded and
     /// running this operation will also restart the service
     #[structopt(short = "f", long = "force")]
+    #[serde(default)]
     pub force:       bool,
     #[structopt(flatten)]
     #[serde(flatten)]
@@ -257,6 +263,23 @@ pub struct Load {
     #[structopt(flatten)]
     #[serde(flatten)]
     pub shared_load: SharedLoad,
+}
+
+#[derive(ConfigOpt, StructOpt)]
+#[structopt(name = "unload", no_version, rename_all = "screamingsnake")]
+/// Unload a service loaded by the Biome Supervisor. If the service is running it will
+/// additionally be stopped.
+pub struct SvcUnload {
+    #[structopt(flatten)]
+    pkg_ident:        PkgIdent,
+    #[structopt(flatten)]
+    remote_sup:       RemoteSup,
+    /// The delay in seconds after sending the shutdown signal to wait before killing the
+    /// service process
+    ///
+    /// The default value is set in the packages plan file.
+    #[structopt(name = "SHUTDOWN_TIMEOUT", long = "shutdown-timeout")]
+    shutdown_timeout: Option<ShutdownTimeout>,
 }
 
 pub fn svc_loads_from_paths<T: AsRef<Path>>(paths: &[T]) -> Result<Vec<Load>> {

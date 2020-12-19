@@ -35,12 +35,12 @@ finish_setup() {
         $bb cp -ra "$HAB_PKG_PATH"/"$tdep"/* "$HAB_STUDIO_ROOT""$HAB_PKG_PATH"/"$tdep"
       done
     else
-      _bio install $embed
+      _bio pkg install $embed
     fi
   done
 
   for pkg in $base_pkgs; do
-    _bio install "$pkg"
+    _bio pkg install "$pkg"
   done
 
   local bio_path

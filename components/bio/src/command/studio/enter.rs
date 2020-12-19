@@ -1,23 +1,20 @@
+use crate::{common::ui::{UIWriter,
+                         UI},
+            error::{Error,
+                    Result},
+            hcore::{crypto::CACHE_KEY_PATH_ENV_VAR,
+                    env as henv,
+                    fs},
+            BLDR_URL_ENVVAR,
+            ORIGIN_ENVVAR};
+use biome_common::cli_config::CliConfig;
+use biome_core::AUTH_TOKEN_ENVVAR;
+use same_file::is_same_file;
 use std::{env,
           ffi::OsString,
           fs as stdfs,
           path::{Path,
                  PathBuf}};
-
-use crate::{common::ui::{UIWriter,
-                         UI},
-            hcore::{crypto::CACHE_KEY_PATH_ENV_VAR,
-                    env as henv,
-                    fs}};
-
-use crate::{config,
-            error::{Error,
-                    Result},
-            BLDR_URL_ENVVAR,
-            ORIGIN_ENVVAR};
-
-use biome_core::AUTH_TOKEN_ENVVAR;
-use same_file::is_same_file;
 
 pub const ARTIFACT_PATH_ENVVAR: &str = "ARTIFACT_PATH";
 pub const CERT_PATH_ENVVAR: &str = "CERT_PATH";
@@ -67,13 +64,15 @@ fn cache_ssl_cert_file(cert_file: &str, cert_cache_dir: &Path) -> Result<()> {
 }
 
 pub async fn start(ui: &mut UI, args: &[OsString]) -> Result<()> {
-    let config = config::load()?;
+    let config = CliConfig::load()?;
 
     set_env_var_from_config(AUTH_TOKEN_ENVVAR,
                             config.auth_token,
                             Sensitivity::NoPrintValue);
     set_env_var_from_config(BLDR_URL_ENVVAR, config.bldr_url, Sensitivity::PrintValue);
-    set_env_var_from_config(ORIGIN_ENVVAR, config.origin, Sensitivity::PrintValue);
+    set_env_var_from_config(ORIGIN_ENVVAR,
+                            config.origin.map(|o| o.to_string()),
+                            Sensitivity::PrintValue);
 
     if config.ctl_secret.is_some() {
         ui.warn("Your Supervisor CtlGateway secret is not being copied to the Studio \
@@ -207,16 +206,16 @@ mod inner {
         false
     }
 
-    fn has_docker_group() -> bool {
-        let current_user = users::get_current_username().unwrap();
-        let docker_members = users::get_members_by_groupname("docker");
-        docker_members.map_or(false, |d| d.contains(&current_user))
+    fn has_docker_group() -> Result<bool> {
+        let current_user = users::get_current_username()?.unwrap();
+        let docker_members = users::get_members_by_groupname("docker")?;
+        Ok(docker_members.map_or(false, |d| d.contains(&current_user)))
     }
 
     fn rerun_with_sudo_if_needed(ui: &mut UI, args: &[OsString]) -> Result<()> {
         // If I have root permissions or if I am executing a docker studio
         // and have the appropriate group - early return, we are done.
-        if am_i_root() || (is_docker_studio(args) && has_docker_group()) {
+        if am_i_root() || (is_docker_studio(args) && has_docker_group()?) {
             return Ok(());
         }
 
@@ -281,7 +280,11 @@ mod inner {
                                                "-File"].into_iter()
                                                        .map(Into::into)
                                                        .collect();
-        cmd_args.push(studio_command.into());
+        if let Some(cmd) = find_command(&studio_command) {
+            cmd_args.push(cmd.into());
+        } else {
+            return Err(Error::ExecCommandNotFound(studio_command));
+        }
         cmd_args.extend_from_slice(args);
 
         if let Some(cmd) = find_command(&pwsh_command) {

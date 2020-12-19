@@ -1,5 +1,7 @@
-use crate::package::{self,
-                     Identifiable};
+use crate::{package::{self,
+                      Identifiable},
+            tls::{ctl_gateway::Error as CtlGatewayTls,
+                  rustls_wrapper::Error as RustlsReaderError}};
 use std::{env,
           error,
           ffi,
@@ -7,7 +9,6 @@ use std::{env,
           io,
           num,
           num::ParseIntError,
-          path::PathBuf,
           result,
           str,
           string};
@@ -20,10 +21,10 @@ pub enum Error {
     BadBindingMode(String),
     /// An invalid path to a keyfile was given.
     BadKeyPath(String),
+    /// An invalid Builder origin member role
+    BadOriginMemberRole(String),
     /// An operation expected a composite package
     CompositePackageExpected(String),
-    /// Error reading raw contents of configuration file.
-    ConfigFileIO(PathBuf, io::Error),
     /// Parsing error while reading a configuration file.
     ConfigFileSyntax(toml::de::Error),
     /// Expected an array of socket addrs for configuration field value.
@@ -69,6 +70,7 @@ pub enum Error {
     CryptProtectDataFailed(String),
     /// Occurs when a call to CryptUnprotectData fails
     CryptUnprotectDataFailed(String),
+    CtlGatewayTls(CtlGatewayTls),
     /// Occurs when unable to locate the docker cli on the path
     DockerCommandNotFound(&'static str),
     /// Occurs when a file that should exist does not or could not be read.
@@ -79,6 +81,8 @@ pub enum Error {
     FullyQualifiedPackageIdentRequired(String),
     /// Occurs when a service binding cannot be successfully parsed.
     InvalidBinding(String),
+    /// Occurs when an origin is in an invalid format
+    InvalidOrigin(String),
     /// Occurs when a package identifier string cannot be successfully parsed.
     InvalidPackageIdent(String),
     /// Occurs when a package target string cannot be successfully parsed.
@@ -87,12 +91,12 @@ pub enum Error {
     InvalidPackageType(String),
     /// Occurs when a port is not parsable.
     InvalidPort(ParseIntError),
-    /// Occurs when a service group string cannot be successfully parsed.
-    InvalidServiceGroup(String),
-    /// Occurs when an origin is in an invalid format
-    InvalidOrigin(String),
     /// Occurs when an OsString path cannot be converted to a String
     InvalidPathString(ffi::OsString),
+    /// Occurs when a service group string cannot be successfully parsed.
+    InvalidServiceGroup(String),
+    /// Occurs when a Url is in an invalid format.
+    InvalidUrl(String),
     /// Occurs when making lower level IO calls.
     IO(io::Error),
     /// Errors when joining paths :)
@@ -101,6 +105,7 @@ pub enum Error {
     LogonTypeNotGranted,
     /// Occurs when a call to LogonUserW fails
     LogonUserFailed(io::Error),
+    NativeTlsError(native_tls::Error),
     /// Occurs when a BIND, BIND_OPTIONAL, or BIND_MAP MetaFile is
     /// read and contains a bad entry.
     MetaFileBadBind,
@@ -110,6 +115,8 @@ pub enum Error {
     MetaFileNotFound(package::metadata::MetaFile),
     /// When an IO error while accessing a MetaFile.
     MetaFileIO(io::Error),
+    #[cfg(not(windows))]
+    Nix(nix::Error),
     /// Occurs when we can't find an outbound IP address
     NoOutboundIpAddr(io::Error),
     /// Occurs when a call to OpenDesktopW fails
@@ -132,6 +139,7 @@ pub enum Error {
     RegexParse(regex::Error),
     /// When an error occurs serializing rendering context
     RenderContextSerialization(serde_json::Error),
+    RustlsReader(RustlsReaderError),
     /// When an error occurs converting a `String` from a UTF-8 byte vector.
     StringFromUtf8Error(string::FromUtf8Error),
     /// When the system target (platform and architecture) do not match the package target.
@@ -169,11 +177,11 @@ impl fmt::Display for Error {
                 format!("Invalid keypath: {}. Specify an absolute path to a file on disk.",
                         e)
             }
+            Error::BadOriginMemberRole(ref value) => {
+                format!("Unknown origin member role '{}'", value)
+            }
             Error::CompositePackageExpected(ref ident) => {
                 format!("The package is not a composite: {}", ident)
-            }
-            Error::ConfigFileIO(ref f, ref e) => {
-                format!("Error reading configuration file, {}, {}", f.display(), e)
             }
             Error::ConfigFileSyntax(ref e) => {
                 format!("Syntax errors while parsing TOML configuration file:\n\n{}",
@@ -249,6 +257,7 @@ impl fmt::Display for Error {
             Error::CryptoError(ref e) => format!("Crypto error: {}", e),
             Error::CryptProtectDataFailed(ref e) => e.to_string(),
             Error::CryptUnprotectDataFailed(ref e) => e.to_string(),
+            Error::CtlGatewayTls(ref e) => e.to_string(),
             Error::DockerCommandNotFound(ref c) => {
                 format!("Docker command `{}' was not found on the filesystem or in PATH",
                         c)
@@ -263,6 +272,12 @@ impl fmt::Display for Error {
                          <NAME> is a service name, and <SERVICE_GROUP> is a valid service group",
                         binding)
             }
+            Error::InvalidOrigin(ref origin) => {
+                format!("Invalid origin: {}. Origins must begin with a lowercase letter or \
+                         number. Allowed characters include lowercase letters, numbers, -, and _. \
+                         No more than 255 characters.",
+                        origin)
+            }
             Error::InvalidPackageIdent(ref e) => {
                 format!("Invalid package identifier: {:?}. A valid identifier is in the form \
                          origin/name (example: acme/redis)",
@@ -274,21 +289,16 @@ impl fmt::Display for Error {
                         e)
             }
             Error::InvalidPackageType(ref e) => format!("Invalid package type: {}.", e),
+            Error::InvalidPathString(ref s) => {
+                format!("Could not generate String from path: {:?}", s)
+            }
             Error::InvalidPort(ref e) => format!("Invalid port: {}.", e),
             Error::InvalidServiceGroup(ref e) => {
                 format!("Invalid service group: {}. A valid service group string is in the form \
                          service.group (example: redis.production)",
                         e)
             }
-            Error::InvalidOrigin(ref origin) => {
-                format!("Invalid origin: {}. Origins must begin with a lowercase letter or \
-                         number. Allowed characters include lowercase letters, numbers, -, and _. \
-                         No more than 255 characters.",
-                        origin)
-            }
-            Error::InvalidPathString(ref s) => {
-                format!("Could not generate String from path: {:?}", s)
-            }
+            Error::InvalidUrl(ref url) => format!("Invalid url: {}", url),
             Error::IO(ref err) => format!("{}", err),
             Error::JoinPathsError(ref err) => format!("{}", err),
             Error::LogonTypeNotGranted => {
@@ -297,6 +307,7 @@ impl fmt::Display for Error {
                                                         .to_string()
             }
             Error::LogonUserFailed(ref e) => format!("Failure calling LogonUserW: {:?}", e),
+            Error::NativeTlsError(ref e) => format!("{}", e),
             Error::MetaFileBadBind => {
                 "Bad value parsed from BIND, BIND_OPTIONAL, or BIND_MAP".to_string()
             }
@@ -305,6 +316,8 @@ impl fmt::Display for Error {
             }
             Error::MetaFileNotFound(ref e) => format!("Couldn't read MetaFile: {}, not found", e),
             Error::MetaFileIO(ref e) => format!("IO error while accessing MetaFile: {:?}", e),
+            #[cfg(not(windows))]
+            Error::Nix(ref e) => format!("{}", e),
             Error::NoOutboundIpAddr(ref e) => {
                 format!("Failed to discover this host's outbound IP address: {}", e)
             }
@@ -325,6 +338,7 @@ impl fmt::Display for Error {
                                         and 'SE_ASSIGNPRIMARYTOKEN_NAME' privilege to spawn a new \
                                         process as a different user"
                                                                     .to_string(),
+            Error::RustlsReader(ref e) => format!("{}", e),
             Error::RenderContextSerialization(ref e) => {
                 format!("Unable to serialize rendering context, {}", e)
             }
@@ -359,6 +373,10 @@ impl fmt::Display for Error {
 
 impl error::Error for Error {}
 
+impl From<CtlGatewayTls> for Error {
+    fn from(err: CtlGatewayTls) -> Self { Error::CtlGatewayTls(err) }
+}
+
 impl From<env::JoinPathsError> for Error {
     fn from(err: env::JoinPathsError) -> Self { Error::JoinPathsError(err) }
 }
@@ -375,10 +393,23 @@ impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self { Error::IO(err) }
 }
 
+#[cfg(not(windows))]
+impl From<nix::Error> for Error {
+    fn from(err: nix::Error) -> Self { Error::Nix(err) }
+}
+
+impl From<native_tls::Error> for Error {
+    fn from(err: native_tls::Error) -> Self { Error::NativeTlsError(err) }
+}
+
 impl From<num::ParseIntError> for Error {
     fn from(err: num::ParseIntError) -> Self { Error::ParseIntError(err) }
 }
 
 impl From<regex::Error> for Error {
     fn from(err: regex::Error) -> Self { Error::RegexParse(err) }
+}
+
+impl From<RustlsReaderError> for Error {
+    fn from(err: RustlsReaderError) -> Self { Error::RustlsReader(err) }
 }

@@ -3,7 +3,8 @@ use crate::{api_client,
             hcore,
             protocol::net,
             sup_client::SrvClientError};
-use biome_common::error::DEFAULT_ERROR_EXIT_CODE;
+use biome_common::{cli_config,
+                     error::DEFAULT_ERROR_EXIT_CODE};
 use biome_core::package::PackageIdent;
 use std::{collections::HashMap,
           env,
@@ -31,6 +32,7 @@ pub enum Error {
     CannotRemoveFromChannel((String, String)),
     CannotRemovePackage(hcore::package::PackageIdent, usize),
     CommandNotFoundInPkg((String, String)),
+    CliConfig(cli_config::Error),
     ConfigOpt(configopt::Error),
     CryptoCLI(String),
     CtlClient(SrvClientError),
@@ -48,17 +50,20 @@ pub enum Error {
     BiomeCore(hcore::Error),
     // Boxed due to clippy::large_enum_variant
     HandlebarsRenderError(Box<handlebars::TemplateRenderError>),
+    InvalidDnsName(String),
     IO(io::Error),
     JobGroupPromoteOrDemote(api_client::Error, bool /* promote */),
     JobGroupCancel(api_client::Error),
     JobGroupPromoteOrDemoteUnprocessable(bool /* promote */),
     JsonErr(serde_json::Error),
+    KeyTypeParseError(String),
     LicenseNotAccepted,
     NameLookup,
     NetErr(net::NetErr),
     PackageArchiveMalformed(String),
     PackageSetParseError(String),
     ParseIntError(num::ParseIntError),
+    ParseUrlError(url::ParseError),
     PathPrefixError(path::StripPrefixError),
     ProvidesError(String),
     RootRequired,
@@ -99,6 +104,7 @@ impl fmt::Display for Error {
                 format!("`{}' was not found under any 'PATH' directories in the {} package",
                         c, p)
             }
+            Error::CliConfig(ref err) => format!("{}", err),
             Error::ConfigOpt(ref err) => format!("{}", err),
             Error::CryptoCLI(ref e) => e.to_string(),
             Error::CtlClient(ref e) => e.to_string(),
@@ -146,6 +152,7 @@ impl fmt::Display for Error {
             Error::FileNotFound(ref e) => format!("File not found at: {}", e),
             Error::BiomeCommon(ref e) => e.to_string(),
             Error::BiomeCore(ref e) => e.to_string(),
+            Error::InvalidDnsName(ref e) => format!("Invalid DNS name: {}", e),
             Error::HandlebarsRenderError(ref e) => e.to_string(),
             Error::IO(ref err) => format!("{}", err),
             Error::JobGroupPromoteOrDemoteUnprocessable(true) => {
@@ -161,6 +168,7 @@ impl fmt::Display for Error {
             }
             Error::JsonErr(ref e) => e.to_string(),
             Error::JobGroupCancel(ref e) => format!("Failed to cancel job group: {:?}", e),
+            Error::KeyTypeParseError(ref s) => format!("Failed to parse key type: {}", s),
             Error::LicenseNotAccepted => "License agreement not accepted".to_string(),
             Error::NameLookup => "Error resolving a name or IP address".to_string(),
             Error::NetErr(ref e) => e.to_string(),
@@ -172,6 +180,7 @@ impl fmt::Display for Error {
                 format!("Package set file could not be parsed: {:?}", e)
             }
             Error::ParseIntError(ref err) => format!("{}", err),
+            Error::ParseUrlError(ref err) => format!("{}", err),
             Error::PathPrefixError(ref err) => format!("{}", err),
             Error::ProvidesError(ref err) => format!("Can't find {}", err),
             Error::RootRequired => {
@@ -209,6 +218,10 @@ impl From<api_client::Error> for Error {
 
 impl From<common::Error> for Error {
     fn from(err: common::Error) -> Error { Error::BiomeCommon(err) }
+}
+
+impl From<cli_config::Error> for Error {
+    fn from(err: cli_config::Error) -> Self { Error::CliConfig(err) }
 }
 
 impl From<configopt::Error> for Error {
@@ -274,4 +287,8 @@ impl From<walkdir::Error> for Error {
 
 impl From<ctrlc::Error> for Error {
     fn from(err: ctrlc::Error) -> Self { Error::CtrlcError(err) }
+}
+
+impl From<url::ParseError> for Error {
+    fn from(err: url::ParseError) -> Self { Error::ParseUrlError(err) }
 }

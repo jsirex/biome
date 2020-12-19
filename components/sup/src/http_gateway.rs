@@ -123,7 +123,7 @@ fn authentication_middleware<S>(req: ServiceRequest,
                                 -> impl Future<Output = Result<ServiceResponse<Body>, Error>>
     where S: Service<Request = ServiceRequest, Response = ServiceResponse<Body>, Error = Error>
 {
-    let current_token = &req.app_data::<AppState>()
+    let current_token = &req.app_data::<Data<AppState>>()
                             .expect("app data")
                             .authentication_token;
     let current_token = if let Some(t) = current_token {
@@ -171,7 +171,7 @@ fn metrics_middleware<S>(req: ServiceRequest,
     HTTP_GATEWAY_REQUESTS.with_label_values(label_values).inc();
     let timer = HTTP_GATEWAY_REQUEST_DURATION.with_label_values(label_values)
                                              .start_timer();
-    req.app_data::<AppState>()
+    req.app_data::<Data<AppState>>()
        .expect("app data")
        .timer
        .set(Some(timer));
@@ -196,7 +196,7 @@ fn redact_http_middleware<S>(req: ServiceRequest,
                              -> impl Future<Output = Result<ServiceResponse<Body>, Error>>
     where S: Service<Request = ServiceRequest, Response = ServiceResponse<Body>, Error = Error>
 {
-    if req.app_data::<AppState>()
+    if req.app_data::<Data<AppState>>()
           .expect("app data")
           .feature_flags
           .contains(FeatureFlag::REDACT_HTTP)
@@ -226,6 +226,7 @@ impl Server {
                feature_flags: FeatureFlag,
                control: Arc<(Mutex<ServerStartup>, Condvar)>) {
         thread::spawn(move || {
+            debug!("Entering http_gateway run thread");
             let &(ref lock, ref cvar) = &*control;
             let thread_count = match henv::var(HTTP_THREADS_ENVVAR) {
                 Ok(val) => {
@@ -249,11 +250,13 @@ impl Server {
                              }).workers(thread_count);
 
             server = server.disable_signals();
+            debug!("http_gateway server configured");
 
             let bind = match tls_config {
                 Some(c) => server.bind_rustls(listen_addr.to_string(), c),
                 None => server.bind(listen_addr.to_string()),
             };
+            debug!("http_gateway server port bound");
 
             *lock.lock().expect("Control mutex is poisoned") = match bind {
                 Ok(_) => ServerStartup::Started,
@@ -395,8 +398,8 @@ fn health_gsr(svc: String, group: String, org: Option<&str>, state: &AppState) -
 
     if let Some(health_check) = state.gateway_state.lock_gsr().health_of(&service_group) {
         let mut body = HealthCheckBody::default();
-        let stdout_path = hooks::stdout_log_path::<HealthCheckHook>(&service_group);
-        let stderr_path = hooks::stderr_log_path::<HealthCheckHook>(&service_group);
+        let stdout_path = hooks::stdout_log_path::<HealthCheckHook>(service_group.service());
+        let stderr_path = hooks::stderr_log_path::<HealthCheckHook>(service_group.service());
         let http_status: StatusCode = health_check.into();
 
         body.status = health_check.to_string();

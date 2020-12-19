@@ -2,7 +2,7 @@
 use crate::{error::{Error,
                     Result},
             hcore::{self,
-                    crypto,
+                    crypto::Blake2bHash,
                     fs::{self,
                          USER_CONFIG_FILE}},
             outputln,
@@ -425,46 +425,51 @@ impl CfgRenderer {
         let mut changed = false;
         for template in self.0.get_templates().keys() {
             let compiled = self.0.render(&template, ctx)?;
-            let compiled_hash = crypto::hash::hash_string(&compiled);
+            let compiled_hash = Blake2bHash::from_bytes(&compiled);
             let cfg_dest = render_path.as_ref().join(&template);
-            let file_hash = match crypto::hash::hash_file(&cfg_dest) {
-                Ok(file_hash) => file_hash,
+            let file_hash = match Blake2bHash::from_file(&cfg_dest) {
+                Ok(file_hash) => Some(file_hash),
                 Err(e) => {
                     debug!("Cannot read the file in order to hash it: {}", e);
-                    String::new()
+                    None
                 }
             };
-            changed |= if file_hash.is_empty() {
-                debug!("Configuration {} does not exist; restarting",
-                       cfg_dest.display());
+            changed |= match file_hash {
+                None => {
+                    debug!("Configuration {} does not exist; templating new file",
+                           cfg_dest.display());
 
-                ensure_directory_structure(render_path.as_ref(),
-                                           &cfg_dest,
-                                           &pkg.svc_user,
-                                           &pkg.svc_group)?;
-                write_templated_file(&cfg_dest, &compiled, &pkg.svc_user, &pkg.svc_group)?;
-                outputln!(
-                    preamble service_group_name,
-                    "Created configuration file {}",
-                    cfg_dest.display()
-                );
+                    ensure_directory_structure(render_path.as_ref(),
+                                               &cfg_dest,
+                                               &pkg.svc_user,
+                                               &pkg.svc_group)?;
+                    write_templated_file(&cfg_dest, &compiled, &pkg.svc_user, &pkg.svc_group)?;
+                    outputln!(
+                        preamble service_group_name,
+                        "Created configuration file {}",
+                        cfg_dest.display()
+                    );
 
-                true
-            } else if file_hash == compiled_hash {
-                debug!("Configuration {} {} has not changed; not restarting.",
-                       cfg_dest.display(),
-                       file_hash);
-                false
-            } else {
-                debug!("Configuration {} has changed; restarting",
-                       cfg_dest.display());
-                write_templated_file(&cfg_dest, &compiled, &pkg.svc_user, &pkg.svc_group)?;
-                outputln!(
-                    preamble service_group_name,
-                    "Modified configuration file {}",
-                    cfg_dest.display()
-                );
-                true
+                    true
+                }
+                Some(file_hash) => {
+                    if file_hash == compiled_hash {
+                        debug!("Configuration {} {} has not changed; not re-templating.",
+                               cfg_dest.display(),
+                               file_hash);
+                        false
+                    } else {
+                        debug!("Configuration {} has changed; templating new data",
+                               cfg_dest.display());
+                        write_templated_file(&cfg_dest, &compiled, &pkg.svc_user, &pkg.svc_group)?;
+                        outputln!(
+                            preamble service_group_name,
+                            "Modified configuration file {}",
+                            cfg_dest.display()
+                        );
+                        true
+                    }
+                }
             };
         }
         Ok(changed)
@@ -612,11 +617,13 @@ mod test {
     use tempfile::TempDir;
 
     fn curr_username() -> String {
-        users::get_current_username().expect("Can get current username")
+        users::get_current_username().expect("Failed to get username")
+                                     .expect("No username found")
     }
 
     fn curr_groupname() -> String {
-        users::get_current_groupname().expect("Can get current groupname")
+        users::get_current_groupname().expect("Failed to get groupname")
+                                      .expect("No groupname found")
     }
 
     fn toml_from_str(content: &str) -> toml::value::Table {

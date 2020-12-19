@@ -86,7 +86,7 @@ finish_setup() {
   # (This is also why we're not using HAB_BLDR_CHANNEL for this and
   # replicating the fallback logic from bio-plan-build; it'd be too
   # easy to create an unstable studio.)
-  _bio install "$HAB_STUDIO_BACKLINE_PKG"
+  _bio pkg install "$HAB_STUDIO_BACKLINE_PKG"
 
   bash_path=$(_pkgpath_for core/bash)
   coreutils_path=$(_pkgpath_for core/coreutils)

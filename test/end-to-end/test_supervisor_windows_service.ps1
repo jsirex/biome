@@ -11,4 +11,69 @@ Describe "Biome Windows Service" {
         Get-Process bio-sup -ErrorAction SilentlyContinue | Should -Be $null
         Get-Process bio-launch -ErrorAction SilentlyContinue | Should -Be $null
     }
+
+    Context "Running a service with current launcher" {
+        BeforeAll {
+            Stop-Service Biome
+            Remove-Item "c:\hab\svc\windows-service\logs\habitat.log"
+            Start-Service Biome
+            Wait-Supervisor -Timeout 45
+            bio svc load core/nginx
+            Wait-SupervisorService nginx
+        }
+
+        It "Runs nginx" {
+            # This will error with a 403 because nginx is not running any sites
+            try  { Invoke-WebRequest "http://localhost" }
+            catch [Microsoft.PowerShell.Commands.HttpResponseException] { $headers = $_.Exception.Response.Headers }
+            [string]$headers.Server | Should -BeLike "nginx/*"
+        }
+
+        It "Runs service as system" {
+            "c:\hab\svc\windows-service\logs\habitat.log" | Should -FileContentMatch "Starting service as user=system"
+        }
+
+        AfterAll {
+            bio svc unload core/nginx
+            Start-Sleep -Seconds 3 # tears
+            Stop-Service Biome
+        }
+    }
+
+    Context "Running a service with older launcher" {
+        BeforeAll {
+            Stop-Service Biome
+            Remove-Item "c:\hab\svc\windows-service\logs\habitat.log"
+            # This was the last stable Windows Launcher prior to the Launcher
+            # being able to provide version numbers to the Supervisor directly.
+            bio pkg install biome/bio-launcher/13927/20200618210540
+            $launcherPath = "$(bio pkg path biome/bio-launcher/13927/20200618210540)\bin\bio-launch.exe"
+            $configPath = "c:\hab\svc\windows-service\BioService.dll.config"
+            [xml]$configXml = Get-Content $configPath
+            $launcherPathNode = ($configXml.configuration.appSettings.SelectNodes("add[@key='launcherPath']"))[0]
+            $launcherPathNode.SetAttribute("value", $launcherPath) | Out-Null
+            $configXml.Save($configPath)
+            Start-Service Biome
+            Wait-Supervisor -Timeout 45
+            bio svc load core/nginx
+            Wait-SupervisorService nginx
+        }
+
+        It "Runs nginx" {
+            # This will error with a 403 because nginx is not running any sites
+            try  { Invoke-WebRequest "http://localhost" }
+            catch [Microsoft.PowerShell.Commands.HttpResponseException] { $headers = $_.Exception.Response.Headers }
+            [string]$headers.Server | Should -BeLike "nginx/*"
+        }
+
+        It "Runs service as machine user" {
+            $lowerComputerName = $env:COMPUTERNAME.ToLower()
+            "c:\hab\svc\windows-service\logs\habitat.log" | Should -FileContentMatch "Starting service as user=$lowerComputerName\`$"
+        }
+
+        AfterAll {
+            bio svc unload core/nginx
+            Stop-Service Biome
+        }
+    }
 }

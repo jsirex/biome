@@ -65,7 +65,6 @@ pub enum Error {
     CantUploadGossipToml,
     ChannelNotFound,
     CryptoKeyError(String),
-    DownloadFailed(String),
     EditorEnv(env::VarError),
     EditStatus,
     FileNameError,
@@ -78,12 +77,12 @@ pub enum Error {
         hook:          &'static str,
         error:         CommandExecutionError,
     },
-    InterpreterNotFound(PackageIdent, Box<Self>),
     InvalidEventStreamToken(String),
     /// Occurs when making lower level IO calls.
     IO(io::Error),
     /// Errors when joining paths :)
     JoinPathsError(env::JoinPathsError),
+    ListenCtlResolutionError(String, io::Error),
     MissingCLIInputError(String),
     NamedPipeTimeoutOnStart(String, String, io::Error),
     NativeTls(native_tls::Error),
@@ -91,12 +90,12 @@ pub enum Error {
     OfflineArtifactNotFound(PackageIdent),
     OfflineOriginKeyNotFound(String),
     OfflinePackageNotFound(PackageIdent),
+    PackageFailedToInstall(PackageIdent, Box<Self>),
     PackageNotFound(String),
     /// Occurs upon errors related to file or directory permissions.
     PermissionFailed(String),
     /// When an error occurs serializing rendering context
     RenderContextSerialization(serde_json::Error),
-    RemoteSupResolutionError(String, io::Error),
     RootRequired,
     StatusFileCorrupt(PathBuf),
     StrFromUtf8Error(str::Utf8Error),
@@ -157,7 +156,6 @@ impl fmt::Display for Error {
             }
             Error::ChannelNotFound => "Channel not found".to_string(),
             Error::CryptoKeyError(ref s) => format!("Missing or invalid key: {}", s),
-            Error::DownloadFailed(ref msg) => msg.to_string(),
             Error::EditorEnv(ref e) => format!("Missing EDITOR environment variable: {}", e),
             Error::EditStatus => "Failed edit text command".to_string(),
             Error::FileNameError => "Failed to extract a filename".to_string(),
@@ -174,9 +172,6 @@ impl fmt::Display for Error {
                                 ref hook,
                                 ref error, } => {
                 format!("{} {} hook failed: {}", package_ident, hook, error)
-            }
-            Error::InterpreterNotFound(ref ident, ref e) => {
-                format!("Unable to install interpreter ident: {} - {}", ident, e)
             }
             Error::InvalidEventStreamToken(ref s) => {
                 format!("Invalid event stream token provided: '{}'", s)
@@ -201,14 +196,16 @@ impl fmt::Display for Error {
                          offline mode: {}",
                         ident)
             }
+            Error::PackageFailedToInstall(ref ident, ref e) => {
+                format!("Failed to install package {} - {}", ident, e)
+            }
             Error::PackageNotFound(ref e) => format!("Package not found. {}", e),
             Error::PermissionFailed(ref e) => e.to_string(),
             Error::RenderContextSerialization(ref e) => {
                 format!("Unable to serialize rendering context, {}", e)
             }
-            Error::RemoteSupResolutionError(ref sup_addr, ref err) => {
-                format!("Failed to resolve remote supervisor '{}': {}",
-                        sup_addr, err,)
+            Error::ListenCtlResolutionError(ref sup_addr, ref err) => {
+                format!("Failed to resolve ctl address '{}': {}", sup_addr, err,)
             }
             Error::RootRequired => {
                 "Root or administrator permissions required to complete operation".to_string()

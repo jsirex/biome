@@ -20,8 +20,7 @@ use crate::sup::{cli::cli,
                  logger,
                  manager::{Manager,
                            ManagerConfig,
-                           TLSConfig,
-                           PROC_LOCK_FILE},
+                           TLSConfig},
                  util};
 use configopt::ConfigOpt;
 use bio::cli::bio::{sup::SupRun,
@@ -38,8 +37,12 @@ use biome_common::{command::package::install::InstallSource,
                      FeatureFlag};
 use biome_core::{self,
                    crypto::{self,
-                            SymKey},
-                   os::signals};
+                            keys::{KeyCache,
+                                   RingKey}},
+                   os::signals,
+                   tls::rustls_wrapper::{CertificateChainCli,
+                                         PrivateKeyCli,
+                                         RootCertificateStoreCli}};
 use biome_launcher_client::{LauncherCli,
                               ERR_NO_RETRY_EXCODE,
                               OK_NO_RETRY_EXCODE};
@@ -134,7 +137,7 @@ async fn start_rsr_imlw_mlw_gsw_smw_rhw_msw(feature_flags: FeatureFlag) -> Resul
     liveliness_checker::spawn_thread_alive_checker();
     let launcher = boot();
 
-    let app_matches = match cli(feature_flags).get_matches_safe() {
+    let app_matches = match cli().get_matches_safe() {
         Ok(matches) => matches,
         Err(err) => {
             let out = io::stdout();
@@ -222,13 +225,9 @@ async fn sub_run_rsr_imlw_mlw_gsw_smw_rhw_msw(sup_run: SupRun,
 async fn sub_sh() -> Result<()> { command::shell::sh().await }
 
 fn sub_term() -> Result<()> {
-    // We were generating a ManagerConfig from matches here, but 'bio sup term' takes no options.
-    // This means that we were implicitly getting the default ManagerConfig here. Instead of calling
-    // a function to generate said config, we can just explicitly pass the default.
-    let proc_lock_file = biome_sup_protocol::sup_root(None).join(PROC_LOCK_FILE);
-    match Manager::term(&proc_lock_file) {
-        Err(Error::ProcessLockIO(..)) => {
-            println!("Supervisor not started.");
+    match Manager::term() {
+        Err(e @ Error::LockFileError(..)) => {
+            println!("Supervisor not terminated: {}", e);
             Ok(())
         }
         result => result,
@@ -280,40 +279,50 @@ async fn split_apart_sup_run(sup_run: SupRun,
 
     let bldr_url = biome_core::url::bldr_url(shared_load.bldr_url.as_ref());
 
-    let cfg = ManagerConfig { auto_update: sup_run.auto_update,
-                              auto_update_period: sup_run.auto_update_period.into(),
-                              service_update_period: sup_run.service_update_period.into(),
-                              custom_state_path: None, // remove entirely?
-                              cache_key_path: sup_run.cache_key_path.cache_key_path,
-                              update_url: bldr_url.clone(),
-                              update_channel: shared_load.channel.clone(),
-                              http_disable: sup_run.http_disable,
-                              organization: sup_run.organization,
-                              gossip_permanent: sup_run.permanent_peer,
-                              ring_key,
-                              gossip_peers: sup_run.peer,
-                              watch_peer_file: sup_run.peer_watch_file
-                                                      .map(|p| p.to_string_lossy().to_string()),
-                              gossip_listen: if sup_run.local_gossip_mode {
-                                  GossipListenAddr::local_only()
-                              } else {
-                                  sup_run.listen_gossip
-                              },
-                              ctl_listen: sup_run.listen_ctl,
-                              http_listen: sup_run.listen_http,
-                              tls_config,
-                              feature_flags,
-                              event_stream_config,
-                              keep_latest_packages: sup_run.keep_latest_packages,
-                              sys_ip: sup_run.sys_ip_address
-                                             .or_else(|| {
-                                                 let result_ip = biome_core::util::sys::ip();
-                                                 if let Err(e) = &result_ip {
-                                                     warn!("{}", e);
-                                                 }
-                                                 result_ip.ok()
-                                             })
-                                             .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)) };
+    let key_cache = KeyCache::new(sup_run.cache_key_path.cache_key_path);
+    key_cache.setup()?;
+
+    let cfg =
+        ManagerConfig { auto_update: sup_run.auto_update,
+                        auto_update_period: sup_run.auto_update_period.into(),
+                        service_update_period: sup_run.service_update_period.into(),
+                        custom_state_path: None, // remove entirely?
+                        key_cache,
+                        update_url: bldr_url.clone(),
+                        update_channel: shared_load.channel.clone(),
+                        http_disable: sup_run.http_disable,
+                        organization: sup_run.organization,
+                        gossip_permanent: sup_run.permanent_peer,
+                        ring_key,
+                        gossip_peers: sup_run.peer,
+                        watch_peer_file: sup_run.peer_watch_file
+                                                .map(|p| p.to_string_lossy().to_string()),
+                        gossip_listen: if sup_run.local_gossip_mode {
+                            GossipListenAddr::local_only()
+                        } else {
+                            sup_run.listen_gossip
+                        },
+                        ctl_listen: sup_run.listen_ctl.into(),
+                        ctl_server_certificates: sup_run.ctl_server_certificate
+                                                        .map(CertificateChainCli::into_inner),
+                        ctl_server_key: sup_run.ctl_server_key.map(PrivateKeyCli::into_inner),
+                        ctl_client_ca_certificates:
+                            sup_run.ctl_client_ca_certificate
+                                   .map(RootCertificateStoreCli::into_inner),
+                        http_listen: sup_run.listen_http,
+                        tls_config,
+                        feature_flags,
+                        event_stream_config,
+                        keep_latest_packages: sup_run.keep_latest_packages,
+                        sys_ip: sup_run.sys_ip_address
+                                       .or_else(|| {
+                                           let result_ip = biome_core::util::sys::ip();
+                                           if let Err(e) = &result_ip {
+                                               warn!("{}", e);
+                                           }
+                                           result_ip.ok()
+                                       })
+                                       .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)) };
 
     info!("Using sys IP address {}", cfg.sys_ip);
 
@@ -345,17 +354,21 @@ async fn split_apart_sup_run(sup_run: SupRun,
 // Various CLI Parsing Functions
 ////////////////////////////////////////////////////////////////////////
 
-fn get_ring_key(sup_run: &SupRun) -> Result<Option<SymKey>> {
+fn get_ring_key(sup_run: &SupRun) -> Result<Option<RingKey>> {
     let cache_key_path = &sup_run.cache_key_path.cache_key_path;
+    let cache = KeyCache::new(cache_key_path);
+    cache.setup()?;
+
     match &sup_run.ring {
-        Some(val) => {
-            let key = SymKey::get_latest_pair_for(val, cache_key_path)?;
+        Some(key_name) => {
+            let key = cache.latest_ring_key_revision(key_name)?;
             Ok(Some(key))
         }
         None => {
             match &sup_run.ring_key {
-                Some(val) => {
-                    let (key, _) = SymKey::write_file_from_str(val, cache_key_path)?;
+                Some(key_content) => {
+                    let key: RingKey = key_content.parse()?;
+                    cache.write_key(&key)?;
                     Ok(Some(key))
                 }
                 None => Ok(None),
@@ -386,7 +399,8 @@ mod test {
     use biome_common::types::{GossipListenAddr,
                                 HttpListenAddr,
                                 ListenCtlAddr};
-    use biome_core::locked_env_var;
+    use biome_core::{fs::CACHE_KEY_PATH,
+                       locked_env_var};
     use biome_sup_protocol::{ctl::ServiceBindList,
                                types::{BindingMode,
                                        ServiceBind,
@@ -429,7 +443,8 @@ mod test {
         use biome_common::types::EventStreamConnectMethod;
         #[cfg(windows)]
         use biome_core::crypto::dpapi::decrypt;
-        use biome_core::{fs::CACHE_KEY_PATH,
+        use biome_core::{crypto::keys::{Key,
+                                          NamedRevision},
                            package::PackageIdent,
                            ChannelIdent};
         use std::{collections::HashMap,
@@ -632,20 +647,23 @@ mod test {
 
         #[test]
         fn ring_key_is_set_properly_by_name() {
-            let key_cache = TempDir::new().expect("Could not create tempdir");
+            let temp_dir = TempDir::new().expect("Could not create tempdir");
+
+            let cache = KeyCache::new(temp_dir.path());
             let lock = lock_var();
-            lock.set(key_cache.path());
+            lock.set(temp_dir.path());
 
             let key_content =
                 "SYM-SEC-1\nfoobar-20160504220722\n\nRCFaO84j41GmrzWddxMdsXpGdn3iuIy7Mw3xYrjPLsE=";
-            let (pair, _) = SymKey::write_file_from_str(key_content, key_cache.path())
-                .expect("Could not write key pair");
+            let key: RingKey = key_content.parse().unwrap();
+            cache.write_key(&key).unwrap();
+
             let config = config_from_cmd_str("bio-sup run --ring foobar");
 
             assert_eq!(config.ring_key
                              .expect("No ring key on manager config")
-                             .name_with_rev(),
-                       pair.name_with_rev());
+                             .named_revision(),
+                       key.named_revision());
         }
 
         #[test]
@@ -668,8 +686,8 @@ RCFaO84j41GmrzWddxMdsXpGdn3iuIy7Mw3xYrjPLsE="#,
 
             assert_eq!(config.ring_key
                              .expect("No ring key on manager config")
-                             .name_with_rev(),
-                       "foobar-20160504220722");
+                             .named_revision(),
+                       &"foobar-20160504220722".parse::<NamedRevision>().unwrap());
         }
 
         const CERT_FILE_CONTENTS: &str = r#"-----BEGIN CERTIFICATE-----
@@ -700,27 +718,30 @@ gpoVMSncu2jMIDZX63IkQII=
             lock.unset();
 
             let config = config_from_cmd_str("bio-sup run");
-            assert_eq!(ManagerConfig { auto_update:           false,
-                                       auto_update_period:    Duration::from_secs(60),
-                                       service_update_period: Duration::from_secs(60),
-                                       custom_state_path:     None,
-                                       cache_key_path:        (&*CACHE_KEY_PATH).to_path_buf(),
+            assert_eq!(ManagerConfig { auto_update:                false,
+                                       auto_update_period:         Duration::from_secs(60),
+                                       service_update_period:      Duration::from_secs(60),
+                                       custom_state_path:          None,
+                                       key_cache:                  KeyCache::new(&*CACHE_KEY_PATH),
                                        update_url:
                                            String::from("https://bldr.habitat.sh"),
-                                       update_channel:        ChannelIdent::default(),
-                                       gossip_listen:         GossipListenAddr::default(),
-                                       ctl_listen:            ListenCtlAddr::default(),
-                                       http_listen:           HttpListenAddr::default(),
-                                       http_disable:          false,
-                                       gossip_peers:          vec![],
-                                       gossip_permanent:      false,
-                                       ring_key:              None,
-                                       organization:          None,
-                                       watch_peer_file:       None,
-                                       tls_config:            None,
-                                       feature_flags:         FeatureFlag::empty(),
-                                       event_stream_config:   None,
-                                       keep_latest_packages:  None,
+                                       update_channel:             ChannelIdent::default(),
+                                       gossip_listen:              GossipListenAddr::default(),
+                                       ctl_listen:                 ListenCtlAddr::default(),
+                                       ctl_server_certificates:    None,
+                                       ctl_server_key:             None,
+                                       ctl_client_ca_certificates: None,
+                                       http_listen:                HttpListenAddr::default(),
+                                       http_disable:               false,
+                                       gossip_peers:               vec![],
+                                       gossip_permanent:           false,
+                                       ring_key:                   None,
+                                       organization:               None,
+                                       watch_peer_file:            None,
+                                       tls_config:                 None,
+                                       feature_flags:              FeatureFlag::empty(),
+                                       event_stream_config:        None,
+                                       keep_latest_packages:       None,
                                        sys_ip:
                                            biome_core::util::sys::ip().unwrap(), },
                        config);
@@ -736,12 +757,13 @@ gpoVMSncu2jMIDZX63IkQII=
 
             let temp_dir = TempDir::new().expect("Could not create tempdir");
             let temp_dir_str = temp_dir.path().to_str().unwrap();
+            let cache = KeyCache::new(temp_dir.path());
 
             // Setup key file
             let key_content =
                 "SYM-SEC-1\ntester-20160504220722\n\nRCFaO84j41GmrzWddxMdsXpGdn3iuIy7Mw3xYrjPLsE=";
-            let (sym_key, _) = SymKey::write_file_from_str(key_content, temp_dir.path())
-                                       .expect("Could not write key pair");
+            let ring_key: RingKey = key_content.parse().unwrap();
+            cache.write_key(&ring_key).unwrap();
 
             // Setup cert files
             let key_path = temp_dir.path().join("key");
@@ -773,19 +795,22 @@ gpoVMSncu2jMIDZX63IkQII=
                                        auto_update_period: Duration::from_secs(90),
                                        service_update_period: Duration::from_secs(30),
                                        custom_state_path: None,
-                                       cache_key_path: PathBuf::from(temp_dir_str),
+                                       key_cache: KeyCache::new(temp_dir_str),
                                        update_url: String::from("https://bldr.habitat.sh"),
                                        update_channel: ChannelIdent::default(),
                                        gossip_listen:
                                            GossipListenAddr::from_str("1.2.3.4:4321").unwrap(),
                                        ctl_listen:
                                            ListenCtlAddr::from_str("7.8.9.1:12").unwrap(),
+                                       ctl_server_certificates: None,
+                                       ctl_server_key: None,
+                                       ctl_client_ca_certificates: None,
                                        http_listen:
                                            HttpListenAddr::from_str("5.5.5.5:11111").unwrap(),
                                        http_disable: true,
                                        gossip_peers,
                                        gossip_permanent: true,
-                                       ring_key: Some(sym_key),
+                                       ring_key: Some(ring_key),
                                        organization: Some(String::from("MY_ORG")),
                                        watch_peer_file: None,
                                        tls_config: Some(TLSConfig { cert_path,
@@ -807,28 +832,31 @@ gpoVMSncu2jMIDZX63IkQII=
             let args = "bio-sup run --local-gossip-mode";
 
             let config = config_from_cmd_str(args);
-            assert_eq!(ManagerConfig { auto_update:           false,
-                                       auto_update_period:    Duration::from_secs(60),
-                                       service_update_period: Duration::from_secs(60),
-                                       custom_state_path:     None,
-                                       cache_key_path:        PathBuf::from("/cache/key/path"),
+            assert_eq!(ManagerConfig { auto_update:                false,
+                                       auto_update_period:         Duration::from_secs(60),
+                                       service_update_period:      Duration::from_secs(60),
+                                       custom_state_path:          None,
+                                       key_cache:                  KeyCache::new("/cache/key/path"),
                                        update_url:
                                            String::from("https://bldr.habitat.sh"),
-                                       update_channel:        ChannelIdent::default(),
+                                       update_channel:             ChannelIdent::default(),
                                        gossip_listen:
                                            GossipListenAddr::from_str("127.0.0.2:9638").unwrap(),
-                                       ctl_listen:            ListenCtlAddr::default(),
-                                       http_listen:           HttpListenAddr::default(),
-                                       http_disable:          false,
-                                       gossip_peers:          vec![],
-                                       gossip_permanent:      false,
-                                       ring_key:              None,
-                                       organization:          None,
-                                       watch_peer_file:       None,
-                                       tls_config:            None,
-                                       feature_flags:         FeatureFlag::empty(),
-                                       event_stream_config:   None,
-                                       keep_latest_packages:  None,
+                                       ctl_listen:                 ListenCtlAddr::default(),
+                                       ctl_server_certificates:    None,
+                                       ctl_server_key:             None,
+                                       ctl_client_ca_certificates: None,
+                                       http_listen:                HttpListenAddr::default(),
+                                       http_disable:               false,
+                                       gossip_peers:               vec![],
+                                       gossip_permanent:           false,
+                                       ring_key:                   None,
+                                       organization:               None,
+                                       watch_peer_file:            None,
+                                       tls_config:                 None,
+                                       feature_flags:              FeatureFlag::empty(),
+                                       event_stream_config:        None,
+                                       keep_latest_packages:       None,
                                        sys_ip:
                                            biome_core::util::sys::ip().unwrap(), },
                        config);
@@ -842,27 +870,30 @@ gpoVMSncu2jMIDZX63IkQII=
             let args = "bio-sup run --peer-watch-file=/some/path";
 
             let config = config_from_cmd_str(args);
-            assert_eq!(ManagerConfig { auto_update:           false,
-                                       auto_update_period:    Duration::from_secs(60),
-                                       service_update_period: Duration::from_secs(60),
-                                       custom_state_path:     None,
-                                       cache_key_path:        (&*CACHE_KEY_PATH).to_path_buf(),
+            assert_eq!(ManagerConfig { auto_update:                false,
+                                       auto_update_period:         Duration::from_secs(60),
+                                       service_update_period:      Duration::from_secs(60),
+                                       custom_state_path:          None,
+                                       key_cache:                  KeyCache::new(&*CACHE_KEY_PATH),
                                        update_url:
                                            String::from("https://bldr.habitat.sh"),
-                                       update_channel:        ChannelIdent::default(),
-                                       gossip_listen:         GossipListenAddr::default(),
-                                       ctl_listen:            ListenCtlAddr::default(),
-                                       http_listen:           HttpListenAddr::default(),
-                                       http_disable:          false,
-                                       gossip_peers:          vec![],
-                                       gossip_permanent:      false,
-                                       ring_key:              None,
-                                       organization:          None,
-                                       watch_peer_file:       Some(String::from("/some/path")),
-                                       tls_config:            None,
-                                       feature_flags:         FeatureFlag::empty(),
-                                       event_stream_config:   None,
-                                       keep_latest_packages:  None,
+                                       update_channel:             ChannelIdent::default(),
+                                       gossip_listen:              GossipListenAddr::default(),
+                                       ctl_listen:                 ListenCtlAddr::default(),
+                                       ctl_server_certificates:    None,
+                                       ctl_server_key:             None,
+                                       ctl_client_ca_certificates: None,
+                                       http_listen:                HttpListenAddr::default(),
+                                       http_disable:               false,
+                                       gossip_peers:               vec![],
+                                       gossip_permanent:           false,
+                                       ring_key:                   None,
+                                       organization:               None,
+                                       watch_peer_file:            Some(String::from("/some/path")),
+                                       tls_config:                 None,
+                                       feature_flags:              FeatureFlag::empty(),
+                                       event_stream_config:        None,
+                                       keep_latest_packages:       None,
                                        sys_ip:
                                            biome_core::util::sys::ip().unwrap(), },
                        config);
@@ -910,15 +941,18 @@ gpoVMSncu2jMIDZX63IkQII=
             meta.insert(String::from("key2"), String::from("val2"));
             meta.insert(String::from("keyA"), String::from("valA"));
             assert_eq!(ManagerConfig { auto_update:          false,
-                auto_update_period:   Duration::from_secs(60),
-                service_update_period:   Duration::from_secs(60),
+                                       auto_update_period:   Duration::from_secs(60),
+                                       service_update_period:   Duration::from_secs(60),
                                        custom_state_path:    None,
-                                       cache_key_path:       (&*CACHE_KEY_PATH).to_path_buf(),
+                                       key_cache:       KeyCache::new(&*CACHE_KEY_PATH),
                                        update_url:
                                            String::from("https://bldr.habitat.sh"),
                                        update_channel:       ChannelIdent::default(),
                                        gossip_listen:        GossipListenAddr::default(),
                                        ctl_listen:           ListenCtlAddr::default(),
+                                       ctl_server_certificates: None,
+                                       ctl_server_key:          None,
+                                       ctl_client_ca_certificates: None,
                                        http_listen:          HttpListenAddr::default(),
                                        http_disable:         false,
                                        gossip_peers:         vec![],
@@ -1028,12 +1062,13 @@ gpoVMSncu2jMIDZX63IkQII=
 
             let temp_dir = TempDir::new().expect("Could not create tempdir");
             let temp_dir_str = temp_dir.path().to_str().unwrap();
+            let cache = KeyCache::new(temp_dir.path());
 
             // Setup key file
             let key_content =
                 "SYM-SEC-1\ntester-20160504220722\n\nRCFaO84j41GmrzWddxMdsXpGdn3iuIy7Mw3xYrjPLsE=";
-            let (sym_key, _) = SymKey::write_file_from_str(key_content, temp_dir.path())
-                               .expect("Could not write key pair");
+            let ring_key: RingKey = key_content.parse().unwrap();
+            cache.write_key(&ring_key).unwrap();
 
             // Setup cert files
             let key_path = temp_dir.path().join("key");
@@ -1090,19 +1125,22 @@ sys_ip_address = "7.8.9.0"
                                        auto_update_period: Duration::from_secs(3600),
                                        service_update_period: Duration::from_secs(1_000),
                                        custom_state_path: None,
-                                       cache_key_path: PathBuf::from(temp_dir_str),
+                                       key_cache: KeyCache::new(temp_dir_str),
                                        update_url: String::from("https://bldr.habitat.sh"),
                                        update_channel: ChannelIdent::default(),
                                        gossip_listen:
                                            GossipListenAddr::from_str("1.2.3.4:4321").unwrap(),
                                        ctl_listen:
                                            ListenCtlAddr::from_str("7.8.9.1:12").unwrap(),
+                                       ctl_server_certificates: None,
+                                       ctl_server_key: None,
+                                       ctl_client_ca_certificates: None,
                                        http_listen:
                                            HttpListenAddr::from_str("5.5.5.5:11111").unwrap(),
                                        http_disable: true,
                                        gossip_peers,
                                        gossip_permanent: true,
-                                       ring_key: Some(sym_key),
+                                       ring_key: Some(ring_key),
                                        organization: Some(String::from("MY_ORG")),
                                        watch_peer_file: None,
                                        tls_config: Some(TLSConfig { cert_path,
@@ -1133,28 +1171,31 @@ sys_ip_address = "7.8.9.0"
             let args = format!("bio-sup run --config-files {}", config_path_str);
 
             let config = config_from_cmd_str(&args);
-            assert_eq!(ManagerConfig { auto_update:           false,
-                                       auto_update_period:    Duration::from_secs(60),
-                                       service_update_period: Duration::from_secs(60),
-                                       custom_state_path:     None,
-                                       cache_key_path:        PathBuf::from("/cache/key/path"),
+            assert_eq!(ManagerConfig { auto_update:                false,
+                                       auto_update_period:         Duration::from_secs(60),
+                                       service_update_period:      Duration::from_secs(60),
+                                       custom_state_path:          None,
+                                       key_cache:                  KeyCache::new("/cache/key/path"),
                                        update_url:
                                            String::from("https://bldr.habitat.sh"),
-                                       update_channel:        ChannelIdent::default(),
+                                       update_channel:             ChannelIdent::default(),
                                        gossip_listen:
                                            GossipListenAddr::from_str("127.0.0.2:9638").unwrap(),
-                                       ctl_listen:            ListenCtlAddr::default(),
-                                       http_listen:           HttpListenAddr::default(),
-                                       http_disable:          false,
-                                       gossip_peers:          vec![],
-                                       gossip_permanent:      false,
-                                       ring_key:              None,
-                                       organization:          None,
-                                       watch_peer_file:       None,
-                                       tls_config:            None,
-                                       feature_flags:         FeatureFlag::empty(),
-                                       event_stream_config:   None,
-                                       keep_latest_packages:  None,
+                                       ctl_listen:                 ListenCtlAddr::default(),
+                                       ctl_server_certificates:    None,
+                                       ctl_server_key:             None,
+                                       ctl_client_ca_certificates: None,
+                                       http_listen:                HttpListenAddr::default(),
+                                       http_disable:               false,
+                                       gossip_peers:               vec![],
+                                       gossip_permanent:           false,
+                                       ring_key:                   None,
+                                       organization:               None,
+                                       watch_peer_file:            None,
+                                       tls_config:                 None,
+                                       feature_flags:              FeatureFlag::empty(),
+                                       event_stream_config:        None,
+                                       keep_latest_packages:       None,
                                        sys_ip:
                                            biome_core::util::sys::ip().unwrap(), },
                        config);
@@ -1177,27 +1218,30 @@ sys_ip_address = "7.8.9.0"
             let args = format!("bio-sup run --config-files {}", config_path_str);
 
             let config = config_from_cmd_str(&args);
-            assert_eq!(ManagerConfig { auto_update:           false,
-                                       auto_update_period:    Duration::from_secs(60),
-                                       service_update_period: Duration::from_secs(60),
-                                       custom_state_path:     None,
-                                       cache_key_path:        (&*CACHE_KEY_PATH).to_path_buf(),
+            assert_eq!(ManagerConfig { auto_update:                false,
+                                       auto_update_period:         Duration::from_secs(60),
+                                       service_update_period:      Duration::from_secs(60),
+                                       custom_state_path:          None,
+                                       key_cache:                  KeyCache::new(&*CACHE_KEY_PATH),
                                        update_url:
                                            String::from("https://bldr.habitat.sh"),
-                                       update_channel:        ChannelIdent::default(),
-                                       gossip_listen:         GossipListenAddr::default(),
-                                       ctl_listen:            ListenCtlAddr::default(),
-                                       http_listen:           HttpListenAddr::default(),
-                                       http_disable:          false,
-                                       gossip_peers:          vec![],
-                                       gossip_permanent:      false,
-                                       ring_key:              None,
-                                       organization:          None,
-                                       watch_peer_file:       Some(String::from("/some/path")),
-                                       tls_config:            None,
-                                       feature_flags:         FeatureFlag::empty(),
-                                       event_stream_config:   None,
-                                       keep_latest_packages:  None,
+                                       update_channel:             ChannelIdent::default(),
+                                       gossip_listen:              GossipListenAddr::default(),
+                                       ctl_listen:                 ListenCtlAddr::default(),
+                                       ctl_server_certificates:    None,
+                                       ctl_server_key:             None,
+                                       ctl_client_ca_certificates: None,
+                                       http_listen:                HttpListenAddr::default(),
+                                       http_disable:               false,
+                                       gossip_peers:               vec![],
+                                       gossip_permanent:           false,
+                                       ring_key:                   None,
+                                       organization:               None,
+                                       watch_peer_file:            Some(String::from("/some/path")),
+                                       tls_config:                 None,
+                                       feature_flags:              FeatureFlag::empty(),
+                                       event_stream_config:        None,
+                                       keep_latest_packages:       None,
                                        sys_ip:
                                            biome_core::util::sys::ip().unwrap(), },
                        config);
@@ -1285,12 +1329,15 @@ event_stream_server_certificate = "{}"
                 auto_update_period:   Duration::from_secs(60),
                 service_update_period:   Duration::from_secs(60),
                                        custom_state_path:    None,
-                                       cache_key_path:       (&*CACHE_KEY_PATH).to_path_buf(),
+                                       key_cache:       KeyCache::new(&*CACHE_KEY_PATH),
                                        update_url:
                                            String::from("https://bldr.habitat.sh"),
                                        update_channel:       ChannelIdent::default(),
                                        gossip_listen:        GossipListenAddr::default(),
                                        ctl_listen:           ListenCtlAddr::default(),
+                                       ctl_server_certificates: None,
+                                       ctl_server_key:          None,
+                                       ctl_client_ca_certificates: None,
                                        http_listen:          HttpListenAddr::default(),
                                        http_disable:         false,
                                        gossip_peers:         vec![],
@@ -1465,31 +1512,34 @@ organization = "MY_ORG_FROM_SECOND_CONFG"
                                config1_path_str, config2_path_str);
 
             let config = config_from_cmd_str(&args);
-            assert_eq!(ManagerConfig { auto_update:           false,
-                                       auto_update_period:    Duration::from_secs(60),
-                                       service_update_period: Duration::from_secs(60),
-                                       custom_state_path:     None,
-                                       cache_key_path:        (&*CACHE_KEY_PATH).to_path_buf(),
+            assert_eq!(ManagerConfig { auto_update:                false,
+                                       auto_update_period:         Duration::from_secs(60),
+                                       service_update_period:      Duration::from_secs(60),
+                                       custom_state_path:          None,
+                                       key_cache:                  KeyCache::new(&*CACHE_KEY_PATH),
                                        update_url:
                                            String::from("https://bldr.habitat.sh"),
-                                       update_channel:        ChannelIdent::default(),
+                                       update_channel:             ChannelIdent::default(),
                                        gossip_listen:
                                            GossipListenAddr::from_str("1.2.3.4:4321").unwrap(),
                                        ctl_listen:
                                            ListenCtlAddr::from_str("7.7.7.7:7777").unwrap(),
+                                       ctl_server_certificates:    None,
+                                       ctl_server_key:             None,
+                                       ctl_client_ca_certificates: None,
                                        http_listen:
                                            HttpListenAddr::from_str("3.3.3.3:3333").unwrap(),
-                                       http_disable:          false,
-                                       gossip_peers:          vec![],
-                                       gossip_permanent:      false,
-                                       ring_key:              None,
+                                       http_disable:               false,
+                                       gossip_peers:               vec![],
+                                       gossip_permanent:           false,
+                                       ring_key:                   None,
                                        organization:
                                            Some(String::from("MY_ORG_FROM_SECOND_CONFG")),
-                                       watch_peer_file:       None,
-                                       tls_config:            None,
-                                       feature_flags:         FeatureFlag::empty(),
-                                       event_stream_config:   None,
-                                       keep_latest_packages:  None,
+                                       watch_peer_file:            None,
+                                       tls_config:                 None,
+                                       feature_flags:              FeatureFlag::empty(),
+                                       event_stream_config:        None,
+                                       keep_latest_packages:       None,
                                        sys_ip:
                                            biome_core::util::sys::ip().unwrap(), },
                        config);

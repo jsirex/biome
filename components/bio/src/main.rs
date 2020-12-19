@@ -8,24 +8,38 @@ extern crate lazy_static;
 extern crate log;
 
 use clap::{ArgMatches,
+           ErrorKind as ClapErrorKind,
            Shell};
 use configopt::{ConfigOpt,
                 Error as ConfigOptError};
 use futures::stream::StreamExt;
 use bio::{cli::{self,
                 gateway_util,
-                bio::{svc::{self,
+                bio::{license::License,
+                      origin::{Rbac,
+                               RbacSet,
+                               RbacShow},
+                      pkg::{ExportCommand as PkgExportCommand,
+                            PkgExec},
+                      sup::{BioSup,
+                            Secret,
+                            Sup},
+                      svc::{self,
                             BulkLoad as SvcBulkLoad,
                             Load as SvcLoad,
                             Svc},
-                      Bio},
-                parse_optional_arg},
+                      util::{bldr_auth_token_from_args_env_or_load,
+                             bldr_url_from_args_env_load_or_default},
+                      Bio,
+                      Origin,
+                      Pkg},
+                parse_optional_arg,
+                KeyType},
           command::{self,
                     pkg::{download::{PackageSet,
                                      PackageSetFile},
                           list::ListingType,
                           uninstall::UninstallHookMode}},
-          config,
           error::{Error,
                   Result},
           license,
@@ -37,21 +51,21 @@ use bio::{cli::{self,
           VERSION};
 use biome_api_client::BuildOnUpload;
 use biome_common::{self as common,
-                     cli::cache_key_path_from_matches,
+                     cli::key_cache_from_matches,
+                     cli_config::CliConfig,
                      command::package::install::{InstallHookMode,
                                                  InstallMode,
                                                  InstallSource,
                                                  LocalPackageUsage},
-                     types::ListenCtlAddr,
+                     types::ResolvedListenCtlAddr,
                      ui::{self,
                           Status,
                           UIWriter,
                           UI},
                      FeatureFlag};
 use biome_core::{crypto::{init,
-                            keys::PairType,
-                            BoxKeyPair,
-                            SigKeyPair},
+                            keys::{Key,
+                                   KeyCache}},
                    env::{self as henv,
                          Config as _},
                    fs::{cache_artifact_path,
@@ -61,6 +75,7 @@ use biome_core::{crypto::{init,
                              PackageIdent,
                              PackageTarget},
                    service::ServiceGroup,
+                   tls::ctl_gateway as ctl_gateway_tls,
                    url::default_bldr_url,
                    ChannelIdent};
 use biome_sup_client::{SrvClient,
@@ -85,6 +100,7 @@ use std::{collections::HashMap,
           string::ToString,
           thread};
 use tabwriter::TabWriter;
+use webpki::DNSNameRef;
 
 /// Makes the --org CLI param optional when this env var is set
 const HABITAT_ORG_ENVVAR: &str = "HAB_ORG";
@@ -117,40 +133,129 @@ async fn main() {
 
 #[allow(clippy::cognitive_complexity)]
 async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
-    if std::env::args().skip(1).collect::<Vec<_>>() == vec!["license", "accept"] {
+    // We parse arguments with configopt in a separate thread to eliminate
+    // possible stack overflow crashes at runtime. OSX or a debug Windows build,
+    // for instance, will crash with our large tree. This is a known issue:
+    // https://github.com/kbknapp/clap-rs/issues/86
+    let child = thread::Builder::new().stack_size(8 * 1024 * 1024)
+                                      .spawn(Bio::try_from_args_with_configopt)
+                                      .unwrap();
+    let bio = child.join().unwrap();
+
+    if let Ok(Bio::License(License::Accept)) = bio {
         
         return Ok(());
-    } else {
-        
     }
 
-    // TODO JB: this feels like an anti-pattern to me. I get that in certain cases, we want to hand
-    // off control from bio to a different binary to do the work, but this implementation feels
-    // like it's duplicating a lot of what clap does for us. I think we should let clap do the work
-    // it was designed to do, and hand off control a little bit later. Maybe there's a tiny
-    // performance penalty, but the code would be much clearer.
-    //
-    // In addition, it creates a confusing UX because we advertise certain options via clap, e.g.
-    // --url and --channel and since we're handing off control before clap has even had a chance to
-    // parse the args, clap doesn't have a chance to do any validation that it needs to. We just
-    // grab everything that was submitted and shove it all to the exporter or whatever other binary
-    // is doing the job, and trust that it implements those flags. In some cases, e.g. the cf
-    // exporter, it doesn't, so we're effectively lying to users.
-    //
-    // In my opinion, this function should go away and we should follow 1 standard flow for arg
-    // parsing and delegation.
-    exec_subcommand_if_called(ui).await?;
+    // Allow checking version information and displaying command help without accepting the license.
+    // TODO (DM): To prevent errors in discrepancy between the structopt and cli versions only do
+    // this when the license has not yet been accepted. When we switch fully to structopt this can
+    // be completely removed and we should just call `Bio::from_args_with_configopt` which will
+    // automatically result in this functionality.
+    if !license::check_for_license_acceptance().unwrap_or_default()
+                                               .accepted()
+    {
+        if let Err(ConfigOptError::Clap(e)) = &bio {
+            if e.kind == ClapErrorKind::VersionDisplayed || e.kind == ClapErrorKind::HelpDisplayed {
+                e.exit()
+            }
+        }
+    }
 
-    let (args, remaining_args) = raw_parse_args();
-    debug!("clap cli args: {:?}", &args);
-    debug!("remaining cli args: {:?}", &remaining_args);
+    // We must manually detect a supervisor version check and call the `bio-sup` binary to get the
+    // true Supervisor version.
+    // TODO (DM): This is an ugly consequence of having `bio sup` subcommands handled by both the
+    // `bio` binary and the `bio-sup` binary. Potential fixes:
+    // 1. Handle all `bio sup` subcommands with the `bio-sup` binary
+    // 2. Have a dedicated subcommand for commands handled by the `bio-sup` binary
+    let mut args = env::args();
+    if matches!((args.next().unwrap_or_default().as_str(),
+                 args.next().unwrap_or_default().as_str(),
+                 args.next().unwrap_or_default().as_str()),
+                 (_, "sup", "--version") | (_, "sup", "-V"))
+    {
+        return command::sup::start(ui, &args_after_first(2)).await;
+    }
+
+    
 
     // Parse and handle commands which have been migrated to use `structopt` here. Once everything
     // is migrated to use `structopt` the parsing logic below this using clap directly will be gone.
-    match Bio::try_from_args_with_configopt() {
+    match bio {
         Ok(bio) => {
             #[allow(clippy::single_match)]
             match bio {
+                Bio::Origin(origin) => {
+                    match origin {
+                        // bio origin rbac set|show
+                        Origin::Rbac(action) => {
+                            match action {
+                                Rbac::Set(rbac_set) => {
+                                    return sub_origin_member_role_set(ui, rbac_set).await;
+                                }
+                                Rbac::Show(rbac_show) => {
+                                    return sub_origin_member_role_show(ui, rbac_show).await;
+                                }
+                            }
+                        }
+                        _ => {
+                            // All other commands will be caught by the CLI parsing logic below.
+                        }
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                Bio::Run(sup_run) => {
+                    ui.warn("'bio run' as an alias for 'bio sup run' is deprecated. Please \
+                             update your automation and processes accordingly.")?;
+                    return command::launcher::start(ui, sup_run, &args_after_first(1)).await;
+                }
+                Bio::Studio(studio) => {
+                    return command::studio::enter::start(ui, studio.args()).await;
+                }
+                Bio::Sup(sup) => {
+                    match sup {
+                        #[cfg(not(target_os = "macos"))]
+                        BioSup::Sup(sup) => {
+                            // These commands are handled by the `bio-sup` or `bio-launch` binaries.
+                            // We need to pass the subcommand that was issued to the underlying
+                            // binary. It is a bit hacky, but to do that we strip off the `bio sup`
+                            // command prefix and pass the rest of the args to underlying binary.
+                            let args = args_after_first(2);
+                            match sup {
+                                Sup::Bash | Sup::Sh | Sup::Term => {
+                                    return command::sup::start(ui, &args).await;
+                                }
+                                Sup::Run(sup_run) => {
+                                    return command::launcher::start(ui, sup_run, &args).await;
+                                }
+                            }
+                        }
+                        BioSup::Depart { member_id,
+                                         remote_sup, } => {
+                            return sub_sup_depart(member_id, remote_sup.inner()).await;
+                        }
+                        BioSup::Secret(secret) => {
+                            match secret {
+                                Secret::Generate => return sub_sup_secret_generate(),
+                                Secret::GenerateTls { subject_alternative_name,
+                                                      path, } => {
+                                    return sub_sup_secret_generate_key(subject_alternative_name.inner(),
+                                                                       path)
+                                }
+                            }
+                        }
+                        BioSup::Status { pkg_ident,
+                                         remote_sup, } => {
+                            ui.warn("'bio sup status' as an alias for 'bio svc status' is \
+                                     deprecated. Please update your automation and processes \
+                                     accordingly.")?;
+                            return sub_svc_status(pkg_ident, remote_sup.inner()).await;
+                        }
+                        BioSup::Restart { remote_sup } => {
+                            return sub_sup_restart(remote_sup.inner()).await;
+                        }
+                    }
+                }
                 Bio::Svc(svc) => {
                     match svc {
                         Svc::BulkLoad(svc_bulk_load) => {
@@ -164,6 +269,57 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                             return sub_svc_load(svc_load).await;
                         }
                         Svc::Update(svc_update) => return sub_svc_update(svc_update).await,
+                        Svc::Status(svc_status) => {
+                            return sub_svc_status(svc_status.pkg_ident,
+                                                  svc_status.remote_sup.inner()).await;
+                        }
+                        _ => {
+                            // All other commands will be caught by the CLI parsing logic below.
+                        }
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                Bio::Term => {
+                    ui.warn("'bio term' as an alias for 'bio sup term' is deprecated. Please \
+                             update your automation and processes accordingly.")?;
+                    return command::sup::start(ui, &args_after_first(1)).await;
+                }
+                Bio::Pkg(pkg) => {
+                    match pkg {
+                        Pkg::Export(export) => {
+                            match export {
+                                #[cfg(target_os = "linux")]
+                                PkgExportCommand::Cf(args) => {
+                                    return command::pkg::export::cf::start(ui, &args.args).await;
+                                }
+                                #[cfg(any(target_os = "linux", target_os = "windows"))]
+                                PkgExportCommand::Container(args) => {
+                                    return command::pkg::export::container::start(ui, &args.args).await;
+                                }
+                                #[cfg(any(target_os = "linux", target_os = "windows"))]
+                                PkgExportCommand::Docker(args) => {
+                                    ui.warn("'bio pkg export docker' is now a deprecated alias \
+                                             for 'bio pkg export container'. Please update your \
+                                             automation and processes accordingly.")?;
+                                    return command::pkg::export::container::start(ui, &args.args).await;
+                                }
+                                #[cfg(target_os = "linux")]
+                                PkgExportCommand::Mesos(args) => {
+                                    return command::pkg::export::mesos::start(ui, &args.args).await;
+                                }
+                                #[cfg(any(target_os = "linux", target_os = "windows"))]
+                                PkgExportCommand::Tar(args) => {
+                                    return command::pkg::export::tar::start(ui, &args.args).await;
+                                }
+                            }
+                        }
+                        Pkg::Exec(PkgExec { pkg_ident,
+                                            cmd,
+                                            args, }) => {
+                            return command::pkg::exec::start(&pkg_ident.pkg_ident(),
+                                                             cmd,
+                                                             &args.args);
+                        }
                         _ => {
                             // All other commands will be caught by the CLI parsing logic below.
                         }
@@ -181,23 +337,25 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
         }
     };
 
-    // We build the command tree in a separate thread to eliminate
-    // possible stack overflow crashes at runtime. OSX, for instance,
-    // will crash with our large tree. This is a known issue:
-    // https://github.com/kbknapp/clap-rs/issues/86
-    let child = thread::Builder::new().stack_size(8 * 1024 * 1024)
-                                      .spawn(move || {
-                                          cli::get(feature_flags)
-                .get_matches_from_safe_borrow(&mut args.iter())
-                .unwrap_or_else(|e| {
-                    e.exit();
-                })
-                                      })
-                                      .unwrap();
-    let app_matches = child.join().unwrap();
+    // Similar to the configopt parsing above We build the command tree in a
+    // separate thread to eliminate possible stack overflow crashes at runtime.
+    // See known issue:https://github.com/kbknapp/clap-rs/issues/86
+    let cli_child = thread::Builder::new().stack_size(8 * 1024 * 1024)
+                                          .spawn(move || {
+                                              cli::get(feature_flags).get_matches_safe()
+                                                                     .unwrap_or_else(|e| {
+                                                                         e.exit();
+                                                                     })
+                                          })
+                                          .unwrap();
+    let app_matches = cli_child.join().unwrap();
 
     match app_matches.subcommand() {
-        ("apply", Some(m)) => sub_svc_set(m).await?,
+        ("apply", Some(m)) => {
+            ui.warn("'bio apply' as an alias for 'bio config apply' is deprecated. Please \
+                     update your automation and processes accordingly.")?;
+            sub_svc_set(m).await?
+        }
         ("cli", Some(matches)) => {
             match matches.subcommand() {
                 ("setup", Some(m)) => sub_cli_setup(ui, m)?,
@@ -218,7 +376,11 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                 _ => unreachable!(),
             }
         }
-        ("install", Some(m)) => sub_pkg_install(ui, m, feature_flags).await?,
+        ("install", Some(m)) => {
+            ui.warn("'bio install' as an alias for 'bio pkg install' is deprecated. Please \
+                     update your automation and processes accordingly.")?;
+            sub_pkg_install(ui, m, feature_flags).await?
+        }
         ("origin", Some(matches)) => {
             match matches.subcommand() {
                 ("invitations", Some(m)) => {
@@ -293,8 +455,6 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                 ("dependencies", Some(m)) => sub_pkg_dependencies(m)?,
                 ("download", Some(m)) => sub_pkg_download(ui, m, feature_flags).await?,
                 ("env", Some(m)) => sub_pkg_env(m)?,
-                ("exec", Some(m)) => sub_pkg_exec(m, &remaining_args)?,
-                ("export", Some(m)) => sub_pkg_export(ui, m).await?,
                 ("hash", Some(m)) => sub_pkg_hash(m)?,
                 ("install", Some(m)) => sub_pkg_install(ui, m, feature_flags).await?,
                 ("list", Some(m)) => sub_pkg_list(m)?,
@@ -345,28 +505,25 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
                 ("unload", Some(m)) => sub_svc_unload(m).await?,
                 ("start", Some(m)) => sub_svc_start(m).await?,
                 ("stop", Some(m)) => sub_svc_stop(m).await?,
-                ("status", Some(m)) => sub_svc_status(m).await?,
-                _ => unreachable!(),
-            }
-        }
-        ("sup", Some(m)) => {
-            match m.subcommand() {
-                ("depart", Some(m)) => sub_sup_depart(m).await?,
-                ("secret", Some(m)) => {
-                    match m.subcommand() {
-                        ("generate", _) => sub_sup_secret_generate()?,
-                        _ => unreachable!(),
-                    }
-                }
-                // this is effectively an alias of `bio svc status`
-                ("status", Some(m)) => sub_svc_status(m).await?,
                 _ => unreachable!(),
             }
         }
         ("supportbundle", _) => sub_supportbundle(ui)?,
-        ("setup", Some(m)) => sub_cli_setup(ui, m)?,
-        ("start", Some(m)) => sub_svc_start(m).await?,
-        ("stop", Some(m)) => sub_svc_stop(m).await?,
+        ("setup", Some(m)) => {
+            ui.warn("'bio setup' as an alias for 'bio cli setup' is deprecated. Please update \
+                     your automation and processes accordingly.")?;
+            sub_cli_setup(ui, m)?
+        }
+        ("start", Some(m)) => {
+            ui.warn("'bio start' as an alias for 'bio svc start' is deprecated. Please update \
+                     your automation and processes accordingly.")?;
+            sub_svc_start(m).await?
+        }
+        ("stop", Some(m)) => {
+            ui.warn("'bio stop' as an alias for 'bio svc stop' is deprecated. Please update \
+                     your automation and processes accordingly.")?;
+            sub_svc_stop(m).await?
+        }
         ("user", Some(matches)) => {
             match matches.subcommand() {
                 ("key", Some(m)) => {
@@ -384,10 +541,10 @@ async fn start(ui: &mut UI, feature_flags: FeatureFlag) -> Result<()> {
 }
 
 fn sub_cli_setup(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let key_cache = key_cache_from_matches(m)?;
     init()?;
 
-    command::cli::setup::start(ui, &cache_key_path)
+    command::cli::setup::start(ui, &key_cache)
 }
 
 fn sub_cli_completers(m: &ArgMatches<'_>, feature_flags: FeatureFlag) -> Result<()> {
@@ -404,13 +561,13 @@ fn sub_cli_completers(m: &ArgMatches<'_>, feature_flags: FeatureFlag) -> Result<
 }
 
 async fn sub_origin_key_download(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").unwrap(); // Required via clap
+    let origin = required_value_of(m, "ORIGIN").parse()?;
     let revision = m.value_of("REVISION");
     let with_secret = m.is_present("WITH_SECRET");
     let with_encryption = m.is_present("WITH_ENCRYPTION");
-    let token = maybe_auth_token(&m);
-    let url = bldr_url_from_matches(&m)?;
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let token = maybe_auth_token(m);
+    let url = bldr_url_from_matches(m)?;
+    let key_cache = key_cache_from_matches(m)?;
 
     command::origin::key::download::start(ui,
                                           &url,
@@ -419,187 +576,208 @@ async fn sub_origin_key_download(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> 
                                           with_secret,
                                           with_encryption,
                                           token.as_deref(),
-                                          &cache_key_path).await
+                                          &key_cache).await
 }
 
 fn sub_origin_key_export(m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").unwrap(); // Required via clap
-    let pair_type = PairType::from_str(m.value_of("PAIR_TYPE").unwrap_or("public"))?;
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let origin = required_value_of(m, "ORIGIN").parse()?;
+    let key_type = KeyType::from_str(m.value_of("KEY_TYPE").unwrap_or("public"))?;
+    let key_cache = key_cache_from_matches(m)?;
     init()?;
 
-    command::origin::key::export::start(origin, pair_type, &cache_key_path)
+    command::origin::key::export::start(&origin, key_type, &key_cache)
 }
 
 fn sub_origin_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = origin_param_or_env(&m)?;
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let origin = origin_param_or_env(m)?;
+    let key_cache = key_cache_from_matches(m)?;
     init()?;
 
-    command::origin::key::generate::start(ui, &origin, &cache_key_path)
+    command::origin::key::generate::start(ui, &origin, &key_cache)
 }
 
 fn sub_origin_key_import(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let mut content = String::new();
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let key_cache = key_cache_from_matches(m)?;
     init()?;
     io::stdin().read_to_string(&mut content)?;
 
     // Trim the content to lose line feeds added by Powershell pipeline
-    command::origin::key::import::start(ui, content.trim(), &cache_key_path)
+    command::origin::key::import::start(ui, content.trim(), &key_cache)
 }
 
 async fn sub_origin_key_upload(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
+    let key_cache = key_cache_from_matches(m)?;
 
     init()?;
 
-    if m.is_present("ORIGIN") {
-        let origin = m.value_of("ORIGIN").unwrap();
-        // you can either specify files, or infer the latest key names
-        let with_secret = m.is_present("WITH_SECRET");
-        command::origin::key::upload_latest::start(ui,
-                                                   &url,
-                                                   &token,
-                                                   origin,
-                                                   with_secret,
-                                                   &cache_key_path).await
-    } else {
-        let keyfile = Path::new(m.value_of("PUBLIC_FILE").unwrap());
-        let secret_keyfile = m.value_of("SECRET_FILE").map(|f| Path::new(f));
-        command::origin::key::upload::start(ui, &url, &token, &keyfile, secret_keyfile).await
+    match m.value_of("ORIGIN") {
+        Some(origin) => {
+            let origin = origin.parse()?;
+            // you can either specify files, or infer the latest key names
+            let with_secret = m.is_present("WITH_SECRET");
+            command::origin::key::upload_latest::start(ui,
+                                                       &url,
+                                                       &token,
+                                                       &origin,
+                                                       with_secret,
+                                                       &key_cache).await
+        }
+        None => {
+            let keyfile = Path::new(required_value_of(m, "PUBLIC_FILE"));
+            let secret_keyfile = m.value_of("SECRET_FILE").map(|f| Path::new(f));
+            command::origin::key::upload::start(ui, &url, &token, &keyfile, secret_keyfile).await
+        }
     }
 }
 
 async fn sub_origin_secret_upload(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
-    let origin = origin_param_or_env(&m)?;
-    let key = m.value_of("KEY_NAME").unwrap();
-    let secret = m.value_of("SECRET").unwrap();
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
+    let origin = origin_param_or_env(m)?;
+    let key = required_value_of(m, "KEY_NAME");
+    let secret = required_value_of(m, "SECRET");
+    let key_cache = key_cache_from_matches(m)?;
     command::origin::secret::upload::start(ui,
                                            &url,
                                            &token,
                                            &origin,
                                            &key,
                                            &secret,
-                                           &cache_key_path).await
+                                           &key_cache).await
 }
 
 async fn sub_origin_secret_delete(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
-    let origin = origin_param_or_env(&m)?;
-    let key = m.value_of("KEY_NAME").unwrap();
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
+    let origin = origin_param_or_env(m)?;
+    let key = required_value_of(m, "KEY_NAME");
     command::origin::secret::delete::start(ui, &url, &token, &origin, &key).await
 }
 
 async fn sub_origin_secret_list(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
-    let origin = origin_param_or_env(&m)?;
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
+    let origin = origin_param_or_env(m)?;
     command::origin::secret::list::start(ui, &url, &token, &origin).await
 }
 
 async fn sub_origin_create(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").expect("required ORIGIN");
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let origin = required_value_of(m, "ORIGIN");
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     command::origin::create::start(ui, &url, &token, &origin).await
 }
 
 async fn sub_origin_info(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").expect("required ORIGIN");
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let origin = required_value_of(m, "ORIGIN");
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     let to_json = m.is_present("TO_JSON");
     command::origin::info::start(ui, &url, &token, &origin, to_json).await
 }
 
 async fn sub_origin_delete(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").expect("required ORIGIN");
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let origin = required_value_of(m, "ORIGIN");
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     command::origin::delete::start(ui, &url, &token, &origin).await
 }
 
 async fn sub_origin_transfer_ownership(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").expect("required ORIGIN");
-    let account = m.value_of("NEW_OWNER_ACCOUNT")
-                   .expect("required NEW_OWNER_ACCOUNT");
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let origin = required_value_of(m, "ORIGIN");
+    let account = required_value_of(m, "NEW_OWNER_ACCOUNT");
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     command::origin::transfer::start(ui, &url, &token, &origin, &account).await
 }
 
 async fn sub_origin_depart(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").expect("required ORIGIN");
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let origin = required_value_of(m, "ORIGIN");
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     command::origin::depart::start(ui, &url, &token, &origin).await
 }
 
 async fn sub_accept_origin_invitation(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").expect("required ORIGIN");
-    let invitation_id: u64 = m.value_of("INVITATION_ID")
-                              .expect("required INVITATION_ID")
-                              .parse()
-                              .expect("INVITATION_ID should be valid at this point");
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let origin = required_value_of(m, "ORIGIN");
+    let invitation_id =
+        required_value_of(m, "INVITATION_ID").parse()
+                                             .expect("INVITATION_ID should be valid at this point");
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     command::origin::invitations::accept::start(ui, &url, &origin, &token, invitation_id).await
 }
 
 async fn sub_ignore_origin_invitation(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").expect("required ORIGIN");
-    let invitation_id: u64 = m.value_of("INVITATION_ID")
-                              .expect("required INVITATION_ID")
-                              .parse()
-                              .expect("INVITATION_ID should be valid at this point");
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let origin = required_value_of(m, "ORIGIN");
+    let invitation_id =
+        required_value_of(m, "INVITATION_ID").parse()
+                                             .expect("INVITATION_ID should be valid at this point");
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     command::origin::invitations::ignore::start(ui, &url, &origin, &token, invitation_id).await
 }
 
 async fn sub_list_user_invitations(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     command::origin::invitations::list_user::start(ui, &url, &token).await
 }
 
 async fn sub_list_pending_origin_invitations(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").expect("required ORIGIN");
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let origin = required_value_of(m, "ORIGIN");
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     command::origin::invitations::list_pending_origin::start(ui, &url, &origin, &token).await
 }
 
 async fn sub_rescind_origin_invitation(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").expect("required ORIGIN");
-    let invitation_id: u64 = m.value_of("INVITATION_ID")
-                              .expect("required INVITATION_ID")
-                              .parse()
-                              .expect("INVITATION_ID should be valid at this point");
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let origin = required_value_of(m, "ORIGIN");
+    let invitation_id =
+        required_value_of(m, "INVITATION_ID").parse()
+                                             .expect("INVITATION_ID should be valid at this point");
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     command::origin::invitations::rescind::start(ui, &url, &origin, &token, invitation_id).await
 }
 
 async fn sub_send_origin_invitation(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let origin = m.value_of("ORIGIN").expect("required ORIGIN");
-    let invitee_account = m.value_of("INVITEE_ACCOUNT")
-                           .expect("required INVITEE_ACCOUNT");
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let origin = required_value_of(m, "ORIGIN");
+    let invitee_account = required_value_of(m, "INVITEE_ACCOUNT");
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     command::origin::invitations::send::start(ui, &url, &origin, &token, &invitee_account).await
+}
+
+async fn sub_origin_member_role_show(ui: &mut UI, r: RbacShow) -> Result<()> {
+    let bldr_url = bldr_url_from_args_env_load_or_default(r.bldr_url.value)?;
+    let auth_token = bldr_auth_token_from_args_env_or_load(r.auth_token.value)?;
+    command::origin::rbac::show_role::start(ui,
+                                            bldr_url,
+                                            r.origin.inner,
+                                            &auth_token,
+                                            &r.member_account,
+                                            r.to_json).await
+}
+
+async fn sub_origin_member_role_set(ui: &mut UI, r: RbacSet) -> Result<()> {
+    let bldr_url = bldr_url_from_args_env_load_or_default(r.bldr_url.value)?;
+    let auth_token = bldr_auth_token_from_args_env_or_load(r.auth_token.value)?;
+    command::origin::rbac::set_role::start(ui,
+                                           bldr_url,
+                                           r.origin.inner,
+                                           &auth_token,
+                                           &r.member_account,
+                                           r.role,
+                                           r.no_prompt).await
 }
 
 fn sub_pkg_binlink(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let ident = required_pkg_ident_from_input(m)?;
-    let dest_dir = Path::new(m.value_of("DEST_DIR").unwrap()); // required by clap
+    let dest_dir = Path::new(required_value_of(m, "DEST_DIR"));
     let force = m.is_present("FORCE");
     match m.value_of("BINARY") {
         Some(binary) => {
@@ -611,31 +789,35 @@ fn sub_pkg_binlink(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     }
 }
 
+/// Generate a (possibly empty) list of `Origin`s from the value of
+/// the `HAB_ORIGIN_KEYS` environment variable / `--keys` argument.
+fn bio_key_origins(m: &ArgMatches<'_>) -> Result<Vec<biome_core::origin::Origin>> {
+    m.values_of("HAB_ORIGIN_KEYS")
+     .unwrap_or_default()
+     .map(|n| n.parse().map_err(Into::into))
+     .collect()
+}
+
 async fn sub_pkg_build(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let plan_context = m.value_of("PLAN_CONTEXT").unwrap(); // Required via clap
+    let plan_context = required_value_of(m, "PLAN_CONTEXT");
     let root = m.value_of("HAB_STUDIO_ROOT");
     let src = m.value_of("SRC_PATH");
-    let keys_string = match m.values_of("HAB_ORIGIN_KEYS") {
-        Some(keys) => {
-            init()?;
-            let cache_key_path = cache_key_path_from_matches(&m);
-            for key in keys.clone() {
-                // Validate that all secret keys are present
-                let pair = SigKeyPair::get_latest_pair_for(key, &cache_key_path, None)?;
-                let _ = pair.secret();
-            }
-            Some(keys.collect::<Vec<_>>().join(","))
+
+    let origins = bio_key_origins(m)?;
+    if !origins.is_empty() {
+        init()?;
+        let key_cache = key_cache_from_matches(m)?;
+        for origin in origins.iter() {
+            // Validate that a secret signing key is present on disk
+            // for each origin.
+            key_cache.latest_secret_origin_signing_key(origin)?;
         }
-        None => None,
-    };
-    let keys: Option<&str> = match keys_string.as_ref() {
-        Some(s) => Some(s),
-        None => None,
-    };
+    }
+
     let docker = m.is_present("DOCKER");
     let reuse = m.is_present("REUSE");
 
-    command::pkg::build::start(ui, plan_context, root, src, keys, reuse, docker).await
+    command::pkg::build::start(ui, plan_context, root, src, &origins, reuse, docker).await
 }
 
 fn sub_pkg_config(m: &ArgMatches<'_>) -> Result<()> {
@@ -670,8 +852,8 @@ async fn sub_pkg_download(ui: &mut UI,
                           m: &ArgMatches<'_>,
                           _feature_flags: FeatureFlag)
                           -> Result<()> {
-    let token = maybe_auth_token(&m);
-    let url = bldr_url_from_matches(&m)?;
+    let token = maybe_auth_token(m);
+    let url = bldr_url_from_matches(m)?;
     let download_dir = download_dir_from_matches(m);
 
     // Construct flat file based inputs
@@ -710,21 +892,6 @@ fn sub_pkg_env(m: &ArgMatches<'_>) -> Result<()> {
     command::pkg::env::start(&ident, &*FS_ROOT_PATH)
 }
 
-fn sub_pkg_exec(m: &ArgMatches<'_>, cmd_args: &[OsString]) -> Result<()> {
-    let ident = required_pkg_ident_from_input(m)?;
-    let cmd = m.value_of("CMD").unwrap(); // Required via clap
-    command::pkg::exec::start(&ident, cmd, cmd_args)
-}
-
-async fn sub_pkg_export(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let ident = required_pkg_ident_from_input(m)?;
-    let format = &m.value_of("FORMAT").unwrap();
-    let url = bldr_url_from_matches(&m)?;
-    let channel = channel_from_matches_or_default(&m);
-    let export_fmt = command::pkg::export::format_for(ui, &format)?;
-    command::pkg::export::start(ui, &url, &channel, &ident, &export_fmt).await
-}
-
 fn sub_pkg_hash(m: &ArgMatches<'_>) -> Result<()> {
     init()?;
     match m.value_of("SOURCE") {
@@ -757,7 +924,7 @@ async fn sub_pkg_uninstall(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     } else {
         command::pkg::Scope::PackageAndDependencies
     };
-    let excludes = excludes_from_matches(&m);
+    let excludes = excludes_from_matches(m);
     let uninstall_hook_mode = if m.is_present("IGNORE_UNINSTALL_HOOK") {
         UninstallHookMode::Ignore
     } else {
@@ -775,33 +942,33 @@ async fn sub_pkg_uninstall(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 }
 
 async fn sub_bldr_channel_create(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let origin = origin_param_or_env(&m)?;
-    let channel = required_channel_from_matches(&m);
-    let token = auth_token_param_or_env(&m)?;
+    let url = bldr_url_from_matches(m)?;
+    let origin = origin_param_or_env(m)?;
+    let channel = required_channel_from_matches(m);
+    let token = auth_token_param_or_env(m)?;
     command::bldr::channel::create::start(ui, &url, &token, &origin, &channel).await
 }
 
 async fn sub_bldr_channel_destroy(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let origin = origin_param_or_env(&m)?;
-    let channel = required_channel_from_matches(&m);
-    let token = auth_token_param_or_env(&m)?;
+    let url = bldr_url_from_matches(m)?;
+    let origin = origin_param_or_env(m)?;
+    let channel = required_channel_from_matches(m);
+    let token = auth_token_param_or_env(m)?;
     command::bldr::channel::destroy::start(ui, &url, &token, &origin, &channel).await
 }
 
 async fn sub_bldr_channel_list(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let origin = origin_param_or_env(&m)?;
+    let url = bldr_url_from_matches(m)?;
+    let origin = origin_param_or_env(m)?;
     command::bldr::channel::list::start(ui, &url, &origin).await
 }
 
 async fn sub_bldr_channel_promote(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let origin = origin_param_or_env(&m)?;
-    let token = auth_token_param_or_env(&m)?;
-    let source_channel = required_source_channel_from_matches(&m);
-    let target_channel = required_target_channel_from_matches(&m);
+    let url = bldr_url_from_matches(m)?;
+    let origin = origin_param_or_env(m)?;
+    let token = auth_token_param_or_env(m)?;
+    let source_channel = required_source_channel_from_matches(m);
+    let target_channel = required_target_channel_from_matches(m);
     command::bldr::channel::promote::start(ui,
                                            &url,
                                            &token,
@@ -811,11 +978,11 @@ async fn sub_bldr_channel_promote(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()>
 }
 
 async fn sub_bldr_channel_demote(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let origin = origin_param_or_env(&m)?;
-    let token = auth_token_param_or_env(&m)?;
-    let source_channel = required_source_channel_from_matches(&m);
-    let target_channel = required_target_channel_from_matches(&m);
+    let url = bldr_url_from_matches(m)?;
+    let origin = origin_param_or_env(m)?;
+    let token = auth_token_param_or_env(m)?;
+    let source_channel = required_source_channel_from_matches(m);
+    let target_channel = required_target_channel_from_matches(m);
     command::bldr::channel::demote::start(ui,
                                           &url,
                                           &token,
@@ -826,17 +993,17 @@ async fn sub_bldr_channel_demote(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> 
 
 async fn sub_bldr_job_start(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let ident = required_pkg_ident_from_input(m)?;
-    let url = bldr_url_from_matches(&m)?;
+    let url = bldr_url_from_matches(m)?;
     let target = target_from_matches(m)?;
     let group = m.is_present("GROUP");
-    let token = auth_token_param_or_env(&m)?;
+    let token = auth_token_param_or_env(m)?;
     command::bldr::job::start::start(ui, &url, (&ident, target), &token, group).await
 }
 
 async fn sub_bldr_job_cancel(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let group_id = m.value_of("GROUP_ID").unwrap(); // Required via clap
-    let token = auth_token_param_or_env(&m)?;
+    let url = bldr_url_from_matches(m)?;
+    let group_id = required_value_of(m, "GROUP_ID");
+    let token = auth_token_param_or_env(m)?;
     let force = m.is_present("FORCE");
     command::bldr::job::cancel::start(ui, &url, &group_id, &token, force).await
 }
@@ -845,13 +1012,13 @@ async fn sub_bldr_job_promote_or_demote(ui: &mut UI,
                                         m: &ArgMatches<'_>,
                                         promote: bool)
                                         -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let group_id = m.value_of("GROUP_ID").unwrap(); // Required via clap
-    let channel = required_channel_from_matches(&m);
+    let url = bldr_url_from_matches(m)?;
+    let group_id = required_value_of(m, "GROUP_ID");
+    let channel = required_channel_from_matches(m);
     let origin = m.value_of("ORIGIN");
     let interactive = m.is_present("INTERACTIVE");
     let verbose = m.is_present("VERBOSE");
-    let token = auth_token_param_or_env(&m)?;
+    let token = auth_token_param_or_env(m)?;
     command::bldr::job::promote::start(ui,
                                        &url,
                                        &group_id,
@@ -864,7 +1031,7 @@ async fn sub_bldr_job_promote_or_demote(ui: &mut UI,
 }
 
 async fn sub_bldr_job_status(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
+    let url = bldr_url_from_matches(m)?;
     let group_id = m.value_of("GROUP_ID");
     let origin = m.value_of("ORIGIN");
     let limit = m.value_of("LIMIT")
@@ -878,7 +1045,7 @@ async fn sub_bldr_job_status(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 
 fn sub_plan_init(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let name = m.value_of("PKG_NAME").map(String::from);
-    let origin = origin_param_or_env(&m)?;
+    let origin = origin_param_or_env(m)?;
     let minimal = m.is_present("MIN");
     let scaffolding_ident = if cfg!(windows) {
         match m.value_of("SCAFFOLDING") {
@@ -889,13 +1056,15 @@ fn sub_plan_init(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
         scaffolding::scaffold_check(ui, m.value_of("SCAFFOLDING"))?
     };
 
-    command::plan::init::start(ui, origin, minimal, scaffolding_ident, name)
+    command::plan::init::start(ui, &origin, minimal, scaffolding_ident, name)
 }
 
 fn sub_plan_render(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let template_path = Path::new(m.value_of("TEMPLATE_PATH").unwrap());
+    let template_path = required_value_of(m, "TEMPLATE_PATH");
+    let template_path = Path::new(template_path);
 
-    let default_toml_path = Path::new(m.value_of("DEFAULT_TOML").unwrap());
+    let default_toml_path = required_value_of(m, "DEFAULT_TOML");
+    let default_toml_path = Path::new(default_toml_path);
 
     let user_toml_path = m.value_of("USER_TOML").map(Path::new);
 
@@ -905,7 +1074,8 @@ fn sub_plan_render(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let render = !m.is_present("NO_RENDER");
     let quiet = m.is_present("QUIET");
 
-    let render_dir = Path::new(m.value_of("RENDER_DIR").unwrap());
+    let render_dir = required_value_of(m, "RENDER_DIR");
+    let render_dir = Path::new(render_dir);
 
     command::plan::render::start(ui,
                                  template_path,
@@ -922,10 +1092,10 @@ async fn sub_pkg_install(ui: &mut UI,
                          m: &ArgMatches<'_>,
                          feature_flags: FeatureFlag)
                          -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
+    let url = bldr_url_from_matches(m)?;
     let channel = channel_from_matches_or_default(m);
     let install_sources = install_sources_from_matches(m)?;
-    let token = maybe_auth_token(&m);
+    let token = maybe_auth_token(m);
     let install_mode =
         if feature_flags.contains(FeatureFlag::OFFLINE_INSTALL) && m.is_present("OFFLINE") {
             InstallMode::Offline
@@ -987,7 +1157,7 @@ fn sub_pkg_list(m: &ArgMatches<'_>) -> Result<()> {
 }
 
 fn sub_pkg_provides(m: &ArgMatches<'_>) -> Result<()> {
-    let filename = m.value_of("FILE").unwrap(); // Required via clap
+    let filename = required_value_of(m, "FILE");
 
     let full_releases = m.is_present("FULL_RELEASES");
     let full_paths = m.is_present("FULL_PATHS");
@@ -996,32 +1166,34 @@ fn sub_pkg_provides(m: &ArgMatches<'_>) -> Result<()> {
 }
 
 async fn sub_pkg_search(m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let search_term = m.value_of("SEARCH_TERM").expect("required opt SEARCH_TERM");
-    let limit = m.value_of("LIMIT")
-                 .expect("required opt LIMIT")
-                 .parse()
-                 .expect("valid LIMIT");
-    let token = maybe_auth_token(&m);
+    let url = bldr_url_from_matches(m)?;
+    let search_term = required_value_of(m, "SEARCH_TERM");
+    let limit = required_value_of(m, "LIMIT").parse().expect("valid LIMIT");
+    let token = maybe_auth_token(m);
     command::pkg::search::start(&search_term, &url, limit, token.as_deref()).await
 }
 
 fn sub_pkg_sign(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let src = Path::new(m.value_of("SOURCE").unwrap()); // Required via clap
-    let dst = Path::new(m.value_of("DEST").unwrap()); // Required via clap
-    let cache_key_path = cache_key_path_from_matches(&m);
-    init()?;
-    let pair = SigKeyPair::get_latest_pair_for(&origin_param_or_env(&m)?,
-                                               &cache_key_path,
-                                               Some(PairType::Secret))?;
+    let origin = origin_param_or_env(m)?;
 
-    command::pkg::sign::start(ui, &pair, &src, &dst)
+    let src = Path::new(required_value_of(m, "SOURCE"));
+    let dst = Path::new(required_value_of(m, "DEST"));
+
+    let key_cache = key_cache_from_matches(m)?;
+
+    init()?;
+
+    let key = key_cache.latest_secret_origin_signing_key(&origin)?;
+    command::pkg::sign::start(ui, &key, &src, &dst)
 }
 
 async fn sub_pkg_bulkupload(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let upload_dir = bulkupload_dir_from_matches(m);
     let artifact_path = upload_dir.join("artifacts");
     let key_path = upload_dir.join("keys");
+    let key_cache = KeyCache::new(key_path);
+    key_cache.setup()?;
+
     let url = bldr_url_from_matches(m)?;
     let additional_release_channel = channel_from_matches(m);
     let force_upload = m.is_present("FORCE");
@@ -1041,16 +1213,16 @@ async fn sub_pkg_bulkupload(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
                                     force_upload,
                                     auto_build,
                                     auto_create_origins,
-                                    &key_path).await
+                                    &key_cache).await
 }
 
 async fn sub_pkg_upload(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let key_path = cache_key_path_from_matches(&m);
-    let url = bldr_url_from_matches(&m)?;
+    let key_cache = key_cache_from_matches(m)?;
+    let url = bldr_url_from_matches(m)?;
 
     // When packages are uploaded, they *always* go to `unstable`;
     // they can optionally get added to another channel, too.
-    let additional_release_channel = channel_from_matches(&m);
+    let additional_release_channel = channel_from_matches(m);
 
     // When packages are uploaded we check if they exist in the db
     // before allowing a write to the backend, this bypasses the check
@@ -1062,7 +1234,7 @@ async fn sub_pkg_upload(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
         BuildOnUpload::PackageDefault
     };
 
-    let token = auth_token_param_or_env(&m)?;
+    let token = auth_token_param_or_env(m)?;
     let artifact_paths = m.values_of("HART_FILE").unwrap(); // Required via clap
     for artifact_path in artifact_paths.map(Path::new) {
         command::pkg::upload::start(ui,
@@ -1072,14 +1244,14 @@ async fn sub_pkg_upload(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
                                     artifact_path,
                                     force_upload,
                                     auto_build,
-                                    &key_path).await?;
+                                    &key_cache).await?;
     }
     Ok(())
 }
 
 async fn sub_pkg_delete(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let token = auth_token_param_or_env(&m)?;
+    let url = bldr_url_from_matches(m)?;
+    let token = auth_token_param_or_env(m)?;
     let ident = required_pkg_ident_from_input(m)?;
     let target = target_from_matches(m)?;
 
@@ -1089,22 +1261,22 @@ async fn sub_pkg_delete(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 }
 
 fn sub_pkg_verify(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let src = Path::new(m.value_of("SOURCE").unwrap()); // Required via clap
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let src = Path::new(required_value_of(m, "SOURCE"));
+    let key_cache = key_cache_from_matches(m)?;
     init()?;
 
-    command::pkg::verify::start(ui, &src, &cache_key_path)
+    command::pkg::verify::start(ui, &src, &key_cache)
 }
 
 fn sub_pkg_header(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let src = Path::new(m.value_of("SOURCE").unwrap()); // Required via clap
+    let src = Path::new(required_value_of(m, "SOURCE"));
     init()?;
 
     command::pkg::header::start(ui, &src)
 }
 
 fn sub_pkg_info(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let src = Path::new(m.value_of("SOURCE").unwrap()); // Required via clap
+    let src = Path::new(required_value_of(m, "SOURCE"));
     let to_json = m.is_present("TO_JSON");
     init()?;
 
@@ -1112,37 +1284,36 @@ fn sub_pkg_info(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
 }
 
 async fn sub_pkg_promote(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let channel = required_channel_from_matches(&m);
-    let token = auth_token_param_or_env(&m)?;
+    let url = bldr_url_from_matches(m)?;
+    let channel = required_channel_from_matches(m);
+    let token = auth_token_param_or_env(m)?;
     let target = target_from_matches(m)?;
     let ident = required_pkg_ident_from_input(m)?;
     command::pkg::promote::start(ui, &url, (&ident, target), &channel, &token).await
 }
 
 async fn sub_pkg_demote(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
-    let channel = required_channel_from_matches(&m);
-    let token = auth_token_param_or_env(&m)?;
+    let url = bldr_url_from_matches(m)?;
+    let channel = required_channel_from_matches(m);
+    let token = auth_token_param_or_env(m)?;
     let target = target_from_matches(m)?;
     let ident = required_pkg_ident_from_input(m)?;
     command::pkg::demote::start(ui, &url, (&ident, target), &channel, &token).await
 }
 
 async fn sub_pkg_channels(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let url = bldr_url_from_matches(&m)?;
+    let url = bldr_url_from_matches(m)?;
     let ident = required_pkg_ident_from_input(m)?;
-    let token = maybe_auth_token(&m);
+    let token = maybe_auth_token(m);
     let target = target_from_matches(m)?;
 
     command::pkg::channels::start(ui, &url, (&ident, target), token.as_deref()).await
 }
 
 async fn sub_svc_set(m: &ArgMatches<'_>) -> Result<()> {
-    let cfg = config::load()?;
     let remote_sup_addr = remote_sup_from_input(m)?;
-    let secret_key = config::ctl_secret_key(&cfg)?;
-    let service_group = ServiceGroup::from_str(m.value_of("SERVICE_GROUP").unwrap())?;
+    let remote_sup_addr = SrvClient::ctl_addr(remote_sup_addr.as_ref())?;
+    let service_group = required_value_of(m, "SERVICE_GROUP").parse::<ServiceGroup>()?;
     let mut ui = ui::ui();
     let mut validate = sup_proto::ctl::SvcValidateCfg::default();
     validate.service_group = Some(service_group.clone().into());
@@ -1160,17 +1331,20 @@ async fn sub_svc_set(m: &ArgMatches<'_>) -> Result<()> {
         process::exit(1);
     }
     validate.cfg = Some(buf.clone());
-    let cache = cache_key_path_from_matches(&m);
+    let key_cache = key_cache_from_matches(m)?;
+
     let mut set = sup_proto::ctl::SvcSetCfg::default();
-    match (service_group.org(), user_param_or_env(&m)) {
+    match (service_group.org(), user_param_or_env(m)) {
         (Some(_org), Some(username)) => {
-            let user_pair = BoxKeyPair::get_latest_pair_for(username, &cache)?;
-            let service_pair = BoxKeyPair::get_latest_pair_for(&service_group, &cache)?;
+            let user_key = key_cache.latest_user_secret_key(&username)?;
+            let service_key = key_cache.latest_service_public_key(&service_group)?;
             ui.status(Status::Encrypting,
                       format!("TOML as {} for {}",
-                              user_pair.name_with_rev(),
-                              service_pair.name_with_rev()))?;
-            set.cfg = Some(user_pair.encrypt(&buf, Some(&service_pair))?.into_bytes());
+                              user_key.named_revision(),
+                              service_key.named_revision()))?;
+            set.cfg = Some(user_key.encrypt_for_service(&buf, &service_key)
+                                   .to_string()
+                                   .into_bytes());
             set.is_encrypted = Some(true);
         }
         _ => set.cfg = Some(buf.to_vec()),
@@ -1187,7 +1361,7 @@ async fn sub_svc_set(m: &ArgMatches<'_>) -> Result<()> {
                         .map(ToString::to_string)
                         .unwrap_or_else(|| "UNKNOWN".to_string()),))?;
     ui.status(Status::Creating, "service configuration")?;
-    let mut response = SrvClient::request(&remote_sup_addr, &secret_key, validate).await?;
+    let mut response = SrvClient::request(Some(&remote_sup_addr), validate).await?;
     while let Some(message_result) = response.next().await {
         let reply = message_result?;
         match reply.message_id() {
@@ -1206,7 +1380,7 @@ async fn sub_svc_set(m: &ArgMatches<'_>) -> Result<()> {
         }
     }
     ui.status(Status::Applying, format!("via peer {}", remote_sup_addr))?;
-    let mut response = SrvClient::request(&remote_sup_addr, &secret_key, set).await?;
+    let mut response = SrvClient::request(Some(&remote_sup_addr), set).await?;
     while let Some(message_result) = response.next().await {
         let reply = message_result?;
         match reply.message_id() {
@@ -1225,12 +1399,10 @@ async fn sub_svc_set(m: &ArgMatches<'_>) -> Result<()> {
 
 async fn sub_svc_config(m: &ArgMatches<'_>) -> Result<()> {
     let ident = required_pkg_ident_from_input(m)?;
-    let cfg = config::load()?;
     let remote_sup_addr = remote_sup_from_input(m)?;
-    let secret_key = config::ctl_secret_key(&cfg)?;
     let mut msg = sup_proto::ctl::SvcGetDefaultCfg::default();
     msg.ident = Some(ident.into());
-    let mut response = SrvClient::request(&remote_sup_addr, &secret_key, msg).await?;
+    let mut response = SrvClient::request(remote_sup_addr.as_ref(), msg).await?;
     while let Some(message_result) = response.next().await {
         let reply = message_result?;
         match reply.message_id() {
@@ -1250,9 +1422,9 @@ async fn sub_svc_config(m: &ArgMatches<'_>) -> Result<()> {
 }
 
 async fn sub_svc_load(svc_load: SvcLoad) -> Result<()> {
-    let remote_sup_addr = svc_load.remote_sup.to_listen_ctl_addr();
+    let remote_sup_addr = svc_load.remote_sup.clone();
     let msg = biome_sup_protocol::ctl::SvcLoad::try_from(svc_load)?;
-    gateway_util::send(&remote_sup_addr, msg).await
+    gateway_util::send(remote_sup_addr.inner(), msg).await
 }
 
 async fn sub_svc_bulk_load(svc_bulk_load: SvcBulkLoad) -> Result<()> {
@@ -1277,33 +1449,30 @@ async fn sub_svc_unload(m: &ArgMatches<'_>) -> Result<()> {
     let msg = sup_proto::ctl::SvcUnload { ident: Some(ident.into()),
                                           timeout_in_seconds };
     let remote_sup_addr = remote_sup_from_input(m)?;
-    gateway_util::send(&remote_sup_addr, msg).await
+    gateway_util::send(remote_sup_addr.as_ref(), msg).await
 }
 
 async fn sub_svc_update(u: bio::cli::bio::svc::Update) -> Result<()> {
-    let ctl_addr = u.remote_sup.to_listen_ctl_addr();
+    let ctl_addr = u.remote_sup.clone();
     let msg: sup_proto::ctl::SvcUpdate = TryFrom::try_from(u)?;
-    gateway_util::send(&ctl_addr, msg).await
+    gateway_util::send(ctl_addr.inner(), msg).await
 }
 
 async fn sub_svc_start(m: &ArgMatches<'_>) -> Result<()> {
     let ident = required_pkg_ident_from_input(m)?;
     let msg = sup_proto::ctl::SvcStart { ident: Some(ident.into()), };
     let remote_sup_addr = remote_sup_from_input(m)?;
-    gateway_util::send(&remote_sup_addr, msg).await
+    gateway_util::send(remote_sup_addr.as_ref(), msg).await
 }
 
-async fn sub_svc_status(m: &ArgMatches<'_>) -> Result<()> {
-    let cfg = config::load()?;
-    let remote_sup_addr = remote_sup_from_input(m)?;
-    let secret_key = config::ctl_secret_key(&cfg)?;
+async fn sub_svc_status(pkg_ident: Option<PackageIdent>,
+                        remote_sup: Option<&ResolvedListenCtlAddr>)
+                        -> Result<()> {
     let mut msg = sup_proto::ctl::SvcStatus::default();
-    if let Some(pkg) = m.value_of("PKG_IDENT") {
-        msg.ident = Some(PackageIdent::from_str(pkg)?.into());
-    }
+    msg.ident = pkg_ident.map(Into::into);
 
     let mut out = TabWriter::new(io::stdout());
-    let mut response = SrvClient::request(&remote_sup_addr, &secret_key, msg).await?;
+    let mut response = SrvClient::request(remote_sup, msg).await?;
     // Ensure there is at least one result from the server otherwise produce an error
     if let Some(message_result) = response.next().await {
         let reply = message_result?;
@@ -1326,17 +1495,16 @@ async fn sub_svc_stop(m: &ArgMatches<'_>) -> Result<()> {
     let msg = sup_proto::ctl::SvcStop { ident: Some(ident.into()),
                                         timeout_in_seconds };
     let remote_sup_addr = remote_sup_from_input(m)?;
-    gateway_util::send(&remote_sup_addr, msg).await
+    gateway_util::send(remote_sup_addr.as_ref(), msg).await
 }
 
 async fn sub_file_put(m: &ArgMatches<'_>) -> Result<()> {
-    let service_group = ServiceGroup::from_str(m.value_of("SERVICE_GROUP").unwrap())?;
-    let cfg = config::load()?;
+    let service_group = required_value_of(m, "SERVICE_GROUP").parse::<ServiceGroup>()?;
     let remote_sup_addr = remote_sup_from_input(m)?;
-    let secret_key = config::ctl_secret_key(&cfg)?;
+    let remote_sup_addr = SrvClient::ctl_addr(remote_sup_addr.as_ref())?;
     let mut ui = ui::ui();
     let mut msg = sup_proto::ctl::SvcFilePut::default();
-    let file = Path::new(m.value_of("FILE").unwrap());
+    let file = Path::new(required_value_of(m, "FILE"));
     if file.metadata()?.len() > sup_proto::butterfly::MAX_FILE_PUT_SIZE_BYTES as u64 {
         ui.fatal(format!("File too large. Maximum size allowed is {} bytes.",
                          sup_proto::butterfly::MAX_FILE_PUT_SIZE_BYTES))?;
@@ -1346,7 +1514,8 @@ async fn sub_file_put(m: &ArgMatches<'_>) -> Result<()> {
     msg.version = Some(value_t!(m, "VERSION_NUMBER", u64).unwrap());
     msg.filename = Some(file.file_name().unwrap().to_string_lossy().into_owned());
     let mut buf = Vec::with_capacity(sup_proto::butterfly::MAX_FILE_PUT_SIZE_BYTES);
-    let cache = cache_key_path_from_matches(&m);
+    let key_cache = key_cache_from_matches(m)?;
+
     ui.begin(format!("Uploading file {} to {} incarnation {}",
                      file.display(),
                      msg.version
@@ -1359,22 +1528,26 @@ async fn sub_file_put(m: &ArgMatches<'_>) -> Result<()> {
                         .unwrap_or_else(|| "UKNOWN".to_string()),))?;
     ui.status(Status::Creating, "service file")?;
     File::open(&file)?.read_to_end(&mut buf)?;
-    match (service_group.org(), user_param_or_env(&m)) {
+    match (service_group.org(), user_param_or_env(m)) {
         (Some(_org), Some(username)) => {
-            let user_pair = BoxKeyPair::get_latest_pair_for(username, &cache)?;
-            let service_pair = BoxKeyPair::get_latest_pair_for(&service_group, &cache)?;
+            // That Some(_org) bit is really "was an org specified for
+            // this service group?"
+            let user_key = key_cache.latest_user_secret_key(&username)?;
+            let service_key = key_cache.latest_service_public_key(&service_group)?;
             ui.status(Status::Encrypting,
                       format!("file as {} for {}",
-                              user_pair.name_with_rev(),
-                              service_pair.name_with_rev()))?;
-            msg.content = Some(user_pair.encrypt(&buf, Some(&service_pair))?.into_bytes());
+                              user_key.named_revision(),
+                              service_key.named_revision()))?;
+            msg.content = Some(user_key.encrypt_for_service(&buf, &service_key)
+                                       .to_string()
+                                       .into_bytes());
             msg.is_encrypted = Some(true);
         }
         _ => msg.content = Some(buf.to_vec()),
     }
     ui.status(Status::Applying, format!("via peer {}", remote_sup_addr))
       .unwrap();
-    let mut response = SrvClient::request(&remote_sup_addr, &secret_key, msg).await?;
+    let mut response = SrvClient::request(Some(&remote_sup_addr), msg).await?;
     while let Some(message_result) = response.next().await {
         let reply = message_result?;
         match reply.message_id() {
@@ -1396,20 +1569,20 @@ async fn sub_file_put(m: &ArgMatches<'_>) -> Result<()> {
     Ok(())
 }
 
-async fn sub_sup_depart(m: &ArgMatches<'_>) -> Result<()> {
-    let cfg = config::load()?;
-    let remote_sup_addr = remote_sup_from_input(m)?;
-    let secret_key = config::ctl_secret_key(&cfg)?;
+async fn sub_sup_depart(member_id: String,
+                        remote_sup: Option<&ResolvedListenCtlAddr>)
+                        -> Result<()> {
+    let remote_sup = SrvClient::ctl_addr(remote_sup)?;
     let mut ui = ui::ui();
     let mut msg = sup_proto::ctl::SupDepart::default();
-    msg.member_id = Some(m.value_of("MEMBER_ID").unwrap().to_string());
+    msg.member_id = Some(member_id);
 
     ui.begin(format!("Permanently marking {} as departed",
                      msg.member_id.as_deref().unwrap_or("UNKNOWN")))
       .unwrap();
-    ui.status(Status::Applying, format!("via peer {}", remote_sup_addr))
+    ui.status(Status::Applying, format!("via peer {}", remote_sup))
       .unwrap();
-    let mut response = SrvClient::request(&remote_sup_addr, &secret_key, msg).await?;
+    let mut response = SrvClient::request(Some(&remote_sup), msg).await?;
     while let Some(message_result) = response.next().await {
         let reply = message_result?;
         match reply.message_id() {
@@ -1426,12 +1599,40 @@ async fn sub_sup_depart(m: &ArgMatches<'_>) -> Result<()> {
     Ok(())
 }
 
+async fn sub_sup_restart(remote_sup: Option<&ResolvedListenCtlAddr>) -> Result<()> {
+    let remote_sup = SrvClient::ctl_addr(remote_sup)?;
+    let mut ui = ui::ui();
+    let msg = sup_proto::ctl::SupRestart::default();
+
+    ui.begin(format!("Restarting supervisor {}", remote_sup))?;
+    let mut response = SrvClient::request(Some(&remote_sup), msg).await?;
+    while let Some(message_result) = response.next().await {
+        let reply = message_result?;
+        match reply.message_id() {
+            "NetOk" => (),
+            "NetErr" => {
+                let m = reply.parse::<sup_proto::net::NetErr>()
+                             .map_err(SrvClientError::Decode)?;
+                return Err(SrvClientError::from(m).into());
+            }
+            _ => return Err(SrvClientError::from(io::Error::from(io::ErrorKind::UnexpectedEof)).into()),
+        }
+    }
+    ui.end("Restart recorded.")?;
+    Ok(())
+}
+
 fn sub_sup_secret_generate() -> Result<()> {
     let mut ui = ui::ui();
     let mut buf = String::new();
     sup_proto::generate_secret_key(&mut buf);
     ui.info(buf)?;
     Ok(())
+}
+
+fn sub_sup_secret_generate_key(subject_alternative_name: DNSNameRef, path: PathBuf) -> Result<()> {
+    Ok(ctl_gateway_tls::generate_self_signed_certificate_and_key(subject_alternative_name, path)
+        .map_err(biome_core::Error::from)?)
 }
 
 fn sub_supportbundle(ui: &mut UI) -> Result<()> {
@@ -1441,115 +1642,50 @@ fn sub_supportbundle(ui: &mut UI) -> Result<()> {
 }
 
 fn sub_ring_key_export(m: &ArgMatches<'_>) -> Result<()> {
-    let ring = m.value_of("RING").unwrap(); // Required via clap
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let ring = required_value_of(m, "RING");
+    let key_cache = key_cache_from_matches(m)?;
     init()?;
 
-    command::ring::key::export::start(ring, &cache_key_path)
+    command::ring::key::export::start(ring, &key_cache)
 }
 
 fn sub_ring_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let ring = m.value_of("RING").unwrap(); // Required via clap
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let ring = required_value_of(m, "RING");
+    let key_cache = key_cache_from_matches(m)?;
     init()?;
 
-    command::ring::key::generate::start(ui, ring, &cache_key_path)
+    command::ring::key::generate::start(ui, ring, &key_cache)
 }
 
 fn sub_ring_key_import(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
     let mut content = String::new();
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let key_cache = key_cache_from_matches(m)?;
     init()?;
     io::stdin().read_to_string(&mut content)?;
 
     // Trim the content to lose line feeds added by Powershell pipeline
-    command::ring::key::import::start(ui, content.trim(), &cache_key_path)
+    command::ring::key::import::start(ui, content.trim(), &key_cache)
 }
 
 fn sub_service_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let org = org_param_or_env(&m)?;
-    let service_group = ServiceGroup::from_str(m.value_of("SERVICE_GROUP").unwrap())?;
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let org = org_param_or_env(m)?;
+    let service_group = required_value_of(m, "SERVICE_GROUP").parse()?;
+    let key_cache = key_cache_from_matches(m)?;
     init()?;
 
-    command::service::key::generate::start(ui, &org, &service_group, &cache_key_path)
+    command::service::key::generate::start(ui, &org, &service_group, &key_cache)
 }
 
 fn sub_user_key_generate(ui: &mut UI, m: &ArgMatches<'_>) -> Result<()> {
-    let user = m.value_of("USER").unwrap(); // Required via clap
-    let cache_key_path = cache_key_path_from_matches(&m);
+    let user = required_value_of(m, "USER");
+    let key_cache = key_cache_from_matches(m)?;
     init()?;
 
-    command::user::key::generate::start(ui, user, &cache_key_path)
+    command::user::key::generate::start(ui, user, &key_cache)
 }
 
 fn args_after_first(args_to_skip: usize) -> Vec<OsString> {
     env::args_os().skip(args_to_skip).collect()
-}
-
-async fn exec_subcommand_if_called(ui: &mut UI) -> Result<()> {
-    let mut args = env::args();
-    let first = args.nth(1).unwrap_or_default();
-    let second = args.next().unwrap_or_default();
-    let third = args.next().unwrap_or_default();
-
-    match (first.as_str(), second.as_str(), third.as_str()) {
-        ("pkg", "export", "container") => {
-            command::pkg::export::container::start(ui, &args_after_first(4)).await
-        }
-        ("pkg", "export", "docker") => {
-            ui.warn("'bio pkg export docker' is now a deprecated alias for 'bio pkg \
-                             export container'. Please update your automation and processes \
-                             accordingly.".to_string())?;
-            command::pkg::export::container::start(ui, &args_after_first(4)).await
-        }
-        ("pkg", "export", "cf") => command::pkg::export::cf::start(ui, &args_after_first(4)).await,
-        ("pkg", "export", "tar") => {
-            command::pkg::export::tar::start(ui, &args_after_first(4)).await
-        }
-        ("run", ..) => command::launcher::start(ui, &args_after_first(1)).await,
-        ("stu", ..) | ("stud", ..) | ("studi", ..) | ("studio", ..) => {
-            command::studio::enter::start(ui, &args_after_first(2)).await
-        }
-        // Skip invoking the `bio-sup` binary for sup cli help messages;
-        // handle these from within `bio`
-        ("help", "sup", _)
-        | ("sup", _, "help")
-        | ("sup", "help", _)
-        | ("sup", _, "-h")
-        | ("sup", "-h", _)
-        | ("sup", _, "--help")
-        | ("sup", "--help", _) => Ok(()),
-        // Delegate remaining Supervisor subcommands to `bio-sup`
-        ("sup", "", "")
-        | ("sup", "term", _)
-        | ("sup", "bash", _)
-        | ("sup", "sh", _)
-        | ("sup", "-V", _)
-        | ("sup", "--version", _) => command::sup::start(ui, &args_after_first(2)).await,
-        ("term", ..) => command::sup::start(ui, &args_after_first(1)).await,
-        // Delegate `bio sup run *` to the Launcher
-        ("sup", "run", _) => command::launcher::start(ui, &args_after_first(2)).await,
-        _ => Ok(()),
-    }
-}
-
-/// Parse the raw program arguments and split off any arguments that will skip clap's parsing.
-///
-/// **Note** with the current version of clap there is no clean way to ignore arguments after a
-/// certain point, especially if those arguments look like further options and flags.
-fn raw_parse_args() -> (Vec<OsString>, Vec<OsString>) {
-    let mut args = env::args();
-    match (args.nth(1).unwrap_or_default().as_str(), args.next().unwrap_or_default().as_str()) {
-        ("pkg", "exec") => {
-            if args.by_ref().count() > 2 {
-                (env::args_os().take(5).collect(), env::args_os().skip(5).collect())
-            } else {
-                (env::args_os().collect(), Vec::new())
-            }
-        }
-        _ => (env::args_os().collect(), Vec::new()),
-    }
 }
 
 /// Check to see if the user has passed in an AUTH_TOKEN param. If not, check the
@@ -1562,13 +1698,11 @@ fn auth_token_param_or_env(m: &ArgMatches<'_>) -> Result<String> {
             match henv::var(AUTH_TOKEN_ENVVAR) {
                 Ok(v) => Ok(v),
                 Err(_) => {
-                    config::load()?.auth_token.ok_or_else(|| {
-                                                  Error::ArgumentError(
-                    "No auth token \
-                     specified"
-                        .into(),
-                )
-                                              })
+                    CliConfig::load()?.auth_token.ok_or_else(|| {
+                                                     Error::ArgumentError("No auth token \
+                                                                                specified"
+                                                                                          .into())
+                                                 })
                 }
             }
         }
@@ -1579,7 +1713,7 @@ fn auth_token_param_or_env(m: &ArgMatches<'_>) -> Result<String> {
 /// auth_token_param_or_env, it's ok for no auth token to be present here. This is useful for
 /// commands that can optionally take an auth token for operating on private packages.
 fn maybe_auth_token(m: &ArgMatches<'_>) -> Option<String> {
-    match auth_token_param_or_env(&m) {
+    match auth_token_param_or_env(m) {
         Ok(t) => Some(t),
         Err(_) => None,
     }
@@ -1588,16 +1722,18 @@ fn maybe_auth_token(m: &ArgMatches<'_>) -> Option<String> {
 /// Check to see if the user has passed in an ORIGIN param.  If not, check the HABITAT_ORIGIN env
 /// var. If not, check the CLI config to see if there is a default origin set. If that's empty too,
 /// then error.
-fn origin_param_or_env(m: &ArgMatches<'_>) -> Result<String> {
+// TODO (CM): sort out types better... there's a conflict with the CLI
+// Origin in this module
+fn origin_param_or_env(m: &ArgMatches<'_>) -> Result<biome_core::origin::Origin> {
     match m.value_of("ORIGIN") {
-        Some(o) => Ok(o.to_string()),
+        Some(o) => Ok(o.parse()?),
         None => {
             match henv::var(ORIGIN_ENVVAR) {
-                Ok(v) => Ok(v),
+                Ok(v) => Ok(v.parse()?),
                 Err(_) => {
-                    config::load()?.origin.ok_or_else(|| {
-                                              Error::CryptoCLI("No origin specified".to_string())
-                                          })
+                    CliConfig::load()?.origin.ok_or_else(|| {
+                                                 Error::CryptoCLI("No origin specified".to_string())
+                                             })
                 }
             }
         }
@@ -1625,7 +1761,7 @@ fn bldr_url_from_matches(matches: &ArgMatches<'_>) -> Result<String> {
             match henv::var(BLDR_URL_ENVVAR) {
                 Ok(v) => Ok(v),
                 Err(_) => {
-                    let config = config::load()?;
+                    let config = CliConfig::load()?;
                     match config.bldr_url {
                         Some(v) => Ok(v),
                         None => Ok(default_bldr_url()),
@@ -1872,10 +2008,10 @@ fn bulkupload_dir_from_matches(matches: &ArgMatches<'_>) -> PathBuf {
            .expect("CLAP-validated upload dir")
 }
 
-fn remote_sup_from_input(m: &ArgMatches<'_>) -> Result<ListenCtlAddr> {
+fn remote_sup_from_input(m: &ArgMatches<'_>) -> Result<Option<ResolvedListenCtlAddr>> {
     Ok(m.value_of("REMOTE_SUP")
-        .map_or(Ok(ListenCtlAddr::default()),
-                ListenCtlAddr::resolve_listen_ctl_addr)?)
+        .map(ResolvedListenCtlAddr::from_str)
+        .transpose()?)
 }
 
 fn required_pkg_ident_from_input(m: &ArgMatches<'_>) -> Result<PackageIdent> {
@@ -1897,6 +2033,12 @@ fn user_param_or_env(m: &ArgMatches<'_>) -> Option<String> {
             }
         }
     }
+}
+
+/// Helper function to get information about the argument given its name
+fn required_value_of<'a>(matches: &'a ArgMatches<'a>, name: &str) -> &'a str {
+    matches.value_of(name)
+           .unwrap_or_else(|| panic!("{} CLAP required arg missing", name))
 }
 
 #[cfg(test)]

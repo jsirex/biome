@@ -1,13 +1,17 @@
 use super::{svc::{ConfigOptSharedLoad,
                   SharedLoad,
                   DEFAULT_SVC_CONFIG_DIR},
-            util::{self,
+            util::{tls::{CertificateChainCli,
+                         PrivateKeyCli,
+                         RootCertificateStoreCli},
                    CacheKeyPath,
                    ConfigOptCacheKeyPath,
                    ConfigOptRemoteSup,
                    DurationProxy,
-                   RemoteSup}};
-use crate::VERSION;
+                   RemoteSup,
+                   SubjectAlternativeName}};
+use crate::{error::Error,
+            VERSION};
 use configopt::{self,
                 configopt_fields,
                 ConfigOpt};
@@ -20,16 +24,17 @@ use biome_common::{cli::{RING_ENVVAR,
                              EventStreamToken,
                              GossipListenAddr,
                              HttpListenAddr,
-                             ListenCtlAddr},
+                             ListenCtlAddr,
+                             ResolvedListenCtlAddr},
                      FeatureFlag,
                      FEATURE_FLAGS};
 use biome_core::{env::Config,
+                   fs::HAB_CTL_KEYS_CACHE,
                    package::PackageIdent,
                    util as core_util};
 use rants::{error::Error as RantsError,
             Address as NatsAddress};
 use std::{fmt,
-          io,
           net::{IpAddr,
                 SocketAddr},
           path::PathBuf,
@@ -37,22 +42,15 @@ use std::{fmt,
 use structopt::{clap::AppSettings,
                 StructOpt};
 
+// All commands relating to the Supervisor (ie commands handled by both the `bio` and `bio-sup`
+// binary)
 #[derive(ConfigOpt, StructOpt)]
-#[structopt(name = "bio",
-            version = VERSION,
-            about = "The Biome Supervisor",
-            author = "\nThe Biome Maintainers <humans@biome.sh>\n",
-            usage = "bio sup <SUBCOMMAND>",
-            settings = &[AppSettings::VersionlessSubcommands],
-        )]
+#[structopt(no_version, name = "sup")]
 #[allow(clippy::large_enum_variant)]
-pub enum Sup {
-    /// Start an interactive Bash-like shell
-    #[structopt(usage = "bio sup bash", no_version)]
-    Bash,
+pub enum BioSup {
     /// Depart a Supervisor from the gossip ring; kicking and banning the target from joining again
     /// with the same member-id
-    #[structopt(no_version)]
+    #[structopt(no_version, aliases = &["d", "de", "dep", "depa", "depart"])]
     Depart {
         /// The member-id of the Supervisor to depart
         #[structopt(name = "MEMBER_ID")]
@@ -60,16 +58,10 @@ pub enum Sup {
         #[structopt(flatten)]
         remote_sup: RemoteSup,
     },
-    /// Run the Biome Supervisor
-    #[structopt(no_version)]
-    Run(SupRun),
-    #[structopt(no_version)]
+    #[structopt(no_version, aliases = &["sec", "secr"])]
     Secret(Secret),
-    /// Start an interactive Bourne-like shell
-    #[structopt(usage = "bio sup sh", no_version)]
-    Sh,
     /// Query the status of Biome services
-    #[structopt(no_version)]
+    #[structopt(no_version, aliases = &["stat", "statu"])]
     Status {
         /// A package identifier (ex: core/redis, core/busybox-static/1.42.2)
         #[structopt(name = "PKG_IDENT")]
@@ -77,10 +69,43 @@ pub enum Sup {
         #[structopt(flatten)]
         remote_sup: RemoteSup,
     },
+    /// Restart a Supervisor without restarting its services
+    #[structopt(no_version)]
+    Restart {
+        #[structopt(flatten)]
+        remote_sup: RemoteSup,
+    },
+    #[cfg(not(target_os = "macos"))]
+    #[structopt(flatten)]
+    Sup(Sup),
+}
+
+// Supervisor commands handled by the `bio-sup` binary
+#[derive(ConfigOpt, StructOpt)]
+#[structopt(name = "bio-sup",
+            version = VERSION,
+            about = "The Biome Supervisor",
+            author = "\nThe Biome Maintainers <humans@biome.sh>\n",
+            settings = &[AppSettings::VersionlessSubcommands],
+        )]
+#[allow(clippy::large_enum_variant)]
+pub enum Sup {
+    /// Start an interactive Bash-like shell
+    #[structopt(no_version, aliases = &["b", "ba", "bas"])]
+    Bash,
+    #[structopt(no_version, aliases = &["r", "ru"])]
+    Run(SupRun),
+    /// Start an interactive Bourne-like shell
+    #[structopt(no_version)]
+    Sh,
     /// Gracefully terminate the Biome Supervisor and all of its running services
-    #[structopt(usage = "bio sup term [OPTIONS]", no_version)]
+    #[structopt(no_version, aliases = &["ter"])]
     Term,
 }
+
+#[derive(StructOpt)]
+#[structopt(name = "term", no_version)]
+pub struct SupTerm {}
 
 // TODO (DM): This is unnecessarily difficult due to this issue in serde
 // https://github.com/serde-rs/serde/issues/723. The easiest way to get around the issue is by
@@ -102,10 +127,11 @@ impl From<EventStreamAddress> for NatsAddress {
     fn from(address: EventStreamAddress) -> Self { address.0 }
 }
 
-fn parse_peer(s: &str) -> io::Result<SocketAddr> {
-    util::socket_addr_with_default_port(s, GossipListenAddr::DEFAULT_PORT)
+fn parse_peer(s: &str) -> Result<SocketAddr, Error> {
+    Ok(biome_common::util::resolve_socket_addr_with_default_port(s, GossipListenAddr::DEFAULT_PORT)?.1)
 }
 
+/// Run the Biome Supervisor
 #[configopt_fields]
 #[derive(ConfigOpt, StructOpt, Deserialize)]
 #[configopt(attrs(serde), default_config_file("/hab/sup/default/config/sup.toml"))]
@@ -141,7 +167,20 @@ pub struct SupRun {
     #[structopt(long = "listen-ctl",
                 env = ListenCtlAddr::ENVVAR,
                 default_value = ListenCtlAddr::default_as_str())]
-    pub listen_ctl: ListenCtlAddr,
+    pub listen_ctl: ResolvedListenCtlAddr,
+    /// The control gateway server's TLS certificate
+    #[structopt(long = "ctl-server-certificate", default_value = HAB_CTL_KEYS_CACHE)]
+    pub ctl_server_certificate: Option<CertificateChainCli>,
+    /// Enable TLS for the control gateway and set the server's private key
+    ///
+    /// See `--ctl-server-certificate` and `--ctl-client-certificate` for additional settings.
+    #[structopt(long = "ctl-server-key", default_value = HAB_CTL_KEYS_CACHE)]
+    pub ctl_server_key: Option<PrivateKeyCli>,
+    /// Enable client authentication for the control gateway and set the certificate authority to
+    /// use when authenticating the client
+    #[structopt(long = "ctl-client-ca-certificate",
+                default_value = HAB_CTL_KEYS_CACHE)]
+    pub ctl_client_ca_certificate: Option<RootCertificateStoreCli>,
     /// The organization the Supervisor and its services are part of
     #[structopt(long = "org")]
     pub organization: Option<String>,
@@ -294,4 +333,14 @@ pub struct SupRun {
 pub enum Secret {
     /// Generate a secret key to use as a Supervisor's Control Gateway secret
     Generate,
+    /// Generate a private key and certificate for the Supervisor's
+    /// Control Gateway TLS connection
+    GenerateTls {
+        /// The DNS name to use in the certificates subject alternative name extension
+        #[structopt(long = "subject-alternative-name")]
+        subject_alternative_name: SubjectAlternativeName,
+        /// The directory to store the generated private key and certificate
+        #[structopt(long = "path", default_value = HAB_CTL_KEYS_CACHE)]
+        path:                     PathBuf,
+    },
 }

@@ -35,15 +35,18 @@ use crate::{census::{CensusRing,
                      CensusRingProxy},
             ctl_gateway::{self,
                           acceptor::CtlAcceptor,
+                          server::CtlGatewayServer,
                           CtlRequest},
             error::{Error,
                     Result},
             event::{self,
                     EventStreamConfig},
             http_gateway,
+            lock_file::LockFile,
             util::pkg,
             VERSION};
 use cpu_time::ProcessTime;
+use derivative::Derivative;
 use futures::{channel::{mpsc as fut_mpsc,
                         oneshot},
               future,
@@ -63,12 +66,12 @@ use biome_common::{liveliness_checker,
 use biome_core::os::{process::{ShutdownSignal,
                                  Signal},
                        signals};
-use biome_core::{crypto::SymKey,
+use biome_core::{crypto::keys::{KeyCache,
+                                  RingKey},
                    env,
                    env::Config,
                    fs::FS_ROOT_PATH,
                    os::process::{self,
-                                 Pid,
                                  ShutdownTimeout},
                    package::{Identifiable,
                              PackageIdent,
@@ -76,9 +79,7 @@ use biome_core::{crypto::SymKey,
                    service::ServiceGroup,
                    util::ToI64,
                    ChannelIdent};
-use biome_launcher_client::{LauncherCli,
-                              LAUNCHER_LOCK_CLEAN_ENV,
-                              LAUNCHER_PID_ENV};
+use biome_launcher_client::LauncherCli;
 use biome_sup_protocol::{self};
 use parking_lot::{Mutex,
                   RwLock};
@@ -87,17 +88,17 @@ use prometheus::{HistogramVec,
                  IntGaugeVec};
 use rustls::{internal::pemfile,
              AllowAnyAuthenticatedClient,
+             Certificate,
              NoClientAuth,
+             PrivateKey,
              RootCertStore,
              ServerConfig};
 use std::{collections::{HashMap,
                         HashSet},
           ffi::OsStr,
           fs::{self,
-               File,
-               OpenOptions},
-          io::{BufRead,
-               BufReader,
+               File},
+          io::{BufReader,
                Read,
                Write},
           iter::{FromIterator,
@@ -153,6 +154,10 @@ lazy_static! {
     static ref THIS_SUPERVISOR_IDENT: PackageIdent =
         PackageIdent::from_str(&format!("{}/{}", SUP_PKG_IDENT, VERSION)).unwrap();
 }
+
+biome_core::env_config_duration!( HttpStartupTimeout,
+                                    HAB_HTTP_STARTUP_TIMEOUT_SECS => from_secs,
+                                    Duration::from_secs(10));
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 /// Determines whether the new pidfile-less behavior is enabled, or
@@ -250,32 +255,37 @@ impl FsCfg {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Derivative)]
+#[derivative(PartialEq)]
 pub struct ManagerConfig {
-    pub auto_update:           bool,
-    pub auto_update_period:    Duration,
-    pub service_update_period: Duration,
-    pub custom_state_path:     Option<PathBuf>,
-    pub cache_key_path:        PathBuf,
-    pub update_url:            String,
-    pub update_channel:        ChannelIdent,
-    pub gossip_listen:         GossipListenAddr,
-    pub ctl_listen:            ListenCtlAddr,
-    pub http_listen:           HttpListenAddr,
-    pub http_disable:          bool,
-    pub gossip_peers:          Vec<SocketAddr>,
-    pub gossip_permanent:      bool,
-    pub ring_key:              Option<SymKey>,
-    pub organization:          Option<String>,
-    pub watch_peer_file:       Option<String>,
-    pub tls_config:            Option<TLSConfig>,
-    pub feature_flags:         FeatureFlag,
-    pub event_stream_config:   Option<EventStreamConfig>,
+    pub auto_update:                bool,
+    pub auto_update_period:         Duration,
+    pub service_update_period:      Duration,
+    pub custom_state_path:          Option<PathBuf>,
+    pub key_cache:                  KeyCache,
+    pub update_url:                 String,
+    pub update_channel:             ChannelIdent,
+    pub gossip_listen:              GossipListenAddr,
+    pub ctl_listen:                 ListenCtlAddr,
+    pub ctl_server_certificates:    Option<Vec<Certificate>>,
+    pub ctl_server_key:             Option<PrivateKey>,
+    #[derivative(PartialEq = "ignore")]
+    pub ctl_client_ca_certificates: Option<RootCertStore>,
+    pub http_listen:                HttpListenAddr,
+    pub http_disable:               bool,
+    pub gossip_peers:               Vec<SocketAddr>,
+    pub gossip_permanent:           bool,
+    pub ring_key:                   Option<RingKey>,
+    pub organization:               Option<String>,
+    pub watch_peer_file:            Option<String>,
+    pub tls_config:                 Option<TLSConfig>,
+    pub feature_flags:              FeatureFlag,
+    pub event_stream_config:        Option<EventStreamConfig>,
     /// If this field is `Some`, keep the indicated number of latest packages and uninstall all
     /// others during service start. If this field is `None`, automatic package cleanup is
     /// disabled.
-    pub keep_latest_packages:  Option<usize>,
-    pub sys_ip:                IpAddr,
+    pub keep_latest_packages:       Option<usize>,
+    pub sys_ip:                     IpAddr,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -376,9 +386,10 @@ impl ReconciliationFlag {
 /// state gets shared with all the CtlGateway handlers.
 pub struct ManagerState {
     /// The configuration used to instantiate this Manager instance
-    cfg:           ManagerConfig,
-    services:      Arc<sync::ManagerServices>,
-    gateway_state: Arc<sync::GatewayState>,
+    cfg:            ManagerConfig,
+    services:       Arc<sync::ManagerServices>,
+    gateway_state:  Arc<sync::GatewayState>,
+    should_restart: AtomicBool,
 }
 
 pub(crate) mod sync {
@@ -577,6 +588,11 @@ pub struct Manager {
 
     feature_flags: FeatureFlag,
     pid_source:    ServicePidSource,
+
+    /// Open file handle to the Launcher's lock file. As long as we hold this,
+    /// we are the only Supervisor process that may run on this host. We don't
+    /// actually use this; we just keep it open.
+    _lock_file: LockFile,
 }
 
 impl Manager {
@@ -591,31 +607,35 @@ impl Manager {
         let state_path = cfg.sup_root();
         let fs_cfg = FsCfg::new(state_path);
         Self::create_state_path_dirs(&fs_cfg)?;
+        // The lock file exists within the state directory, so we have to create
+        // it first!
+        let lock_file = LockFile::acquire()?;
         Self::clean_dirty_state(&fs_cfg)?;
-        if env::var(LAUNCHER_LOCK_CLEAN_ENV).is_ok() {
-            release_process_lock(&fs_cfg);
-        }
-        obtain_process_lock(&fs_cfg)?;
-
-        Self::new_imlw(cfg, fs_cfg, launcher).await
+        Self::new_imlw(cfg, fs_cfg, lock_file, launcher).await
     }
 
-    pub fn term(proc_lock_file: &Path) -> Result<()> {
-        match read_process_lock(proc_lock_file) {
-            Ok(pid) => {
-                #[cfg(unix)]
-                process::signal(pid, Signal::TERM).map_err(|_| Error::SignalFailed)?;
-                #[cfg(windows)]
-                process::terminate(pid)?;
-                Ok(())
-            }
-            Err(err) => Err(err),
-        }
+    /// Terminate the locally-running Supervisor/Launcher (assuming it is
+    /// running, of course).
+    ///
+    /// If the lock file can be read successfully, the PID being returned is
+    /// implicitly assumed to be that of a running Launcher process. That
+    /// PID is then told to terminate.
+    pub fn term() -> Result<()> {
+        let pid = crate::lock_file::read_lock_file()?;
+        #[cfg(unix)]
+        process::signal(pid, Signal::TERM).map_err(|_| Error::SignalFailed)?;
+        #[cfg(windows)]
+        process::terminate(pid)?;
+        Ok(())
     }
 
     /// # Locking (see locking.md)
     /// * `MemberList::initial_members` (write)
-    async fn new_imlw(cfg: ManagerConfig, fs_cfg: FsCfg, launcher: LauncherCli) -> Result<Manager> {
+    async fn new_imlw(cfg: ManagerConfig,
+                      fs_cfg: FsCfg,
+                      lock_file: LockFile,
+                      launcher: LauncherCli)
+                      -> Result<Manager> {
         debug!("new(cfg: {:?}, fs_cfg: {:?}", cfg, fs_cfg);
         outputln!("{} ({})", SUP_PKG_IDENT, *THIS_SUPERVISOR_IDENT);
         let cfg_static = cfg.clone();
@@ -681,7 +701,8 @@ impl Manager {
         let census_ring = Arc::new(RwLock::new(CensusRing::new(sys.member_id.clone())));
         Ok(Manager { state: Arc::new(ManagerState { cfg: cfg_static,
                                                     services,
-                                                    gateway_state: Arc::default() }),
+                                                    gateway_state: Arc::default(),
+                                                    should_restart: AtomicBool::default() }),
                      self_updater,
                      service_updater:
                          Arc::new(Mutex::new(ServiceUpdater::new(server.clone(),
@@ -702,7 +723,8 @@ impl Manager {
                      busy_services: Arc::default(),
                      services_need_reconciliation: ReconciliationFlag::new(false),
                      feature_flags: cfg.feature_flags,
-                     pid_source })
+                     pid_source,
+                     _lock_file: lock_file })
     }
 
     /// Load the initial Butterly Member which is used in initializing the Butterfly server. This
@@ -939,10 +961,22 @@ impl Manager {
 
         self.persist_state_rsr_mlr_gsw_msr().await;
         let http_listen_addr = self.sys.http_listen();
-        let ctl_listen_addr = self.sys.ctl_listen();
-        let ctl_secret_key = ctl_gateway::readgen_secret_key(&self.fs_cfg.sup_root)?;
-        outputln!("Starting ctl-gateway on {}", &ctl_listen_addr);
-        tokio::spawn(ctl_gateway::server::run(ctl_listen_addr, ctl_secret_key, mgr_sender));
+        let ctl_gateway_server =
+            CtlGatewayServer { listen_addr: self.sys.ctl_listen(),
+                               secret_key: ctl_gateway::readgen_secret_key(&self.fs_cfg
+                                                                                .sup_root)?,
+                               mgr_sender,
+                               server_certificates: self.state
+                                                        .cfg
+                                                        .ctl_server_certificates
+                                                        .clone(),
+                               server_key: self.state.cfg.ctl_server_key.clone(),
+                               client_certificates: self.state
+                                                        .cfg
+                                                        .ctl_client_ca_certificates
+                                                        .clone() };
+        outputln!("Starting ctl-gateway on {}", ctl_gateway_server.listen_addr);
+        tokio::spawn(ctl_gateway_server.run());
         debug!("ctl-gateway started");
 
         if self.http_disable {
@@ -994,19 +1028,22 @@ impl Manager {
             loop {
                 match *started {
                     http_gateway::ServerStartup::NotStarted => {
-                        started = match cvar.wait_timeout(started, Duration::from_secs(10)) {
-                            Ok((mutex, timeout_result)) => {
-                                if timeout_result.timed_out() {
-                                    return Err(Error::BindTimeout(http_listen_addr.to_string()));
-                                } else {
-                                    mutex
+                        started =
+                            match cvar.wait_timeout(started,
+                                                    HttpStartupTimeout::configured_value().into())
+                            {
+                                Ok((mutex, timeout_result)) => {
+                                    if timeout_result.timed_out() {
+                                        return Err(Error::BindTimeout(http_listen_addr.to_string()));
+                                    } else {
+                                        mutex
+                                    }
                                 }
-                            }
-                            Err(e) => {
-                                error!("Mutex for the HTTP gateway was poisoned. e = {:?}", e);
-                                return Err(Error::LockPoisoned);
-                            }
-                        };
+                                Err(e) => {
+                                    error!("Mutex for the HTTP gateway was poisoned. e = {:?}", e);
+                                    return Err(Error::LockPoisoned);
+                                }
+                            };
                     }
                     http_gateway::ServerStartup::BindFailed => {
                         return Err(Error::BadAddress(http_listen_addr.to_string()));
@@ -1069,12 +1106,9 @@ impl Manager {
                 break ShutdownMode::Departed;
             }
 
-            #[cfg(unix)]
-            {
-                if signals::pending_sighup() {
-                    outputln!("Supervisor shutting down for signal");
-                    break ShutdownMode::Restarting;
-                }
+            if self.check_for_restart() {
+                outputln!("Supervisor shutting down for restart");
+                break ShutdownMode::Restarting;
             }
 
             if let Some(package) = self.check_for_updated_supervisor().await {
@@ -1145,7 +1179,7 @@ impl Manager {
             self.restart_elections_rsw_mlr_rhw_msr(self.feature_flags);
             self.census_ring
                 .write()
-                .update_from_rumors_rsr_mlr(&self.state.cfg.cache_key_path,
+                .update_from_rumors_rsr_mlr(&self.state.cfg.key_cache,
                                             &self.butterfly.service_store,
                                             &self.butterfly.election_store,
                                             &self.butterfly.update_store,
@@ -1225,7 +1259,6 @@ impl Manager {
             }
         }
 
-        release_process_lock(&self.fs_cfg);
         self.butterfly.persist_data_rsr_mlr();
 
         match shutdown_mode {
@@ -1303,6 +1336,18 @@ impl Manager {
     }
 
     fn check_for_departure(&self) -> bool { self.butterfly.is_departed() }
+
+    fn check_for_restart(&self) -> bool {
+        let should_restart = self.state.should_restart.load(Ordering::Relaxed);
+        #[cfg(unix)]
+        {
+            should_restart || signals::pending_sighup()
+        }
+        #[cfg(not(unix))]
+        {
+            should_restart
+        }
+    }
 
     /// # Locking (see locking.md)
     /// * `ManagerServices::inner` (read)
@@ -1780,85 +1825,6 @@ fn tls_config(config: &TLSConfig) -> Result<rustls::ServerConfig> {
     Ok(server_config)
 }
 
-fn obtain_process_lock(fs_cfg: &FsCfg) -> Result<()> {
-    match write_process_lock(&fs_cfg.proc_lock_file) {
-        Ok(()) => Ok(()),
-        Err(_) => {
-            match read_process_lock(&fs_cfg.proc_lock_file) {
-                Ok(pid) => {
-                    if process::is_alive(pid) {
-                        return Err(Error::ProcessLocked(pid));
-                    }
-                    release_process_lock(&fs_cfg);
-                    write_process_lock(&fs_cfg.proc_lock_file)
-                }
-                Err(Error::ProcessLockCorrupt) => {
-                    release_process_lock(&fs_cfg);
-                    write_process_lock(&fs_cfg.proc_lock_file)
-                }
-                Err(err) => Err(err),
-            }
-        }
-    }
-}
-
-fn read_process_lock<T>(lock_path: T) -> Result<Pid>
-    where T: AsRef<Path>
-{
-    match File::open(lock_path.as_ref()) {
-        Ok(file) => {
-            let reader = BufReader::new(file);
-            match reader.lines().next() {
-                Some(Ok(line)) => {
-                    match line.parse::<Pid>() {
-                        Ok(pid) if pid == 0 => {
-                            error!(target: "pidfile_tracing", "Read PID of 0 from process lock file {}!",
-                                   lock_path.as_ref().display());
-                            // Treat this the same as a corrupt pid
-                            // file, because that's basically what it
-                            // is.
-                            //
-                            // This *should* be an impossible situation.
-                            Err(Error::ProcessLockCorrupt)
-                        }
-                        Ok(pid) => Ok(pid),
-                        Err(_) => Err(Error::ProcessLockCorrupt),
-                    }
-                }
-                _ => Err(Error::ProcessLockCorrupt),
-            }
-        }
-        Err(err) => Err(Error::ProcessLockIO(lock_path.as_ref().to_path_buf(), err)),
-    }
-}
-
-fn release_process_lock(fs_cfg: &FsCfg) {
-    if let Err(err) = fs::remove_file(&fs_cfg.proc_lock_file) {
-        debug!("Couldn't cleanup Supervisor process lock, {}", err);
-    }
-}
-
-fn write_process_lock<T>(lock_path: T) -> Result<()>
-    where T: AsRef<Path>
-{
-    match OpenOptions::new().write(true)
-                            .create_new(true)
-                            .open(lock_path.as_ref())
-    {
-        Ok(mut file) => {
-            let pid = match env::var(LAUNCHER_PID_ENV) {
-                Ok(pid) => pid.parse::<Pid>().expect("Unable to parse launcher pid"),
-                Err(_) => process::current_pid(),
-            };
-            match write!(&mut file, "{}", pid) {
-                Ok(()) => Ok(()),
-                Err(err) => Err(Error::ProcessLockIO(lock_path.as_ref().to_path_buf(), err)),
-            }
-        }
-        Err(err) => Err(Error::ProcessLockIO(lock_path.as_ref().to_path_buf(), err)),
-    }
-}
-
 #[cfg(windows)]
 fn get_fd_count() -> std::io::Result<usize> {
     let mut count: u32 = 0;
@@ -1960,27 +1926,30 @@ mod test {
     // code, so only implement it under test configuration.
     impl Default for ManagerConfig {
         fn default() -> Self {
-            ManagerConfig { auto_update:           false,
-                            auto_update_period:    Duration::from_secs(60),
-                            service_update_period: Duration::from_secs(60),
-                            custom_state_path:     None,
-                            cache_key_path:        (&*CACHE_KEY_PATH).to_path_buf(),
-                            update_url:            "".to_string(),
-                            update_channel:        ChannelIdent::default(),
-                            gossip_listen:         GossipListenAddr::default(),
-                            ctl_listen:            ListenCtlAddr::default(),
-                            http_listen:           HttpListenAddr::default(),
-                            http_disable:          false,
-                            gossip_peers:          vec![],
-                            gossip_permanent:      false,
-                            ring_key:              None,
-                            organization:          None,
-                            watch_peer_file:       None,
-                            tls_config:            None,
-                            feature_flags:         FeatureFlag::empty(),
-                            event_stream_config:   None,
-                            keep_latest_packages:  None,
-                            sys_ip:                IpAddr::V4(Ipv4Addr::LOCALHOST), }
+            ManagerConfig { auto_update:                false,
+                            auto_update_period:         Duration::from_secs(60),
+                            service_update_period:      Duration::from_secs(60),
+                            custom_state_path:          None,
+                            key_cache:                  KeyCache::new(&*CACHE_KEY_PATH),
+                            update_url:                 "".to_string(),
+                            update_channel:             ChannelIdent::default(),
+                            gossip_listen:              GossipListenAddr::default(),
+                            ctl_listen:                 ListenCtlAddr::default(),
+                            ctl_server_certificates:    None,
+                            ctl_server_key:             None,
+                            ctl_client_ca_certificates: None,
+                            http_listen:                HttpListenAddr::default(),
+                            http_disable:               false,
+                            gossip_peers:               vec![],
+                            gossip_permanent:           false,
+                            ring_key:                   None,
+                            organization:               None,
+                            watch_peer_file:            None,
+                            tls_config:                 None,
+                            feature_flags:              FeatureFlag::empty(),
+                            event_stream_config:        None,
+                            keep_latest_packages:       None,
+                            sys_ip:                     IpAddr::V4(Ipv4Addr::LOCALHOST), }
         }
     }
 

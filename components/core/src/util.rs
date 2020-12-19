@@ -3,6 +3,7 @@ pub mod docker;
 pub mod posix_perm;
 pub mod serde;
 pub mod sys;
+pub mod text_render;
 #[cfg(windows)]
 pub mod win_perm;
 
@@ -67,6 +68,27 @@ macro_rules! ok_debug {
 macro_rules! ok_trace {
     ($result:expr) => {
         $crate::__ok_log!(log::Level::Trace, $result)
+    };
+}
+
+/// This macro implements `TryFrom<&str>` and `Into<String>` for a list of types implementing
+/// `FromStr` and `Display`. The traits `FromStr` and `Display` are preferred. However, occasionally
+/// there are instances where type bounds require `TryFrom<&str>` and `Into<String>`. For example,
+/// using the serde tag `#[serde(try_from = "&str", into = "String")]`
+#[macro_export]
+macro_rules! impl_try_from_str_and_into_string {
+    ($($ty:ty),*) => {
+        $(
+            impl std::convert::TryFrom<&str> for $ty {
+                type Error = Error;
+
+                fn try_from(s: &str) -> Result<Self, Self::Error> { Self::from_str(s) }
+            }
+
+            impl From<$ty> for String {
+                fn from(t: $ty) -> Self { t.to_string() }
+            }
+        )*
     };
 }
 

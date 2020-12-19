@@ -1,5 +1,8 @@
 use biome_core::{self as bio_core,
-                   util};
+                   util,
+                   util::text_render::{tabify,
+                                       tabw,
+                                       TabularText}};
 use biome_http_client as bio_http;
 
 #[macro_use]
@@ -29,12 +32,13 @@ use chrono::{DateTime,
              Utc};
 use reqwest::IntoUrl;
 use serde::Serialize;
-use serde_json::Value as Json;
-use tabwriter::TabWriter;
 
 use crate::bio_core::package::PackageIdent;
-pub use crate::{builder::BuilderAPIClient,
-                error::{Error,
+pub use crate::{builder::{BuilderAPIClient,
+                          API_RETRY_COUNT,
+                          API_RETRY_DELAY},
+                error::{APIFailure,
+                        Error,
                         Result}};
 
 pub trait DisplayProgress: Write + Send + Sync {
@@ -228,35 +232,8 @@ mod json_date_format {
     }
 }
 
-fn convert_to_json<T>(src: &T) -> Result<Json>
-    where T: Serialize
-{
-    serde_json::to_value(src).map_err(|e| biome_core::Error::RenderContextSerialization(e).into())
-}
-
-// Returns a library object that implements elastic tabstops
-fn tabw() -> TabWriter<Vec<u8>> { TabWriter::new(Vec::new()) }
-
-// Given a TabWriter object and a str slice, return a Result
-// where the Ok() variant comprises a String with nicely tab aligned columns
-fn tabify(mut tw: TabWriter<Vec<u8>>, s: &str) -> Result<String> {
-    write!(&mut tw, "{}", s)?;
-    tw.flush()?;
-    String::from_utf8(tw.into_inner().expect("TABWRITER into_inner")).map_err(|e| {
-        biome_core::Error::StringFromUtf8Error(e).into()
-    })
-}
-
-pub trait PortableText {
-    fn as_json(&self) -> Result<Json>;
-}
-
-pub trait TabularText {
-    fn as_tabbed(&self) -> Result<String>;
-}
-
 impl TabularText for UserOriginInvitationsResponse {
-    fn as_tabbed(&self) -> Result<String> {
+    fn as_tabbed(&self) -> std::result::Result<String, biome_core::error::Error> {
         let tw = tabw().padding(2).minwidth(5);
         if !self.0.is_empty() {
             let mut body = Vec::new();
@@ -278,7 +255,7 @@ impl TabularText for UserOriginInvitationsResponse {
 }
 
 impl TabularText for PendingOriginInvitationsResponse {
-    fn as_tabbed(&self) -> Result<String> {
+    fn as_tabbed(&self) -> std::result::Result<String, biome_core::error::Error> {
         let tw = tabw().padding(2).minwidth(5);
         if !self.invitations.is_empty() {
             let mut body = Vec::new();
@@ -298,7 +275,7 @@ impl TabularText for PendingOriginInvitationsResponse {
 }
 
 impl TabularText for OriginInfoResponse {
-    fn as_tabbed(&self) -> Result<String> {
+    fn as_tabbed(&self) -> std::result::Result<String, biome_core::error::Error> {
         let tw = tabw().padding(2).minwidth(5);
         let mut body = Vec::new();
         body.push(String::from("Owner Id\tOwner Account\tPrivate Key\tPackage Visibility"));
@@ -309,10 +286,6 @@ impl TabularText for OriginInfoResponse {
                           self.default_package_visibility));
         tabify(tw, &body.join("\n"))
     }
-}
-
-impl PortableText for OriginInfoResponse {
-    fn as_json(&self) -> Result<Json> { convert_to_json(&self) }
 }
 
 #[derive(Clone, Deserialize)]
@@ -378,6 +351,11 @@ impl Client {
 
         Ok(client)
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct OriginMemberRoleResponse {
+    pub role: String,
 }
 
 #[cfg(test)]

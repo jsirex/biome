@@ -46,4 +46,4 @@ else
 fi
 
 curl https://raw.githubusercontent.com/habitat-sh/habitat/master/components/bio/install.sh | sudo bash
-sudo HAB_LICENSE="accept-no-persist" bio install core/busybox-static biome/bio-studio
+sudo HAB_LICENSE="accept-no-persist" bio pkg install core/busybox-static biome/bio-studio

@@ -18,7 +18,7 @@
 # file exists, everything is successful.
 
 $test_file="/tmp/supplemental-group-tester-file"
-$sentinel_file="/tmp/supplemental-group-tester-file-sentinel"
+$sentinel_file="/tmp/supplemental-group-tester-sentinel"
 $supplemental_group="extra_group"
 
 # Ensure the sentinel isn't there already, for some reason
@@ -42,7 +42,8 @@ Describe "supplemental group behavior" {
         Stop-Supervisor
     }
 
-    Start-Supervisor -Timeout 45
+    $supLog = New-SupervisorLogFile("test_supplemental_groups")
+    Start-Supervisor -LogFile $supLog -Timeout 45
 
     It "should be able to run a service that depends on supplemental groups being set" {
         # Install the package first so we don't have to wait during

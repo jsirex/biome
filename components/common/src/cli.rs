@@ -5,8 +5,8 @@
 
 use clap::{value_t,
            ArgMatches};
-
 use biome_core::{self,
+                   crypto::keys::KeyCache,
                    os::process::{ShutdownSignal,
                                  ShutdownTimeout},
                    package::PackageIdent};
@@ -17,6 +17,7 @@ use std::{ffi::OsStr,
 
 pub const RING_ENVVAR: &str = "HAB_RING";
 pub const RING_KEY_ENVVAR: &str = "HAB_RING_KEY";
+pub const CTL_SECRET_ENVVAR: &str = "HAB_CTL_SECRET";
 
 pub const LISTEN_HTTP_DEFAULT_PORT: u16 = 9631;
 pub const LISTEN_HTTP_DEFAULT_IP: &str = "0.0.0.0";
@@ -47,8 +48,11 @@ pub const DEFAULT_BINLINK_DIR: &str = "/bin";
 #[cfg(target_os = "macos")]
 pub const DEFAULT_BINLINK_DIR: &str = "/usr/local/bin";
 
-pub fn cache_key_path_from_matches(matches: &ArgMatches<'_>) -> PathBuf {
-    clap::value_t!(matches, "CACHE_KEY_PATH", PathBuf).expect("CACHE_KEY_PATH required")
+pub fn key_cache_from_matches(matches: &ArgMatches<'_>) -> crate::error::Result<KeyCache> {
+    let path = clap::value_t!(matches, "CACHE_KEY_PATH", PathBuf).expect("CACHE_KEY_PATH required");
+    let key_cache = KeyCache::new(path);
+    key_cache.setup()?;
+    Ok(key_cache)
 }
 
 pub fn is_toml_file(val: &str) -> bool {

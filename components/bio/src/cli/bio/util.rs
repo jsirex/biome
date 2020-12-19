@@ -1,40 +1,121 @@
-use crate::cli::valid_fully_qualified_ident;
+pub mod tls;
+
+use crate::{cli::valid_fully_qualified_ident,
+            error::Error};
 use configopt::{self,
                 ConfigOpt};
-use biome_common::types::ListenCtlAddr;
+use biome_common::{cli_config::CliConfig,
+                     types::{ListenCtlAddr,
+                             ResolvedListenCtlAddr}};
 use biome_core::{crypto::CACHE_KEY_PATH_ENV_VAR,
+                   env as henv,
                    fs as bio_core_fs,
-                   package::PackageIdent};
+                   origin::Origin,
+                   package::PackageIdent,
+                   url::{bldr_url_from_env,
+                         DEFAULT_BLDR_URL},
+                   AUTH_TOKEN_ENVVAR};
 use lazy_static::lazy_static;
-use std::{fmt,
-          io,
-          net::{SocketAddr,
-                ToSocketAddrs},
+use std::{ffi::OsString,
+          fmt,
           num::ParseIntError,
           path::PathBuf,
+          result,
           str::FromStr,
           time::Duration};
-use structopt::StructOpt;
-use url::Url;
+use structopt::{clap::AppSettings,
+                StructOpt};
+use url::{ParseError,
+          Url};
+use webpki::{DNSName,
+             DNSNameRef};
 
 #[derive(ConfigOpt, StructOpt)]
+#[configopt(derive(Serialize))]
 #[structopt(no_version)]
-#[allow(dead_code)]
 pub struct AuthToken {
-    /// Authentication token for Builder
+    /// Authentication token for Builder.
+    // TODO (JM): This should probably use `env`
     #[structopt(name = "AUTH_TOKEN", short = "z", long = "auth")]
-    auth_token: Option<String>,
+    pub value: Option<String>,
 }
 
 #[derive(ConfigOpt, StructOpt, Deserialize)]
+#[configopt(derive(Serialize))]
 #[structopt(no_version)]
-#[allow(dead_code)]
 pub struct BldrUrl {
-    /// Specify an alternate Builder endpoint. If not specified, the value will be taken from
-    /// the HAB_BLDR_URL environment variable if defined. (default: https://bldr.habitat.sh)
+    /// Specify an alternate Builder endpoint. If not specified, the value will be
+    /// taken from the HAB_BLDR_URL environment variable if defined. (default: https://bldr.habitat.sh)
     // TODO (DM): This should probably use `env` and `default_value`
     #[structopt(name = "BLDR_URL", short = "u", long = "url")]
-    bldr_url: Option<Url>,
+    pub value: Option<Url>,
+}
+
+#[derive(ConfigOpt, StructOpt, Deserialize, Serialize)]
+#[structopt(no_version)]
+#[configopt(derive(Serialize))]
+pub struct BldrOrigin {
+    /// The Builder origin name to target
+    #[structopt(name = "ORIGIN", short = "o", long = "origin")]
+    pub inner: Origin,
+}
+
+fn bldr_url_from_env_load_or_default() -> String {
+    bldr_url_from_env().unwrap_or_else(|| {
+                           match CliConfig::load() {
+                               Ok(config) => {
+                                   config.bldr_url
+                                         .unwrap_or_else(|| DEFAULT_BLDR_URL.to_string())
+                               }
+                               Err(e) => {
+                                   error!("Found a cli.toml but unable to load it. Resorting to \
+                                           default BLDR_URL: {}",
+                                          e);
+                                   DEFAULT_BLDR_URL.to_string()
+                               }
+                           }
+                       })
+}
+
+pub fn bldr_url_from_args_env_load_or_default(opt: Option<Url>) -> Result<Url, ParseError> {
+    if let Some(url) = opt {
+        Ok(url)
+    } else {
+        Url::parse(&bldr_url_from_env_load_or_default())
+    }
+}
+
+pub fn bldr_auth_token_from_args_env_or_load(opt: Option<String>) -> Result<String, Error> {
+    if let Some(token) = opt {
+        Ok(token)
+    } else {
+        match henv::var(AUTH_TOKEN_ENVVAR) {
+            Ok(v) => Ok(v),
+            Err(_) => {
+                CliConfig::load()?.auth_token.ok_or_else(|| {
+                                                 Error::ArgumentError("No auth token specified. \
+                                                                       Please check that you have \
+                                                                       specified a valid Personal \
+                                                                       Access Token with:  -z, \
+                                                                       --auth <AUTH_TOKEN>"
+                                                                                           .into())
+                                             })
+            }
+        }
+    }
+}
+
+pub fn maybe_bldr_auth_token_from_args_or_load(opt: Option<String>) -> Option<String> {
+    bldr_auth_token_from_args_env_or_load(opt).ok()
+}
+
+#[allow(clippy::needless_pass_by_value)] // Signature required by CLAP
+pub fn non_empty(val: String) -> result::Result<(), String> {
+    if val.is_empty() {
+        Err("must not be empty (check env overrides)".to_string())
+    } else {
+        Ok(())
+    }
 }
 
 lazy_static! {
@@ -43,7 +124,7 @@ lazy_static! {
 }
 
 #[derive(ConfigOpt, StructOpt, Debug, Deserialize)]
-#[configopt(derive(Debug), attrs(serde))]
+#[configopt(derive(Serialize, Debug), attrs(serde))]
 #[serde(deny_unknown_fields)]
 #[structopt(no_version, rename_all = "screamingsnake")]
 pub struct CacheKeyPath {
@@ -94,6 +175,7 @@ impl PkgIdent {
 
 #[derive(ConfigOpt, StructOpt)]
 #[structopt(no_version)]
+#[configopt(derive(Serialize))]
 #[allow(dead_code)]
 pub struct FullyQualifiedPkgIdent {
     /// A fully qualified package identifier (ex: core/busybox-static/1.42.2/20170513215502)
@@ -101,38 +183,20 @@ pub struct FullyQualifiedPkgIdent {
     pkg_ident: PackageIdent,
 }
 
-#[derive(ConfigOpt, StructOpt, Deserialize, Debug)]
-#[configopt(derive(Clone, Debug))]
+#[derive(Clone, ConfigOpt, StructOpt, Deserialize, Debug)]
+#[configopt(derive(Serialize, Clone, Debug))]
 #[structopt(no_version)]
 pub struct RemoteSup {
     /// Address to a remote Supervisor's Control Gateway
     #[structopt(name = "REMOTE_SUP",
                 long = "remote-sup",
                 short = "r",
-                default_value = ListenCtlAddr::default_as_str(),
-                parse(try_from_str = ListenCtlAddr::resolve_listen_ctl_addr))]
-    #[serde(default)]
-    remote_sup: ListenCtlAddr,
+                default_value = ListenCtlAddr::default_as_str())]
+    remote_sup: Option<ResolvedListenCtlAddr>,
 }
 
 impl RemoteSup {
-    pub fn to_listen_ctl_addr(&self) -> ListenCtlAddr { self.remote_sup }
-}
-
-pub fn socket_addr_with_default_port<S: AsRef<str>>(addr: S,
-                                                    default_port: u16)
-                                                    -> io::Result<SocketAddr> {
-    let addr = addr.as_ref();
-    let mut iter = if addr.find(':').is_some() {
-        addr.to_socket_addrs()
-    } else {
-        (addr, default_port).to_socket_addrs()
-    }?;
-    // We expect exactly one address
-    iter.next().ok_or_else(|| {
-                   io::Error::new(io::ErrorKind::InvalidInput,
-                                  "input did not resolve to SocketAddr or error")
-               })
+    pub fn inner(&self) -> Option<&ResolvedListenCtlAddr> { self.remote_sup.as_ref() }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -165,16 +229,70 @@ impl fmt::Display for DurationProxy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", u64::from(*self)) }
 }
 
-#[cfg(test)]
-mod test {
-    use super::socket_addr_with_default_port;
+// Collect trailing arguments to pass to an external command
+//
+// This disables help and version flags for the subcommand. Making it easy to check the help or
+// version of the external command. See `ExternalCommandArgsWithHelpAndVersion` for more details.
+#[derive(ConfigOpt, StructOpt)]
+#[configopt(derive(Serialize))]
+#[structopt(no_version, rename_all = "screamingsnake",
+            settings = &[AppSettings::TrailingVarArg,
+                         AppSettings::AllowLeadingHyphen,
+                         AppSettings::DisableHelpFlags,
+                         AppSettings::DisableHelpSubcommand,
+                         AppSettings::DisableVersion
+                        ])]
+pub struct ExternalCommandArgs {
+    /// Arguments to the command
+    #[structopt(parse(from_os_str), takes_value = true, multiple = true)]
+    pub args: Vec<OsString>,
+}
 
-    #[test]
-    fn test_socket_addr_with_default_port() {
-        assert_eq!(socket_addr_with_default_port("127.0.0.1", 89).unwrap(),
-                   "127.0.0.1:89".parse().expect(""));
-        assert_eq!(socket_addr_with_default_port("1.2.3.4:1500", 89).unwrap(),
-                   "1.2.3.4:1500".parse().expect(""));
-        assert!(socket_addr_with_default_port("an_invalid_address", 89).is_err());
+// Collect trailing arguments to pass to an external command
+//
+// This is useful when you have a subcommand that has more arguments than just "external command
+// args" because it allows showing the help of the subcommand. Consider:
+//
+// 1. bio pkg exec --help
+// 2. bio pkg exec core/redis ls --help
+// 3. bio pkg exec core/redis ls -- --help
+//
+// If we were to use `ExternalCommandArgs` #1 would produce an error due to missing args instead of
+// displaying the help because the help is disabled. #2 is ambiguous. Should it show the help of the
+// subcommand or of `ls`? In this case it will show the help of the subcommand. If we want to see
+// the help of `ls` we can use #3.
+#[derive(ConfigOpt, StructOpt)]
+#[configopt(derive(Serialize))]
+#[structopt(no_version, rename_all = "screamingsnake",
+            settings = &[AppSettings::TrailingVarArg,
+                         AppSettings::AllowLeadingHyphen,
+                        ])]
+pub struct ExternalCommandArgsWithHelpAndVersion {
+    /// Arguments to the command
+    #[structopt(parse(from_os_str), takes_value = true, multiple = true)]
+    pub args: Vec<OsString>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(try_from = "&str", into = "String")]
+pub struct SubjectAlternativeName(DNSName);
+
+impl FromStr for SubjectAlternativeName {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(SubjectAlternativeName(DNSNameRef::try_from_ascii_str(s).map_err(|_| Error::InvalidDnsName(s.to_string()))?.to_owned()))
     }
 }
+
+impl std::fmt::Display for SubjectAlternativeName {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", AsRef::<str>::as_ref(&self.0))
+    }
+}
+
+impl SubjectAlternativeName {
+    pub fn inner(&self) -> DNSNameRef { self.0.as_ref() }
+}
+
+biome_core::impl_try_from_str_and_into_string!(SubjectAlternativeName);

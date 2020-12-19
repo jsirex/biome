@@ -11,8 +11,8 @@ build = "build.rs"
 cc = "*"
 
 [dependencies]
-log = "*"
+log = "^0.4.11"
 
 [target.'cfg(windows)'.dependencies]
 widestring = "*"
-winapi = { version = "*", features = ["winbase", "winerror", "handleapi", "sddl"] }
+winapi = { version = "0.3.9", features = ["winbase", "winerror", "handleapi", "sddl", "securitybaseapi"] }

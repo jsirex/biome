@@ -13,7 +13,7 @@ env = "*"
 futures = "*"
 biome_core = { path = "../core" }
 biome_http_client = { path = "../http-client" }
-log = "*"
+log = "^0.4.11"
 pbr = "*"
 percent-encoding = "*"
 rand = "*"
@@ -22,8 +22,7 @@ reqwest = { version = "*", features = ["blocking", "json", "stream"] }
 serde = "*"
 serde_derive = "*"
 serde_json = { version = "*", features = [ "preserve_order" ] }
-tabwriter = "*"
 tee = "*"
-tokio = { version = "*", features = ["full"] }
-tokio-util = "*"
+tokio = { version = "^0.2", features = ["full"] }
+tokio-util = "^0.3"
 url = "*"

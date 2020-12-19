@@ -20,6 +20,7 @@ use crate::{env as henv,
                       PackageIdent,
                       PackageInstall}};
 use std::{env,
+          fmt,
           fs,
           io::{self,
                Write},
@@ -35,6 +36,8 @@ pub const CACHE_PATH: &str = "hab/cache";
 pub const CACHE_ARTIFACT_PATH: &str = "hab/cache/artifacts";
 /// The default path where cryptographic keys are stored
 pub const CACHE_KEY_PATH_POSTFIX: &str = "hab/cache/keys";
+/// The default path for ctl gateway TLS certificate and keys
+pub const HAB_CTL_KEYS_CACHE: &str = "/hab/cache/keys/ctl";
 /// The default path where source artifacts are downloaded, extracted, & compiled
 pub const CACHE_SRC_PATH: &str = "hab/cache/src";
 /// The default path where SSL-related artifacts are placed
@@ -89,6 +92,7 @@ pub const DEFAULT_SECRET_KEY_PERMISSIONS: Permissions = Permissions::Standard;
 
 /// An `Option`-like abstraction over platform-specific ways to model
 /// file permissions.
+#[derive(PartialEq)]
 pub enum Permissions {
     /// Don't take any special action to set permissions beyond what
     /// they are "normally" set to when they are created. Here,
@@ -111,6 +115,21 @@ pub enum Permissions {
 
 impl Default for Permissions {
     fn default() -> Permissions { Permissions::Standard }
+}
+
+// Explicitly implementing this so we can get octal formatting on
+// Linux. Otherwise, it would just be a regular decimal number, which
+// isn't very helpful when dealing with permission bits.
+impl fmt::Debug for Permissions {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Standard => write!(f, "Standard"),
+            #[cfg(windows)]
+            Self::Explicit(permissions) => write!(f, "Explicit({:?})", permissions),
+            #[cfg(not(windows))]
+            Self::Explicit(permissions) => write!(f, "Explicit({:#o})", permissions),
+        }
+    }
 }
 
 lazy_static::lazy_static! {
@@ -640,21 +659,21 @@ pub fn resolve_cmd_in_pkg(program: &str, ident_str: &str) -> PathBuf {
             match find_command_in_pkg(program, pkg_install, Path::new(&*FS_ROOT_PATH)) {
                 Ok(Some(p)) => p,
                 Ok(None) => {
-                    panic!(format!("Could not find '{}' in the '{}' package! This is required \
-                                    for the proper operation of this program.",
-                                   program, &ident))
+                    panic!("Could not find '{}' in the '{}' package! This is required for the \
+                            proper operation of this program.",
+                           program, &ident)
                 }
                 Err(err) => {
-                    panic!(format!("Error finding '{}' in the '{}' package! This is required for \
-                                    the proper operation of this program. (Err: {:?})",
-                                   program, &ident, err))
+                    panic!("Error finding '{}' in the '{}' package! This is required for the \
+                            proper operation of this program. (Err: {:?})",
+                           program, &ident, err)
                 }
             }
         }
         Err(err) => {
-            panic!(format!("Package installation for '{}' not found on disk! This is required \
-                            for the proper operation of this program (Err: {:?})",
-                           &ident, err))
+            panic!("Package installation for '{}' not found on disk! This is required for the \
+                    proper operation of this program (Err: {:?})",
+                   &ident, err)
         }
     };
     debug!("resolved absolute path to program, program={}, ident={}, abs_path={}",

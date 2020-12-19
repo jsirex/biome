@@ -22,7 +22,9 @@ byteorder = "*"
 clap = { git = "https://github.com/habitat-sh/clap.git", branch = "v2-master", features = [ "suggestions", "color", "unstable" ] }
 configopt = { git = "https://github.com/davidMcneil/configopt.git" }
 cpu-time = "*"
-futures = { version = "0.3.1" }
+derivative = "*"
+fs2 = "*"
+futures = { version = "0.3.8" }
 glob = "*"
 bio = { path = "../bio" }
 biome_butterfly = { path = "../butterfly", default-features = false }
@@ -32,24 +34,22 @@ biome_api_client = { path = "../builder-api-client" }
 biome_http_client = { path = "../http-client" }
 biome-launcher-client = { path = "../launcher-client" }
 biome-sup-protocol = { path = "../sup-protocol", default-features = false }
-lazy_static = "*"
+lazy_static = "^1.4.0"
 libc = "*"
-log = "*"
+log = "^0.4.11"
 log4rs = "*"
 notify = "*"
 num_cpus = "*"
 parking_lot = "*"
-pin-project = "*"
+pin-project = "^0.4.23"
 prometheus = "*"
 prost = "*"
 prost-derive = "*"
 prost-types = "*"
 rand = "*"
-rants = "*"
+rants = { version = "*", features = ["native-tls"] }
 regex = "*"
-# Pinning for now. Since upgrading to 0.17.0 results in conflicts with other crates
-# See https://github.com/habitat-sh/habitat/issues/7523
-rustls = "0.16.0"
+rustls = "*"
 serde = { version = "*", features = ["rc"] }
 serde_derive = "*"
 serde_json = { version = "*", features = [ "preserve_order" ] }
@@ -59,9 +59,11 @@ state = "*"
 structopt = { git = "https://github.com/habitat-sh/structopt.git" }
 tempfile = "*"
 termcolor = "*"
+thiserror = "*"
 toml = { version = "*", features = ["preserve_order"]}
-tokio = { version = "*", features = ["full"] }
-tokio-util = { version = "*", features = ["full"] }
+tokio = { version = "^0.2", features = ["full"] }
+tokio-rustls = "^0.14" # Tokio 0.2
+tokio-util = { version = "^0.3", features = ["full"] }
 url = "*"
 valico = "*"
 
@@ -74,12 +76,10 @@ jemalloc-ctl = "*"
 
 [target.'cfg(windows)'.dependencies]
 ctrlc = "*"
-mio-named-pipes = "*"
-# Pinning for now. Since upgrading to 0.7.0 results in conflicts with other crates
-# See https://github.com/habitat-sh/habitat/issues/7522
-mio = "0.6.21"
+biome-launcher-protocol = { path = "../launcher-protocol" }
+mio = { version = "*", features = ["os-ext"] }
 uuid = { version = "*", features = ["v4"] }
-winapi =  { version = "*", features = ["namedpipeapi", "tlhelp32"] }
+winapi = { version = "^0.3.9", features = ["namedpipeapi", "tlhelp32"] }
 
 [dev-dependencies]
 biome_core = { path = "../core" }
